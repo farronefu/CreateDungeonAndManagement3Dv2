@@ -34,13 +34,16 @@ static func _make_noise(seed_value: int, freq: float, octaves: int) -> NoiseText
 
 
 ## Rounded, slightly lumpy box centred at the origin. Denser vertices on the bevels.
-static func rounded_box(half: Vector3, radius: float, seed_value: int, lump: float = 0.012, dome: float = 0.02) -> ArrayMesh:
+## detail: 1 = normal (~770 tris), 0 = cheap (~300 tris, for far-away filler rock).
+static func rounded_box(half: Vector3, radius: float, seed_value: int, lump: float = 0.012, dome: float = 0.02, detail: int = 1) -> ArrayMesh:
 	var fn := FastNoiseLite.new()
 	fn.seed = seed_value
 	fn.frequency = 3.2
 	var axis_coords := func(h: float) -> PackedFloat32Array:
 		var r := radius
-		return PackedFloat32Array([-h, -h + r * 0.2, -h + r * 0.5, -h + r, -h * 0.5, 0.0, h * 0.5, h - r, h - r * 0.5, h - r * 0.2, h])
+		if detail <= 0:
+			return PackedFloat32Array([-h, -h + r * 0.5, -h + r, h - r, h - r * 0.5, h])
+		return PackedFloat32Array([-h, -h + r * 0.25, -h + r * 0.6, -h + r, 0.0, h - r, h - r * 0.6, h - r * 0.25, h])
 	var cx: PackedFloat32Array = axis_coords.call(half.x)
 	var cy: PackedFloat32Array = axis_coords.call(half.y)
 	var cz: PackedFloat32Array = axis_coords.call(half.z)

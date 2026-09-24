@@ -5,7 +5,9 @@ extends Node3D
 
 const VARIANTS := 3
 const HALF := Vector3(0.485, Balance.BLOCK_H * 0.5, 0.485)
-const OUTER := 4  # decorative undiggable ring around the grid
+# undiggable rock filling the view beyond the grid (so the camera never sees the void)
+const OUTER_SIDE := 20
+const OUTER_BOTTOM := 16
 
 var grid: DungeonGrid
 var block_mat: ShaderMaterial
@@ -57,8 +59,8 @@ func _build_materials() -> void:
 # ------------------------------------------------------------------ blocks
 func _cells_to_render() -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
-	for y in range(0, grid.h + OUTER):
-		for x in range(-OUTER, grid.w + OUTER):
+	for y in range(0, grid.h + OUTER_BOTTOM):
+		for x in range(-OUTER_SIDE, grid.w + OUTER_SIDE):
 			out.append(Vector2i(x, y))
 	return out
 
@@ -69,11 +71,13 @@ func _variant_of(c: Vector2i) -> int:
 
 func _build_blocks() -> void:
 	var cells := _cells_to_render()
-	var per_variant: Array = [[], [], []]
+	# slots 0..2: diggable grid (detailed, casts shadows); 3..5: filler rock outside the grid (cheap)
+	var per_variant: Array = [[], [], [], [], [], []]
 	for c in cells:
-		per_variant[_variant_of(c)].append(c)
-	for v in VARIANTS:
-		var mesh := ProcGen.rounded_box(HALF, 0.075, 100 + v * 17)
+		per_variant[_variant_of(c) + (0 if grid.in_bounds(c) else VARIANTS)].append(c)
+	for v in VARIANTS * 2:
+		var outer := v >= VARIANTS
+		var mesh := ProcGen.rounded_box(HALF, 0.075, 100 + (v % VARIANTS) * 17, 0.012, 0.02, 0 if outer else 1)
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_custom_data = true
@@ -89,7 +93,7 @@ func _build_blocks() -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.material_override = block_mat
-		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if outer else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		add_child(mmi)
 
 
@@ -110,13 +114,14 @@ func _custom_of(c: Vector2i) -> Color:
 	var s: float = _seed.get(c, 0.5)
 	var hover := _hover_amt if c == _hover else 0.0
 	if not grid.in_bounds(c):
-		return Color(0.15 if c.y < 1 else 0.0, s, 0.0, 1.0)
+		# the surface row stays grassy, everything else is bare rock
+		return Color(0.55, s, 0.0, 0.0) if c.y == 0 else Color(0.0, s, 0.0, 1.0)
 	var t := grid.get_type(c)
 	if t == DungeonGrid.BEDROCK:
 		# top row is grassy ground at the surface; other borders are bare rock
-		return Color(1.0, s, hover, 0.0) if c.y == 0 else Color(0.0, s, hover, 1.0)
+		return Color(0.55, s, hover, 0.0) if c.y == 0 else Color(0.0, s, hover, 1.0)
 	var n := grid.get_nutrient(c)
-	return Color(clampf(n / 12.0, 0.0, 1.0), s, hover, 0.0)
+	return Color(clampf(float(n) / Balance.MAX_NUTRIENT, 0.0, 1.0), s, hover, 0.0)
 
 
 func _write_instance(c: Vector2i) -> void:
@@ -174,7 +179,7 @@ func _process(delta: float) -> void:
 # ------------------------------------------------------------------ floor
 func _build_floor() -> void:
 	var pm := PlaneMesh.new()
-	pm.size = Vector2(grid.w + OUTER * 2, grid.h + OUTER * 2)
+	pm.size = Vector2(grid.w + OUTER_SIDE * 2, grid.h + OUTER_BOTTOM + 2)
 	var mi := MeshInstance3D.new()
 	mi.mesh = pm
 	var mat := ShaderMaterial.new()
@@ -182,7 +187,7 @@ func _build_floor() -> void:
 	mat.set_shader_parameter("noise_a", ProcGen.noise_a())
 	mat.set_shader_parameter("noise_b", ProcGen.noise_b())
 	mi.material_override = mat
-	mi.position = Vector3(grid.w * 0.5, 0.0, grid.h * 0.5)
+	mi.position = Vector3(grid.w * 0.5, 0.0, (grid.h + OUTER_BOTTOM) * 0.5)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 
@@ -254,7 +259,7 @@ func _rebuild_decor() -> void:
 				continue
 			var n := grid.get_nutrient(c)
 			if y == 0:
-				n = 12
+				n = 9
 			if n < 3:
 				continue
 			var r := RandomNumberGenerator.new()
@@ -363,9 +368,9 @@ func _build_entrance() -> void:
 
 
 func _build_backdrop() -> void:
-	var tex := TownBackdrop.new().generate(7)
-	var width := float(grid.w + OUTER * 2)
-	var height := width * float(TownBackdrop.H) / float(TownBackdrop.W)
+	var width := float(grid.w + OUTER_SIDE * 2)
+	var tex := TownBackdrop.new().generate(7, width)
+	var height := float(TownBackdrop.H) / TownBackdrop.PX_PER_UNIT
 	var q := QuadMesh.new()
 	q.size = Vector2(width, height)
 	var mat := StandardMaterial3D.new()

@@ -311,16 +311,16 @@ func update_dig(left: int, max_dig: int) -> void:
 # ------------------------------------------------------------------ cell info / prompt / toast
 func _build_info() -> void:
 	_info = PanelContainer.new()
-	_info.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_info.position = Vector2(-470, -128)
-	_info.custom_minimum_size = Vector2(450, 100)
+	_info.top_level = true
+	_info.add_theme_stylebox_override("panel", UiTheme.panel(Color(0.05, 0.07, 0.13, 0.94), UiTheme.GOLD, 8, 2))
 	_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_info)
 	_info_label = RichTextLabel.new()
 	_info_label.bbcode_enabled = true
 	_info_label.fit_content = true
+	_info_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_info_label.scroll_active = false
-	_info_label.add_theme_font_size_override("normal_font_size", 20)
+	_info_label.add_theme_font_size_override("normal_font_size", 19)
 	_info_label.add_theme_font_override("normal_font", UiTheme.font())
 	_info_label.add_theme_font_override("bold_font", UiTheme.font(true))
 	_info_label.add_theme_font_size_override("bold_font_size", 21)
@@ -329,9 +329,23 @@ func _build_info() -> void:
 	_info.visible = false
 
 
-func show_cell_info(bbcode: String) -> void:
-	_info.visible = bbcode != ""
-	_info_label.text = bbcode
+## Small popup next to the mouse (HP / nutrient of whatever is under the cursor).
+func show_tooltip(bbcode: String, mouse_pos: Vector2) -> void:
+	if bbcode == "":
+		_info.visible = false
+		return
+	if _info_label.text != bbcode:
+		_info_label.text = bbcode
+		_info.reset_size()
+	_info.visible = true
+	var vp := root.get_viewport_rect().size
+	var sz := _info.get_combined_minimum_size()
+	var p := mouse_pos + Vector2(26, 24)
+	if p.x + sz.x > vp.x - 8:
+		p.x = mouse_pos.x - sz.x - 18
+	if p.y + sz.y > vp.y - 8:
+		p.y = mouse_pos.y - sz.y - 12
+	_info.position = p
 
 
 func _build_prompt() -> void:

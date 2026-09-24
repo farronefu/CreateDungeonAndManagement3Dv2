@@ -148,7 +148,6 @@ func _setup_stage() -> void:
 	cursor.camera = cam
 	cursor.validator = _cursor_color
 	cursor.clicked.connect(_on_click)
-	cursor.hovered.connect(_on_hover)
 	dig_max = GameState.dig_capacity()
 	dig_left = dig_max
 	build_left = float(stage["build_time"])
@@ -282,6 +281,7 @@ func _on_defeat() -> void:
 
 func _show_result() -> void:
 	phase = Phase.RESULT
+	_freeze_world()
 	var time_bonus := maxi(0, Balance.EP_TIME_BONUS_MAX - int(invasion_time / Balance.EP_TIME_STEP))
 	var dig_bonus := dig_left * Balance.EP_PER_DIG_LEFT
 	var total := Balance.EP_BASE + time_bonus + dig_bonus
@@ -291,6 +291,13 @@ func _show_result() -> void:
 		["撃退タイム", _fmt_time(invasion_time), time_bonus],
 		["残り採掘可能数", "%d / %d" % [dig_left, dig_max], dig_bonus],
 	]})
+
+
+## Stops everything in the dungeon (simulation, animation, camera) while the upgrade screen is open.
+func _freeze_world() -> void:
+	for n in [view, layer, fx, hero, maou, cursor, cam]:
+		(n as Node).process_mode = Node.PROCESS_MODE_DISABLED
+	hud.show_tooltip("", Vector2.ZERO)
 
 
 func _on_next_stage() -> void:
@@ -337,10 +344,11 @@ func _process(delta: float) -> void:
 				follow_hero = false
 			if follow_hero and hero.is_targetable():
 				cam.focus_on(hero.position + Vector3(0, 0, 1.0))
-		Phase.ENDING, Phase.RESULT:
+		Phase.ENDING:
 			eco.tick(delta)
 			hero.tick(delta)
 	cam.user_moved = false
+	_update_tooltip(delta)
 	_hud_timer -= delta
 	if _hud_timer <= 0.0:
 		_hud_timer = 0.2
@@ -405,7 +413,7 @@ func _try_dig(c: Vector2i) -> bool:
 	var m := eco.spawn_from_dig(c, n)
 	if m:
 		hud.toast("%s が生まれた！" % m.display_name(), Color(0.6, 1.0, 0.4) if m.kind == Monster.Kind.MOSS else Color(1.0, 0.65, 0.3))
-	_on_hover(c)
+	_tip_timer = 0.0
 	return true
 
 
@@ -424,34 +432,105 @@ func _cursor_color(c: Vector2i) -> Color:
 	return Color(1.0, 0.25, 0.2, 0.5)
 
 
-func _on_hover(c: Vector2i) -> void:
-	if not grid.in_bounds(c):
-		hud.show_cell_info("")
+# ------------------------------------------------------------------ hover popup
+var _tip_timer := 0.0
+var _tip_text := ""
+
+
+func _update_tooltip(delta: float) -> void:
+	var active := phase == Phase.BUILD or phase == Phase.PLACE or phase == Phase.INVASION or phase == Phase.ENDING
+	if not active or get_viewport().gui_get_hovered_control() != null:
+		hud.show_tooltip("", Vector2.ZERO)
 		return
-	var t := grid.get_type(c)
-	var txt := ""
-	if t == DungeonGrid.BEDROCK:
-		txt = "[b]岩盤[/b]\n硬すぎて掘れない"
-	elif t == DungeonGrid.BLOCK:
-		var n := grid.get_nutrient(c)
-		var born := "何も生まれない"
-		if n >= Balance.BUG_SPAWN_MIN:
-			born = "[color=#ffa060]ザクザクムシ[/color]が生まれる"
-		elif n >= Balance.MOSS_SPAWN_MIN:
-			born = "[color=#a0f070]モコゴケ[/color]が生まれる"
-		txt = "[b]土ブロック[/b]　養分 [color=#c0ff80]%d[/color]\n掘ると %s" % [n, born]
-		if not grid.can_dig(c):
-			txt += "\n[color=#a0a0a0]（通路に面していないので掘れない）[/color]"
+	var mp := get_viewport().get_mouse_position()
+	_tip_timer -= delta
+	if _tip_timer <= 0.0:
+		_tip_timer = 0.1
+		_tip_text = _tooltip_text(mp)
+	hud.show_tooltip(_tip_text, mp)
+
+
+func _tooltip_text(mp: Vector2) -> String:
+	# monsters / hero / 魔王 under the mouse take priority over the cell
+	# (lambdas capture locals by value, so the running best lives in a Dictionary)
+	var pick := {"obj": null, "d": 44.0}
+	var consider := func(obj: Object, pos: Vector3) -> void:
+		if cam.is_position_behind(pos):
+			return
+		var d := cam.unproject_position(pos).distance_to(mp)
+		if d < float(pick["d"]):
+			pick["d"] = d
+			pick["obj"] = obj
+	for m in eco.monsters:
+		if m.visual:
+			consider.call(m, m.visual.global_position + Vector3(0, 0.25, 0))
+	if hero.visible and hero.state != Hero.State.DEAD:
+		consider.call(hero, hero.global_position + Vector3(0, 0.45, 0))
+	if maou.placed and maou.visible:
+		consider.call(maou, maou.global_position + Vector3(0, 0.4, 0))
+	var best: Object = pick["obj"]
+	if best is Monster:
+		return _monster_tip(best as Monster)
+	if best == hero:
+		var st := "[color=#ff8070]魔王を運搬中！[/color]" if hero.carrying else ("戦闘中" if hero.busy > 0.0 else "探索中")
+		return "[b]勇者 %s[/b]\nHP %s %d/%d\nMP %d/%d\n%s" % [profile.display_name, _bar(hero.hp, hero.max_hp, "#ff7060"), int(ceil(hero.hp)), int(hero.max_hp), int(hero.mp), int(hero.max_mp), st]
+	if best == maou:
+		return "[b][color=#d8a0ff]魔王さま[/color][/b]\n" + ("[color=#ff8070]勇者に運ばれている！[/color]" if maou.carrier else "勇者に入口まで運ばれると負け")
+	return _cell_tip(cursor.mouse_cell())
+
+
+func _bar(v: float, max_v: float, col: String) -> String:
+	var n := int(round(clampf(v / maxf(1.0, max_v), 0.0, 1.0) * 10.0))
+	return "[color=%s]%s[/color][color=#3a4150]%s[/color]" % [col, "■".repeat(n), "■".repeat(10 - n)]
+
+
+func _monster_tip(m: Monster) -> String:
+	var col := "#a8f070" if m.kind == Monster.Kind.MOSS else "#ffb060"
+	var status := ""
+	if m.kind == Monster.Kind.MOSS:
+		match m.stage:
+			Monster.MOSS:
+				status = "養分を運びながら壁まで直進"
+				if m.nutrient >= 2 and m.hp <= 6:
+					status += "\n[color=#f0e070]もうすぐツボミになる[/color]"
+			Monster.BUD:
+				status = "開花まで 養分 %d / %d" % [m.nutrient, Balance.BUD_TARGET]
+			Monster.FLOWER:
+				status = "子を生むまで %d秒" % maxi(0, int(ceil(Balance.FLOWER_LIFE - m.age)))
 	else:
-		txt = "[b]通路[/b]"
-		if c == grid.entrance:
-			txt += "（入口）"
-		if maou.placed and maou.cell == c:
-			txt += "\n[color=#d090ff]魔王さま[/color]"
-		for m in eco.monsters:
-			if m.cell == c:
-				txt += "\n%s  HP %d/%d  養分 %d" % [m.display_name(), int(m.hp), int(m.max_hp), m.nutrient]
-	hud.show_cell_info(txt)
+		match m.stage:
+			Monster.LARVA:
+				status = "HP %d でサナギになる" % int(Balance.LARVA_PUPATE * (1.0 + 0.25 * eco.bug_level))
+				if m.hp <= Balance.LARVA_HUNGRY * (1.0 + 0.25 * eco.bug_level):
+					status += "　[color=#ffb060]空腹[/color]"
+			Monster.PUPA:
+				status = "羽化まで %d秒" % maxi(0, int(ceil((Balance.PUPA_TIME - maxf(0.0, m.timer)) / (1.0 + 0.15 * eco.bug_level))))
+			Monster.ADULT:
+				status = "産卵に必要な養分 %d / %d" % [m.nutrient, Balance.ADULT_LAY_NUTRIENT]
+	return "[b][color=%s]%s[/color][/b]\nHP %s %d/%d\n養分 %d\n%s" % [col, m.display_name(), _bar(m.hp, m.max_hp, "#70e060"), int(ceil(m.hp)), int(m.max_hp), m.nutrient, status]
+
+
+func _cell_tip(c: Vector2i) -> String:
+	if not grid.in_bounds(c):
+		return "[b]岩盤[/b]\n硬すぎて掘れない" if c.y > 0 else ""
+	var t := grid.get_type(c)
+	if t == DungeonGrid.BEDROCK:
+		return "[b]岩盤[/b]\n硬すぎて掘れない" if c.y > 0 else ("[b]入口[/b]" if c == grid.entrance else "")
+	if t == DungeonGrid.FLOOR:
+		return "[b]入口[/b]\n勇者はここから侵入してくる" if c == grid.entrance else ""
+	var n := grid.get_nutrient(c)
+	var title := "土（養分なし）"
+	var born := "何も生まれない"
+	if n >= Balance.BUG_SPAWN_MIN:
+		title = "[color=#ffc060]肥えた土[/color]"
+		born = "[color=#ffa060]ザクザクムシ[/color]が生まれる"
+	elif n >= Balance.MOSS_SPAWN_MIN:
+		title = "[color=#b0f070]養分の土[/color]"
+		born = "[color=#a0f070]モコゴケ[/color]が生まれる"
+	var txt := "[b]%s[/b]\n養分 %s %d\n掘ると %s" % [title, _bar(n, Balance.MAX_NUTRIENT, "#c0ff80"), n, born]
+	if not grid.can_dig(c):
+		txt += "\n[color=#a0a0a0]通路に面していないので掘れない[/color]"
+	return txt
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -543,12 +622,16 @@ func _debug_bootstrap() -> void:
 		cutin.play("勇者%sが現れた！" % profile.display_name, profile.intro_line, _hero_cutin.get_texture(), Color(0.8, 0.12, 0.1), 60.0)
 	if _debug.has("dump"):
 		add_child(load("res://scripts/debug/dump.gd").new())
-	if _debug.has("hover"):
-		var p2: PackedStringArray = str(_debug["hover"]).split(",")
-		_on_hover(Vector2i(int(p2[0]), int(p2[1])))
 
 
 func _debug_tick() -> void:
+	if _debug.has("mouse_monster") and not eco.monsters.is_empty():
+		var mv: Node3D = eco.monsters[int(_debug["mouse_monster"]) % eco.monsters.size()].visual
+		if mv:
+			get_viewport().warp_mouse(cam.unproject_position(mv.global_position + Vector3(0, 0.25, 0)))
+	if _debug.has("mouse"):
+		var mp: PackedStringArray = str(_debug["mouse"]).split(",")
+		get_viewport().warp_mouse(Vector2(float(mp[0]), float(mp[1])))
 	if _debug.has("autoplay"):
 		_autoplay()
 	if _debug.has("fps") and _frames % 60 == 0:
@@ -561,6 +644,15 @@ func _debug_tick() -> void:
 
 
 var _auto_digs := 0
+var _freeze_probe := []
+var _freeze_frame := 0
+
+
+func _world_probe() -> Array:
+	var p := [eco.monsters.size(), cam.position]
+	for m in eco.monsters.slice(0, 5):
+		p.append([m.cell, m.move_t, m.hp, m.visual.position if m.visual else Vector3.ZERO])
+	return p
 var _auto_last_shot := 0
 
 
@@ -605,6 +697,13 @@ func _autoplay() -> void:
 		Phase.INVASION:
 			speed = 3.0
 		Phase.RESULT:
+			if _freeze_probe.is_empty():
+				_freeze_probe = _world_probe()
+				_freeze_frame = _frames
+				return
+			if _frames - _freeze_frame < 120:
+				return
+			print("FREEZE ", "OK" if _world_probe() == _freeze_probe else "NG", " ", _freeze_probe)
 			_screenshot("debug_shots/auto_result.png")
 			print("AUTOPLAY RESULT victory time %.1f dig_left %d EP %d" % [invasion_time, dig_left, GameState.evolution_points])
 			get_tree().quit()

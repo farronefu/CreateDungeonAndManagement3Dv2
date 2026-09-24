@@ -22,9 +22,9 @@ extends Resource
 @export var walk_anim_speed := 1.0
 
 @export_group("Stats")
-@export var max_hp := 120
+@export var max_hp := 150
 @export var max_mp := 30
-@export var atk := 8
+@export var atk := 9
 @export var defense := 1
 ## Seconds per cell.
 @export var move_time := 0.55

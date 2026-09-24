@@ -209,38 +209,19 @@ func floor_count() -> int:
 
 # ------------------------------------------------------------------ generation
 func generate(seed_value: int) -> void:
+	# Soil types are scattered at random (like 勇者のくせになまいきだ): bare soil gives nothing,
+	# nutrient soil gives モコゴケ, rich soil gives ザクザクムシ. Deeper = richer.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var noise := FastNoiseLite.new()
 	noise.seed = seed_value
-	noise.frequency = 0.13
-	noise.fractal_octaves = 3
+	noise.frequency = 0.18
 	for y in h:
 		for x in w:
 			var c := Vector2i(x, y)
 			var border := x == 0 or x == w - 1 or y == 0 or y == h - 1
 			types[idx(c)] = BEDROCK if border else BLOCK
-			if border:
-				nutrient[idx(c)] = 0
-				continue
-			var v := (noise.get_noise_2d(x, y) + 1.0) * 0.5
-			var n := 0
-			if rng.randf() > 0.3:
-				n = int(round(v * v * 13.0 + rng.randf_range(-1.5, 2.0)))
-			nutrient[idx(c)] = clampi(n, 0, 9)
-	# rich hotspots that can hatch ザクザクムシ
-	var hotspots := 0
-	var tries := 0
-	while hotspots < 5 and tries < 200:
-		tries += 1
-		var c := Vector2i(rng.randi_range(3, w - 4), rng.randi_range(6, h - 3))
-		if absi(c.x - entrance.x) < 3 and c.y < 10:
-			continue
-		nutrient[idx(c)] = rng.randi_range(10, 14)
-		for d in DIRS:
-			if is_block(c + d) and rng.randf() < 0.6:
-				nutrient[idx(c + d)] = maxi(nutrient[idx(c + d)], rng.randi_range(5, 9))
-		hotspots += 1
+			nutrient[idx(c)] = 0 if border else _roll_soil(rng, float(y) / float(h - 1), noise.get_noise_2d(x, y))
 	# the entrance and the starting tunnel
 	types[idx(entrance)] = FLOOR
 	var carve := func(c: Vector2i) -> void:
@@ -256,6 +237,20 @@ func generate(seed_value: int) -> void:
 			carve.call(Vector2i(x, y))
 	for y in range(6, 9):
 		carve.call(Vector2i(entrance.x + 3, y))
+
+
+## One soil block. depth: 0 (surface) .. 1 (bottom); bias: -1..1 regional noise for gentle clustering.
+func _roll_soil(rng: RandomNumberGenerator, depth: float, bias: float) -> int:
+	var p_bare := clampf(0.48 - 0.2 * depth - 0.12 * bias, 0.2, 0.7)
+	var p_rich := 0.0 if depth < 0.3 else clampf(0.01 + 0.05 * depth + 0.02 * bias, 0.0, 0.08)
+	var r := rng.randf()
+	if r < p_bare:
+		return 0
+	if r < p_bare + p_rich:
+		return rng.randi_range(Balance.BUG_SPAWN_MIN, 13)
+	# nutrient soil: mostly small amounts, larger deeper down
+	var n := 1 + int(pow(rng.randf(), 1.7) * 7.0 + depth * 2.0)
+	return clampi(n, Balance.MOSS_SPAWN_MIN, Balance.BUG_SPAWN_MIN - 1)
 
 
 # ------------------------------------------------------------------ persistence

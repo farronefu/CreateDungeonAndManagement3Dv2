@@ -95,7 +95,7 @@ func _process(delta: float) -> void:
 		_pick_pivot.visible = false
 		view.set_hover(Vector2i(-999, -999), 0.0)
 		return
-	var c := _mouse_cell()
+	var c := mouse_cell()
 	if c != hover:
 		hover = c
 		hovered.emit(c)
@@ -114,7 +114,7 @@ func _process(delta: float) -> void:
 	_pick_pivot.rotation = Vector3(0.0, 0.0, 0.55)
 
 
-func _mouse_cell() -> Vector2i:
+func mouse_cell() -> Vector2i:
 	var mp := get_viewport().get_mouse_position()
 	var o := camera.project_ray_origin(mp)
 	var d := camera.project_ray_normal(mp)

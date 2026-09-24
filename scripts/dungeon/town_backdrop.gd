@@ -3,8 +3,11 @@ extends RefCounted
 ## Procedurally painted pixel-art town that sits above the dungeon entrance
 ## (the heroes' home: houses, castle, market, bridge, river, forest, mountains).
 
-const W := 960
+## Pixels per world unit is kept constant, so the town keeps its scale however wide the strip is.
+const PX_PER_UNIT := 22.0
 const H := 112
+
+var W := 960
 
 var img: Image
 var rng := RandomNumberGenerator.new()
@@ -12,7 +15,8 @@ var rng := RandomNumberGenerator.new()
 const OUTLINE := Color("2b2a33")
 
 
-func generate(seed_value: int = 3) -> ImageTexture:
+func generate(seed_value: int = 3, width_units: float = 44.0) -> ImageTexture:
+	W = int(width_units * PX_PER_UNIT)
 	rng.seed = seed_value
 	img = Image.create(W, H, false, Image.FORMAT_RGBA8)
 	_sky()
@@ -20,9 +24,9 @@ func generate(seed_value: int = 3) -> ImageTexture:
 	_mountains(40, Color("8fb4d6"), 0.035, 10.0, 1)
 	_mountains(52, Color("6f9fc0"), 0.05, 12.0, 2)
 	var cx := W / 2
-	var river_x := int(W * 0.74)
-	_hill_castle(int(W * 0.92), 44)
-	_hill_castle(int(W * 0.08), 48)
+	var river_x := cx + 250
+	_hill_castle(cx + 390, 44)
+	_hill_castle(cx - 400, 48)
 	_forest(70, Color("2f6a3a"), Color("3f8a45"), 9)
 	_ground(78)
 	_river(river_x)
@@ -43,7 +47,7 @@ func generate(seed_value: int = 3) -> ImageTexture:
 		else:
 			x += _tree(x + 6, 88) + 2
 	_castle(cx, 80)
-	for tx in [cx - 70, cx + 66, int(W * 0.3), int(W * 0.6), 8, W - 10]:
+	for tx in [cx - 70, cx + 66, cx - 200, cx + 170, cx - 330, cx + 330]:
 		_tree(tx, 97)
 	var tex := ImageTexture.create_from_image(img)
 	return tex
@@ -97,7 +101,7 @@ func _sky() -> void:
 
 
 func _clouds() -> void:
-	for i in 9:
+	for i in W / 100:
 		var cx := rng.randi_range(0, W)
 		var cy := rng.randi_range(6, 26)
 		for k in 5:
