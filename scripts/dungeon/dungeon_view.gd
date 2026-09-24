@@ -25,6 +25,8 @@ var _floor_rocks: MultiMeshInstance3D
 var _floor_shrooms: MultiMeshInstance3D
 var _floor_props := {}  # Vector2i -> Array of [kind, Transform3D]
 var torches := {}  # Vector2i -> Node3D
+## colour of the backdrop's top row (main.gd uses it for the sky behind the strip)
+var sky_color := Color(0.49, 0.75, 0.93)
 var _rng := RandomNumberGenerator.new()
 
 
@@ -37,7 +39,9 @@ func setup(g: DungeonGrid) -> void:
 	_build_blocks()
 	_build_floor()
 	_build_decor_layers()
-	_build_entrance()
+	# a hand-made backdrop paints its own entrance (cave mouth) above the tunnel
+	if not has_custom_backdrop():
+		_build_entrance()
 	_build_backdrop()
 	for y in grid.h:
 		for x in grid.w:
@@ -374,6 +378,10 @@ const BACKDROP_PIXEL := "res://assets/backdrop/town.png"
 const BACKDROP_PAINTED := "res://assets/backdrop/town_painted.png"
 
 
+func has_custom_backdrop() -> bool:
+	return ResourceLoader.exists(BACKDROP_PAINTED) or ResourceLoader.exists(BACKDROP_PIXEL)
+
+
 func _build_backdrop() -> void:
 	var width := float(grid.w + OUTER_SIDE * 2)
 	var tex: Texture2D
@@ -385,6 +393,9 @@ func _build_backdrop() -> void:
 		tex = load(BACKDROP_PIXEL)
 	else:
 		tex = TownBackdrop.new().generate(7, width)
+	var top := tex.get_image()
+	if top:
+		sky_color = top.get_pixel(top.get_width() / 2, 0)
 	# the strip always spans the full width; its height follows the image's aspect ratio
 	var height := width * float(tex.get_height()) / float(tex.get_width())
 	var q := QuadMesh.new()

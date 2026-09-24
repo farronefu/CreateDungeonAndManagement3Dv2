@@ -26,6 +26,7 @@ var dig_max := 0
 var build_left := 0.0
 var invasion_time := 0.0
 var speed := 1.0
+var env: Environment
 var follow_hero := true
 
 var _hero_portrait: Texture2D
@@ -58,7 +59,7 @@ func _ready() -> void:
 
 # ------------------------------------------------------------------ setup
 func _build_environment() -> void:
-	var env := Environment.new()
+	env = Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.49, 0.75, 0.93)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -111,6 +112,7 @@ func _setup_stage() -> void:
 	view = DungeonView.new()
 	add_child(view)
 	view.setup(grid)
+	env.background_color = view.sky_color
 	fx = Effects.new()
 	add_child(fx)
 	layer = MonsterLayer.new()
