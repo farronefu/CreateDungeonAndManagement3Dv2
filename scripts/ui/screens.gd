@@ -26,10 +26,8 @@ func _ready() -> void:
 			_focus_first())
 
 
-## Gamepad: put focus on the first enabled button so the D-pad / A can drive the menu.
+## Focus the first enabled button so A / Enter / the D-pad drive the menu right away.
 func _focus_first() -> void:
-	if not Pad.using_pad:
-		return
 	for b in find_children("*", "Button", true, false):
 		var btn := b as Button
 		if btn.visible and not btn.disabled and not btn.is_queued_for_deletion():
@@ -101,9 +99,9 @@ func show_title() -> void:
 	vb.alignment = BoxContainer.ALIGNMENT_CENTER
 	vb.add_theme_constant_override("separation", 10)
 	add_child(vb)
-	var small := UiTheme.heading("DUNGEON  ECOSYSTEM", 22, Color(UiTheme.GOLD, 0.85), 600)
+	var small := UiTheme.heading("DUNGEON  ECOSYSTEM", 22, Color(1, 1, 1, 0.85), 600)
 	vb.add_child(small)
-	var t := UiTheme.heading("ダンジョン生態系", 104, Color(1.0, 0.9, 0.66), 900)
+	var t := UiTheme.heading("ダンジョン生態系", 104, Color(1, 1, 1), 900)
 	t.add_theme_constant_override("outline_size", 18)
 	t.add_theme_color_override("font_outline_color", Color(0.12, 0.06, 0.03))
 	t.add_theme_constant_override("shadow_offset_y", 6)
@@ -196,7 +194,7 @@ func show_result(data: Dictionary) -> void:
 		grid.add_child(p)
 	var sep := HSeparator.new()
 	vb.add_child(sep)
-	_ep_label = UiTheme.label("", 34, UiTheme.GOLD, true)
+	_ep_label = UiTheme.label("", 34, UiTheme.TEXT, true)
 	_ep_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(_ep_label)
 	vb.add_child(UiTheme.label("進化ポイントを割り振る", 24, UiTheme.TEXT, true))
@@ -209,7 +207,7 @@ func show_result(data: Dictionary) -> void:
 		info.add_child(UiTheme.label(u["name"], 24, UiTheme.TEXT, true))
 		info.add_child(UiTheme.label(u["desc"], 18, Color(0.8, 0.8, 0.85)))
 		hb.add_child(info)
-		var lv := UiTheme.label("", 22, UiTheme.GOLD, true)
+		var lv := UiTheme.label("", 22, UiTheme.TEXT, true)
 		lv.custom_minimum_size = Vector2(110, 0)
 		lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		hb.add_child(lv)

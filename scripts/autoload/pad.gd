@@ -17,6 +17,11 @@ var _axes := {}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Godot's default ui_accept has no gamepad binding: make A press focused buttons
+	var a := InputEventJoypadButton.new()
+	a.button_index = JOY_BUTTON_A
+	a.device = -1
+	InputMap.action_add_event("ui_accept", a)
 
 
 func _input(event: InputEvent) -> void:

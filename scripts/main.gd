@@ -208,7 +208,6 @@ func _build_ui() -> void:
 		if speed == 0.0:
 			_toggle_pause())
 	Pad.button_pressed.connect(_on_pad_button)
-	hud.set_stage("STAGE %d  %s" % [GameState.stage_index + 1, stage["name"]])
 	var hero_scene := load(profile.model_path) as PackedScene
 	var portrait := PortraitStudio.new()
 	add_child(portrait)
@@ -255,7 +254,7 @@ func _begin_intro() -> void:
 func _begin_build() -> void:
 	phase = Phase.BUILD
 	cursor.mode = DigCursor.Mode.DIG
-	hud.toast("通路につながったブロックをクリックして掘ろう", UiTheme.GOLD)
+	hud.toast("通路につながったブロックをクリックして掘ろう", UiTheme.TEXT)
 
 
 func _on_call_hero() -> void:
@@ -266,7 +265,6 @@ func _on_call_hero() -> void:
 func _begin_place() -> void:
 	phase = Phase.PLACE
 	cursor.mode = DigCursor.Mode.PLACE
-	hud.set_prompt("魔王を置く場所をクリック（入口から4マス以上離れた通路）")
 	Sfx.play("cutin")
 
 
@@ -282,7 +280,6 @@ func _try_place(c: Vector2i) -> void:
 		Sfx.play("dig_fail")
 		return
 	maou.place(c)
-	hud.set_prompt("")
 	cursor.mode = DigCursor.Mode.NONE
 	phase = Phase.HERO_INTRO
 	await get_tree().create_timer(0.8 if not _debug.has("autostart") else 0.01).timeout
@@ -298,7 +295,7 @@ func _begin_invasion() -> void:
 	hero.begin_invasion()
 	Sfx.play_bgm("battle")
 	cam.focus_on(DungeonGrid.cell_center(grid.entrance) + Vector3(0, 0, 4))
-	hud.toast("侵攻中も掘れる！ 新しい通路で勇者を迷わせよう", UiTheme.GOLD)
+	hud.toast("侵攻中も掘れる！ 新しい通路で勇者を迷わせよう", UiTheme.TEXT)
 	hud.toast("F キー: 勇者をカメラで追う / 解除", UiTheme.TEXT)
 	follow_hero = true
 
@@ -433,11 +430,13 @@ func _update_hud(_force: bool) -> void:
 	hud.update_dig(dig_left, dig_max)
 	match phase:
 		Phase.TITLE, Phase.INTRO, Phase.BUILD:
-			hud.update_phase("勇者の到着まで", _fmt_time(build_left), phase == Phase.BUILD)
+			hud.update_phase("build", "勇者の到着まで", _fmt_time(build_left), phase == Phase.BUILD)
 		Phase.PLACE, Phase.HERO_INTRO:
-			hud.update_phase("魔王を配置", "--:--", false)
+			hud.update_phase("message", "魔王を置く場所を選ぼう
+入口から4マス以上
+離れた通路に置ける" if phase == Phase.PLACE else "勇者がやってくる…", "", false)
 		_:
-			hud.update_phase("侵攻経過", _fmt_time(invasion_time), false)
+			hud.update_phase("hero", "", _fmt_time(invasion_time), false)
 	hud.update_eco({
 		"moss": eco.count(Monster.Kind.MOSS, Monster.MOSS),
 		"moss_flower": eco.count(Monster.Kind.MOSS, Monster.BUD) + eco.count(Monster.Kind.MOSS, Monster.FLOWER),
@@ -450,6 +449,11 @@ func _update_hud(_force: bool) -> void:
 # ------------------------------------------------------------------ input
 ## Gamepad shortcuts (Xbox layout). Digging / placing is handled by DigCursor.
 func _on_pad_button(b: int) -> void:
+	# paused: only Start (resume) and A on the focused resume button do anything
+	if speed == 0.0 and _can_change_speed():
+		if b == JOY_BUTTON_START:
+			_toggle_pause()
+		return
 	match b:
 		JOY_BUTTON_RIGHT_SHOULDER:
 			if _can_change_speed():
@@ -659,6 +663,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if k and k.pressed and not k.echo:
 		if k.keycode == KEY_P and _can_change_speed():
 			_toggle_pause()
+		elif speed == 0.0:
+			return
 		elif k.keycode == KEY_SPACE and phase == Phase.BUILD:
 			_on_call_hero()
 		elif k.keycode == KEY_F and phase == Phase.INVASION:
@@ -749,6 +755,8 @@ func _debug_bootstrap() -> void:
 
 
 func _debug_tick() -> void:
+	if _debug.has("menutest"):
+		_menutest()
 	if _debug.has("padtest"):
 		_padtest()
 	if _debug.has("camtest"):
@@ -772,6 +780,37 @@ func _debug_tick() -> void:
 
 
 var _auto_digs := 0
+var _mt := {}
+
+
+## Title: A starts the game. Pause: Y / RB are ignored, A on 再開する resumes.
+func _menutest() -> void:
+	var f := _frames
+	if f == 30:
+		_pad_event(JOY_BUTTON_A, true)
+		_pad_event(JOY_BUTTON_A, false)
+	elif f == 40:
+		_mt["phase_after_A_on_title"] = phase
+		cutin._t = 99.0
+	elif f == 60:
+		_mt["phase_before_pause"] = phase
+		_pad_event(JOY_BUTTON_START, true)
+		_pad_event(JOY_BUTTON_START, false)
+	elif f == 65:
+		_mt["paused_speed"] = speed
+		_pad_event(JOY_BUTTON_Y, true)
+		_pad_event(JOY_BUTTON_Y, false)
+		_pad_event(JOY_BUTTON_RIGHT_SHOULDER, true)
+		_pad_event(JOY_BUTTON_RIGHT_SHOULDER, false)
+	elif f == 70:
+		_mt["phase_after_Y_while_paused"] = phase
+		_mt["speed_after_RB_while_paused"] = speed
+		_pad_event(JOY_BUTTON_A, true)
+		_pad_event(JOY_BUTTON_A, false)
+	elif f == 76:
+		_mt["speed_after_A_on_resume"] = speed
+		print("MENUTEST ", _mt)
+		get_tree().quit()
 var _pt := {}
 
 

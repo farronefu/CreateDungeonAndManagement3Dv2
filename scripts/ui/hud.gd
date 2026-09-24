@@ -1,8 +1,7 @@
 class_name Hud
 extends CanvasLayer
 ## In-game HUD. Kept light so the board stays visible:
-##   top-left   stage chip
-##   top-centre build: arrival timer + call button / invasion: hero plate
+##   top-left   status window: arrival timer / 魔王 placement / hero HP・MP
 ##   top-right  speed controls (x1, x2, x3); pausing is Start / P and opens the pause screen,
 ##              which lists the dungeon's monsters
 ##   bottom-left dig gauge
@@ -16,23 +15,23 @@ signal speed_changed(speed: float)
 const SPEEDS := [1.0, 2.0, 3.0]
 
 var root: Control
-var _stage_label: Label
+var _status: PanelContainer
+var _message: Label
+var _mp_text: Label
 var _eco_labels := {}
 var _soil_label: Label
 # top centre
-var _build_box: Control
+var _build_box: VBoxContainer
 var _timer_caption: Label
 var _timer_value: Label
 var _call_btn: Button
-var _hero_box: Control
+var _hero_box: VBoxContainer
 var _hero_portrait: TextureRect
 var _hero_name: Label
 var _hp_fill: ColorRect
-var _hp_back: ColorRect
 var _hp_text: Label
 var _mp_fill: ColorRect
 var _elapsed: Label
-var _hp_shown := 1.0
 # time controls
 var _speed_btns: Array[IconButton] = []
 var _pause_screen: Control
@@ -59,8 +58,7 @@ func _ready() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.theme = UiTheme.theme()
 	add_child(root)
-	_build_left()
-	_build_center()
+	_build_status()
 	_build_time_controls()
 	_build_dig()
 	_build_info()
@@ -110,28 +108,14 @@ func _bar(w: float, h: float, col: Color) -> Array:
 	return [back, fill]
 
 
-# ------------------------------------------------------------------ top-left: stage chip
-func _build_left() -> void:
-	var chip := PanelContainer.new()
-	chip.add_theme_stylebox_override("panel", UiTheme.chip())
-	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chip.position = Vector2(18, 16)
-	_stage_label = UiTheme.heading("STAGE 1", 19, UiTheme.GOLD, 700)
-	chip.add_child(_stage_label)
-	root.add_child(chip)
-
-
-func set_stage(text: String) -> void:
-	_stage_label.text = text
-
-
 # ------------------------------------------------------------------ pause screen (Start / P)
 ## Shown while the game is paused: which monsters live in the dungeon and how many.
 func _build_pause_screen() -> void:
 	var dim := ColorRect.new()
 	dim.color = Color(0.02, 0.015, 0.01, 0.55)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# swallows every click so only the resume button can be used
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.add_child(dim)
 	_pause_screen = dim
 	var cc := CenterContainer.new()
@@ -150,7 +134,7 @@ func _build_pause_screen() -> void:
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 10)
 	pc.add_child(vb)
-	var title := UiTheme.heading("一時停止中", 48, UiTheme.GOLD)
+	var title := UiTheme.heading("一時停止中", 48, UiTheme.GOLD)  # notice text stays gold
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(title)
 	var sub := UiTheme.label("ダンジョンの生態系", 24, UiTheme.TEXT_DIM)
@@ -205,8 +189,9 @@ func set_paused(p: bool) -> void:
 	_pause_screen.visible = p
 	if p:
 		_info.visible = false
-		if Pad.using_pad:
-			_resume_btn.grab_focus.call_deferred()
+		_resume_btn.grab_focus.call_deferred()
+	else:
+		_resume_btn.release_focus()
 
 
 func is_paused_screen() -> bool:
@@ -222,79 +207,93 @@ func update_eco(counts: Dictionary, soil: int) -> void:
 	_soil_label.text = "土の養分 %d" % soil
 
 
-# ------------------------------------------------------------------ top-centre: timer / hero plate
-func _build_center() -> void:
-	var anchor := Control.new()
-	anchor.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(anchor)
-	# build phase: arrival timer + call button
-	var bp := PanelContainer.new()
-	bp.add_theme_stylebox_override("panel", UiTheme.panel())
-	bp.mouse_filter = Control.MOUSE_FILTER_STOP
-	bp.position = Vector2(-150, 14)
-	bp.custom_minimum_size = Vector2(300, 0)
-	anchor.add_child(bp)
-	_build_box = bp
+# ------------------------------------------------------------------ top-left: status window
+## One translucent black window in the top-left that changes with the phase:
+##   build     time until the hero arrives + "call the hero" button
+##   placement the instruction to place the 魔王
+##   invasion  the hero's portrait, HP and MP (+ elapsed time)
+func _build_status() -> void:
+	var pc := PanelContainer.new()
+	var sb := UiTheme.dark_panel()
+	sb.content_margin_left = 18
+	sb.content_margin_right = 18
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.position = Vector2(18, 16)
+	pc.custom_minimum_size = Vector2(380, 0)
+	pc.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(pc)
+	_status = pc
 	var vb := VBoxContainer.new()
-	vb.alignment = BoxContainer.ALIGNMENT_CENTER
-	vb.add_theme_constant_override("separation", 2)
-	bp.add_child(vb)
-	_timer_caption = UiTheme.label("勇者の到着まで", 15, UiTheme.TEXT_DIM)
-	_timer_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vb.add_child(_timer_caption)
-	_timer_value = UiTheme.heading("02:30", 40, UiTheme.TEXT, 900)
-	_timer_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vb.add_child(_timer_value)
+	vb.add_theme_constant_override("separation", 6)
+	pc.add_child(vb)
+	# build phase
+	_build_box = VBoxContainer.new()
+	_build_box.add_theme_constant_override("separation", 4)
+	vb.add_child(_build_box)
+	_timer_caption = UiTheme.label("勇者の到着まで", 24)
+	_build_box.add_child(_timer_caption)
+	_timer_value = UiTheme.heading("02:30", 64, UiTheme.TEXT)
+	_build_box.add_child(_timer_value)
 	_call_btn = Button.new()
-	_call_btn.text = "勇者を呼ぶ"
+	_call_btn.text = "勇者を呼ぶ（Y）"
 	_call_btn.focus_mode = Control.FOCUS_NONE
-	_call_btn.add_theme_font_size_override("font_size", UiTheme.px(19))
 	_call_btn.pressed.connect(func() -> void:
 		Sfx.play("click")
 		call_hero_pressed.emit())
-	vb.add_child(_call_btn)
-	# invasion: hero plate
-	var hp := PanelContainer.new()
-	hp.add_theme_stylebox_override("panel", UiTheme.panel(Color(0.12, 0.04, 0.03, 0.84), Color(0.9, 0.45, 0.32, 0.6)))
-	hp.mouse_filter = Control.MOUSE_FILTER_STOP
-	hp.position = Vector2(-270, 14)
-	hp.custom_minimum_size = Vector2(540, 0)
-	anchor.add_child(hp)
-	_hero_box = hp
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 12)
-	hp.add_child(hb)
+	_build_box.add_child(_call_btn)
+	# placement / other messages
+	_message = UiTheme.label("", 24)
+	_message.custom_minimum_size = Vector2(340, 0)
+	vb.add_child(_message)
+	# invasion: hero status
+	_hero_box = VBoxContainer.new()
+	_hero_box.add_theme_constant_override("separation", 4)
+	vb.add_child(_hero_box)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 10)
+	_hero_box.add_child(top)
 	_hero_portrait = TextureRect.new()
 	_hero_portrait.custom_minimum_size = Vector2(64, 64)
 	_hero_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_hero_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	hb.add_child(_hero_portrait)
-	var info := VBoxContainer.new()
-	info.add_theme_constant_override("separation", 3)
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info.alignment = BoxContainer.ALIGNMENT_CENTER
-	hb.add_child(info)
-	var top := HBoxContainer.new()
-	info.add_child(top)
-	_hero_name = UiTheme.heading("勇者", 22, UiTheme.TEXT, 800)
-	_hero_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(_hero_name)
-	_elapsed = UiTheme.label("00:00", 16, UiTheme.TEXT_DIM)
-	top.add_child(_elapsed)
-	var hpb := _bar(420, 16, UiTheme.HP)
-	_hp_back = hpb[0]
-	_hp_fill = hpb[1]
-	_hp_back.color = Color(0.3, 0.05, 0.03, 0.8)
-	info.add_child(_hp_back)
-	_hp_text = UiTheme.label("", 13, UiTheme.TEXT, true)
-	_hp_text.position = Vector2(6, -2)
-	_hp_text.add_theme_constant_override("outline_size", 4)
-	_hp_back.add_child(_hp_text)
-	var mpb := _bar(420, 5, UiTheme.MP)
-	_mp_fill = mpb[1]
-	info.add_child(mpb[0])
+	top.add_child(_hero_portrait)
+	var nv := VBoxContainer.new()
+	nv.alignment = BoxContainer.ALIGNMENT_CENTER
+	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(nv)
+	_hero_name = UiTheme.label("勇者", 32)
+	nv.add_child(_hero_name)
+	_elapsed = UiTheme.label("侵攻 00:00", 16)
+	nv.add_child(_elapsed)
+	var hp_row := _stat_row("HP", UiTheme.HP)
+	_hp_text = hp_row[0]
+	_hp_fill = hp_row[1]
+	_hero_box.add_child(hp_row[2])
+	var mp_row := _stat_row("MP", UiTheme.MP)
+	_mp_text = mp_row[0]
+	_mp_fill = mp_row[1]
+	_hero_box.add_child(mp_row[2])
 	_hero_box.visible = false
+	_message.visible = false
+
+
+const BAR_W := 200.0
+
+
+func _stat_row(title: String, col: Color) -> Array:
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 10)
+	var t := UiTheme.label(title, 24)
+	t.custom_minimum_size = Vector2(40, 0)
+	hb.add_child(t)
+	var bar := _bar(BAR_W, 12, col)
+	(bar[0] as Control).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hb.add_child(bar[0])
+	var v := UiTheme.label("0/0", 24)
+	hb.add_child(v)
+	return [v, bar[1], hb]
 
 
 func set_hero(hname: String, portrait: Texture2D) -> void:
@@ -302,23 +301,26 @@ func set_hero(hname: String, portrait: Texture2D) -> void:
 	_hero_portrait.texture = portrait
 
 
-func update_hero(hp: float, max_hp: float, mp: float, max_mp: float, show: bool) -> void:
-	_hero_box.visible = show
-	_build_box.visible = not show
+func update_hero(hp: float, max_hp: float, mp: float, max_mp: float, _show: bool = true) -> void:
 	var r := clampf(hp / maxf(1.0, max_hp), 0.0, 1.0)
-	_hp_shown = r
-	_hp_fill.size.x = 420.0 * r
+	_hp_fill.size.x = BAR_W * r
 	_hp_fill.color = UiTheme.HP if r > 0.3 else UiTheme.WARN
-	_hp_text.text = "%d / %d" % [maxi(0, int(ceil(hp))), int(max_hp)]
-	_mp_fill.size.x = 420.0 * clampf(mp / maxf(1.0, max_mp), 0.0, 1.0)
+	_hp_text.text = "%d/%d" % [maxi(0, int(ceil(hp))), int(max_hp)]
+	_mp_fill.size.x = BAR_W * clampf(mp / maxf(1.0, max_mp), 0.0, 1.0)
+	_mp_text.text = "%d/%d" % [int(mp), int(max_mp)]
 
 
-## title: phase caption, time_text: big clock text
-func update_phase(title: String, time_text: String, can_call: bool) -> void:
-	_timer_caption.text = title
+## mode: "build" (caption + clock + call button), "message" (text only), "hero" (hero status)
+func update_phase(mode: String, caption: String, time_text: String, can_call: bool) -> void:
+	_build_box.visible = mode == "build"
+	_hero_box.visible = mode == "hero"
+	_timer_caption.text = caption
 	_timer_value.text = time_text
-	_elapsed.text = time_text
 	_call_btn.visible = can_call
+	_elapsed.text = "侵攻 " + time_text
+	if mode == "message":
+		_message.text = caption
+	_message.visible = mode == "message"
 
 
 # ------------------------------------------------------------------ top-right: time controls

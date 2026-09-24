@@ -9,8 +9,8 @@ const INK_SOLID := Color(0.1, 0.075, 0.06, 0.97)
 const EDGE := Color(0.95, 0.82, 0.56)               # bevel highlight
 const GOLD := Color(0.98, 0.8, 0.42)
 const GOLD_DARK := Color(0.52, 0.38, 0.18)
-const TEXT := Color(0.98, 0.94, 0.86)
-const TEXT_DIM := Color(0.78, 0.72, 0.62)
+const TEXT := Color(1, 1, 1)
+const TEXT_DIM := Color(0.86, 0.86, 0.86)
 const HP := Color(0.55, 0.86, 0.38)
 const MP := Color(0.42, 0.72, 1.0)
 const WARN := Color(1.0, 0.46, 0.34)
@@ -113,6 +113,11 @@ static func panel(bg: Color = INK, border: Color = EDGE, _radius: int = 0, _bord
 	return _pixel_box(bg, Color(border, 1.0), Color(border.darkened(0.55), 1.0))
 
 
+## Translucent black window with a dark pixel frame (top-left status).
+static func dark_panel() -> StyleBoxTexture:
+	return _pixel_box(Color(0, 0, 0, 0.6), Color(0.32, 0.32, 0.32), Color(0.12, 0.12, 0.12), 18, 12)
+
+
 ## Small pill / chip window (same frame, tighter padding).
 static func chip(bg: Color = INK, border: Color = EDGE) -> StyleBoxTexture:
 	return _pixel_box(bg, Color(border, 1.0), Color(border.darkened(0.55), 1.0), 14, 4)
@@ -145,8 +150,9 @@ static func theme() -> Theme:
 	t.set_font("font", "Button", font())
 	t.set_font_size("font_size", "Button", 24)
 	t.set_color("font_color", "Button", TEXT)
-	t.set_color("font_hover_color", "Button", Color(1, 0.96, 0.8))
-	t.set_color("font_pressed_color", "Button", Color(1, 0.97, 0.88))
+	t.set_color("font_hover_color", "Button", Color(1, 1, 1))
+	t.set_color("font_pressed_color", "Button", Color(1, 1, 1))
+	t.set_color("font_focus_color", "Button", Color(1, 1, 1))
 	t.set_color("font_disabled_color", "Button", Color(0.5, 0.47, 0.42))
 	t.set_color("font_outline_color", "Button", Color(0.05, 0.03, 0.02))
 	t.set_constant("outline_size", "Button", 4)
@@ -175,5 +181,5 @@ static func label(text: String, size: int = 24, color: Color = TEXT, _bold: bool
 
 
 ## Heading / number label (pixel font, bigger sizes).
-static func heading(text: String, size: int = 24, color: Color = GOLD, _weight: int = 800) -> Label:
+static func heading(text: String, size: int = 24, color: Color = TEXT, _weight: int = 800) -> Label:
 	return label(text, size, color)

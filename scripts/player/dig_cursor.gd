@@ -120,7 +120,8 @@ func _init_pad_cell() -> void:
 
 
 func _on_pad_button(b: int) -> void:
-	if mode == Mode.NONE or grid == null:
+	# the signal still arrives while the game is paused (cursor disabled)
+	if mode == Mode.NONE or grid == null or not can_process():
 		return
 	if not grid.in_bounds(pad_cell):
 		_init_pad_cell()

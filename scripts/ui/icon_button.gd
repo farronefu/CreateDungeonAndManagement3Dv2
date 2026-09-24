@@ -25,11 +25,11 @@ func _init(kind: String = "play1") -> void:
 func _draw() -> void:
 	var r := Rect2(Vector2.ZERO, size)
 	if button_pressed:
-		draw_rect(r.grow(-3), Color(0.95, 0.72, 0.36, 0.28), true)
-		draw_rect(r.grow(-3), Color(1.0, 0.85, 0.55, 0.9), false, 1.0)
+		draw_rect(r.grow(-3), Color(1, 1, 1, 0.22), true)
+		draw_rect(r.grow(-3), Color(1, 1, 1, 0.9), false, 2.0)
 	elif _hover:
 		draw_rect(r.grow(-3), Color(1, 1, 1, 0.07), true)
-	var col := Color(1.0, 0.9, 0.68) if button_pressed else (UiTheme.TEXT if _hover else UiTheme.TEXT_DIM)
+	var col := Color(1, 1, 1) if button_pressed or _hover else Color(1, 1, 1, 0.75)
 	var c := size * 0.5
 	var h := 14.0
 	match icon_kind:
