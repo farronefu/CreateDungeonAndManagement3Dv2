@@ -13,6 +13,15 @@
 2. Godot で `project.godot` を開き、F5 で実行
    - コマンドラインの場合: `Godot_v4.7.x_win64.exe --path .`
 
+## exe のビルド（Windows）
+
+```bash
+godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.pck
+```
+
+`build/windows/` に Godot 実行ファイルを `DungeonEcosystem.exe` として置くと、同名の `.pck` を読み込んで起動します。
+公式エクスポートテンプレートを入れた場合は `godot --headless --export-release "Windows Desktop"` で単体の exe を出力できます（Steam 配布向け）。
+
 ## 操作
 
 | 操作 | 内容 |

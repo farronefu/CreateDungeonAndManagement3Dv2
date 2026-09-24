@@ -3,7 +3,7 @@
 *.import.tmp
 /android/
 /export/
-export_presets.cfg
+/build/
 
 # OS / tools
 .DS_Store
