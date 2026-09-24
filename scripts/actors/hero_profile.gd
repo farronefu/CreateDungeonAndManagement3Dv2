@@ -6,6 +6,9 @@ extends Resource
 @export var display_name := "アレン"
 @export_multiline var intro_line := "魔王をさらいに来たぞ！"
 
+## UI icon used everywhere the hero is shown (status window, tooltip).
+@export_file("*.png", "*.svg") var icon_path := "res://assets/ui/hero_icon.png"
+
 @export_group("Model")
 @export_file("*.glb", "*.gltf", "*.tscn") var model_path := "res://assets/models/hero/hero.glb"
 ## Height of the model on screen in tiles (1 tile = 1 block).

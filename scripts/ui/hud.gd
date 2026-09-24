@@ -256,6 +256,7 @@ func _build_status() -> void:
 	_hero_box.add_child(top)
 	_hero_portrait = TextureRect.new()
 	_hero_portrait.custom_minimum_size = Vector2(64, 64)
+	_hero_portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_hero_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_hero_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	top.add_child(_hero_portrait)

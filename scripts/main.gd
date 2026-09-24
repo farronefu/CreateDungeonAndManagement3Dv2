@@ -209,11 +209,7 @@ func _build_ui() -> void:
 			_toggle_pause())
 	Pad.button_pressed.connect(_on_pad_button)
 	var hero_scene := load(profile.model_path) as PackedScene
-	var portrait := PortraitStudio.new()
-	add_child(portrait)
-	portrait.setup(hero_scene, Vector2i(160, 160), 1.0, Vector3(0.05, 0.84, 0.62), Vector3(0, 0.78, 0), 30.0)
-	portrait.freeze_after(4)
-	_hero_portrait = portrait.get_texture()
+	_hero_portrait = load(profile.icon_path) as Texture2D
 	hud.set_hero(profile.display_name, _hero_portrait)
 	_hero_cutin = PortraitStudio.new()
 	add_child(_hero_cutin)
@@ -595,7 +591,7 @@ func _tooltip_text(mp: Vector2, cell: Vector2i) -> String:
 		return _monster_tip(best as Monster)
 	if best == hero:
 		var st := "[color=#ff8070]魔王を運搬中！[/color]" if hero.carrying else ("戦闘中" if hero.busy > 0.0 else "探索中")
-		return "[b]勇者 %s[/b]\nHP %s %d/%d\nMP %d/%d\n%s" % [profile.display_name, _bar(hero.hp, hero.max_hp, "#ff7060"), int(ceil(hero.hp)), int(hero.max_hp), int(hero.mp), int(hero.max_mp), st]
+		return "[img=24x24]%s[/img] [b]勇者 %s[/b]\nHP %s %d/%d\nMP %d/%d\n%s" % [profile.icon_path, profile.display_name, _bar(hero.hp, hero.max_hp, "#ff7060"), int(ceil(hero.hp)), int(hero.max_hp), int(hero.mp), int(hero.max_mp), st]
 	if best == maou:
 		return "[b][color=#d8a0ff]魔王さま[/color][/b]\n" + ("[color=#ff8070]勇者に運ばれている！[/color]" if maou.carrier else "勇者に入口まで運ばれると負け")
 	return _cell_tip(cell)
@@ -755,6 +751,8 @@ func _debug_bootstrap() -> void:
 
 
 func _debug_tick() -> void:
+	if _debug.has("mouse_hero") and hero.visible:
+		get_viewport().warp_mouse(cam.unproject_position(hero.global_position + Vector3(0, 0.45, 0)))
 	if _debug.has("menutest"):
 		_menutest()
 	if _debug.has("padtest"):

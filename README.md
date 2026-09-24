@@ -95,6 +95,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 
 ### 勇者
 [`data/heroes/allen.tres`](data/heroes/allen.tres)（`HeroProfile` リソース）の `model_path` を差し替えるだけです。
+- `icon_path`: 勇者のアイコン（左上の枠・ツールチップで共通）。現在は `assets/ui/hero_icon.png`（元画像 `hero_icon_source.png` を 64px に縮小したもの。作り直しは `scripts/debug/make_icon.gd`）
 - `model_height`: 画面上の身長（1 = ブロック1個分。自動で足元を床に合わせます）
 - `anim_idle` / `anim_walk` / `anim_attack`: GLB 内のアニメーション名
 - `attack_hit_time`: 攻撃アニメの何秒目でダメージを与えるか
