@@ -1,8 +1,8 @@
 extends Node
 ## Gamepad state (Xbox layout). Tracks buttons / sticks from input events so gameplay code can
 ## query them, and remembers whether the player is currently using a pad or the mouse.
-##   X: dig (hold + D-pad = dig a tunnel)   A: confirm / place 魔王 / skip cut-in
-##   Y: call the hero                       RB: game speed   LB: follow the hero
+##   A: dig / confirm / place 魔王 / skip cut-in (hold + D-pad = dig a tunnel)
+##   Y: call the hero   RB: game speed   Start: pause   LB: follow the hero
 ##   D-pad / left stick: move the cursor    right stick: orbit camera   R3: reset camera
 
 signal button_pressed(button: int)

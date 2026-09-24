@@ -7,6 +7,8 @@ static var _pole_mesh: CylinderMesh
 static var _pole_mat: StandardMaterial3D
 
 var _light: OmniLight3D
+## scales light energy (surface torches are dimmer: the sun already lights the meadow)
+var light_scale := 1.0
 var _t := 0.0
 
 
@@ -53,13 +55,13 @@ func _ready() -> void:
 	add_child(flame)
 	_light = OmniLight3D.new()
 	_light.light_color = Color(1.0, 0.68, 0.36)
-	_light.omni_range = 4.2
+	_light.omni_range = 4.0
 	_light.omni_attenuation = 1.4
-	_light.light_energy = 2.2
+	_light.light_energy = 1.5
 	_light.position.y = 0.85
 	add_child(_light)
 
 
 func _process(delta: float) -> void:
 	_t += delta
-	_light.light_energy = 2.1 + sin(_t * 9.0) * 0.15 + sin(_t * 23.0) * 0.1
+	_light.light_energy = (1.45 + sin(_t * 9.0) * 0.12 + sin(_t * 23.0) * 0.08) * light_scale

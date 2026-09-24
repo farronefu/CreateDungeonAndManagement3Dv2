@@ -49,6 +49,8 @@ func setup(packed: PackedScene, target_height: float = 0.0, yaw_offset: float = 
 					var mat := mi.mesh.surface_get_material(i) as BaseMaterial3D
 					if mat:
 						mat.vertex_color_use_as_albedo = true
+	for g in _meshes:
+		_toonify(g)
 	_flash_mat = StandardMaterial3D.new()
 	_flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -58,6 +60,33 @@ func setup(packed: PackedScene, target_height: float = 0.0, yaw_offset: float = 
 
 func _clip(n: String) -> String:
 	return str(anim_map.get(n, n))
+
+
+## Unifies imported models with the world: soft toon specular (no plastic highlights) and a
+## faint warm rim so characters separate from the ground. Diffuse stays smooth so textured
+## models keep their painted shading; outlines come from the post-process pass.
+func _toonify(g: GeometryInstance3D) -> void:
+	if not (g is MeshInstance3D) or (g as MeshInstance3D).mesh == null:
+		return
+	var mi := g as MeshInstance3D
+	for i in mi.mesh.get_surface_count():
+		var active := mi.get_active_material(i)
+		if active == null:
+			# some supplied meshes (e.g. hidden effect parts) have no material at all
+			var fallback := StandardMaterial3D.new()
+			fallback.albedo_color = Color(0.5, 0.5, 0.5)
+			mi.set_surface_override_material(i, fallback)
+			continue
+		var src := active as BaseMaterial3D
+		if src == null:
+			continue
+		var m := src.duplicate() as BaseMaterial3D
+		m.specular_mode = BaseMaterial3D.SPECULAR_TOON
+		m.metallic_specular = minf(m.metallic_specular, 0.35)
+		m.rim_enabled = true
+		m.rim = 0.12
+		m.rim_tint = 0.5
+		mi.set_surface_override_material(i, m)
 
 
 func has_anim(n: String) -> bool:

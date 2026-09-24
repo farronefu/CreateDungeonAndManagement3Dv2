@@ -56,7 +56,7 @@ func _center_panel(min_w: float) -> VBoxContainer:
 	add_child(cc)
 	_panel = PanelContainer.new()
 	_panel.custom_minimum_size = Vector2(min_w, 0)
-	_panel.add_theme_stylebox_override("panel", UiTheme.panel(Color(0.06, 0.08, 0.16, 0.96), UiTheme.GOLD, 16, 3))
+	_panel.add_theme_stylebox_override("panel", UiTheme.panel(UiTheme.INK_SOLID, UiTheme.EDGE, 12, 1))
 	cc.add_child(_panel)
 	_box = VBoxContainer.new()
 	_box.add_theme_constant_override("separation", 14)
@@ -77,33 +77,99 @@ func _button(text: String, cb: Callable, big: bool = true) -> Button:
 
 
 # ------------------------------------------------------------------ title
+## Title over the live, slowly orbiting diorama: logo on the left, two actions, a how-to overlay.
 func show_title() -> void:
 	_clear()
-	_dim(0.45)
-	var vb := _center_panel(760)
-	var t := UiTheme.label("ダンジョン生態系", 72, UiTheme.GOLD, true)
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.add_theme_constant_override("outline_size", 10)
+	# gradient shade on the left so the logo reads, the scene stays visible on the right
+	var shade := TextureRect.new()
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+	g.colors = PackedColorArray([Color(0.03, 0.02, 0.015, 0.85), Color(0.03, 0.02, 0.015, 0.55), Color(0.03, 0.02, 0.015, 0.0)])
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(1, 0)
+	shade.texture = gt
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(shade)
+	var vb := VBoxContainer.new()
+	vb.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
+	vb.offset_left = 120
+	vb.offset_right = 900
+	vb.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.add_theme_constant_override("separation", 10)
+	add_child(vb)
+	var small := UiTheme.heading("DUNGEON  ECOSYSTEM", 22, Color(UiTheme.GOLD, 0.85), 600)
+	vb.add_child(small)
+	var t := UiTheme.heading("ダンジョン生態系", 104, Color(1.0, 0.9, 0.66), 900)
+	t.add_theme_constant_override("outline_size", 18)
+	t.add_theme_color_override("font_outline_color", Color(0.12, 0.06, 0.03))
+	t.add_theme_constant_override("shadow_offset_y", 6)
+	t.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
 	vb.add_child(t)
-	var s := UiTheme.label("〜 掘って、育てて、勇者を返り討ち 〜", 28)
-	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var line := ColorRect.new()
+	line.color = Color(UiTheme.GOLD, 0.6)
+	line.custom_minimum_size = Vector2(520, 2)
+	line.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	vb.add_child(line)
+	var s := UiTheme.heading("掘って、育てて、勇者を返り討ち。", 30, UiTheme.TEXT, 600)
 	vb.add_child(s)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 48)
+	vb.add_child(gap)
+	var start := _button("はじめる", func() -> void: start_pressed.emit())
+	start.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	start.custom_minimum_size = Vector2(340, 64)
+	vb.add_child(start)
+	var how := _button("あそびかた", _show_howto, false)
+	how.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	how.custom_minimum_size = Vector2(340, 50)
+	how.add_theme_font_size_override("font_size", 20)
+	vb.add_child(how)
+	var hint := UiTheme.label("マウス / キーボード / コントローラー（Xbox配置）対応", 15, UiTheme.TEXT_DIM)
+	vb.add_child(hint)
+	visible = true
+	_focus_first.call_deferred()
+
+
+func _show_howto() -> void:
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(dim)
+	var cc := CenterContainer.new()
+	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.add_child(cc)
+	var pc := PanelContainer.new()
+	pc.add_theme_stylebox_override("panel", UiTheme.panel(UiTheme.INK_SOLID, UiTheme.EDGE, 12, 1))
+	pc.custom_minimum_size = Vector2(820, 0)
+	cc.add_child(pc)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 12)
+	pc.add_child(vb)
+	vb.add_child(UiTheme.heading("あそびかた", 34))
 	var how := RichTextLabel.new()
 	how.bbcode_enabled = true
 	how.fit_content = true
 	how.scroll_active = false
-	how.custom_minimum_size = Vector2(700, 0)
+	how.custom_minimum_size = Vector2(780, 0)
 	how.add_theme_font_override("normal_font", UiTheme.font())
 	how.add_theme_font_override("bold_font", UiTheme.font(true))
-	how.add_theme_font_size_override("normal_font_size", 21)
-	how.add_theme_font_size_override("bold_font_size", 21)
-	how.text = "[b]遊び方[/b]\n・[color=#f0c060]左クリック[/color]で通路につながったブロックを掘る（採掘可能数を消費）\n・養分を含む土を掘ると魔物が生まれる　[color=#a0e070]養分1〜9: モコゴケ[/color] / [color=#f0a060]10以上: ザクザクムシ[/color]\n・モコゴケは養分を運び、ツボミ→モコバナになって仲間を増やす\n・ザクザクムシはモコゴケを食べて育ち、サナギ→成虫になって子を産む\n・勇者が[b]魔王[/b]を入口まで連れ去ると負け。魔物で勇者を倒そう！\n[color=#a0a0b0]WASD / 矢印 / 右ドラッグ: カメラ移動　ホイール: ズーム[/color]"
+	how.add_theme_font_size_override("normal_font_size", 19)
+	how.add_theme_font_size_override("bold_font_size", 19)
+	how.add_theme_constant_override("line_separation", 6)
+	how.text = "・通路に面した土を[b]掘る[/b]（クリック / Aボタン）。掘れる回数には限りがある\n・養分を含む土を掘ると魔物が生まれる　[color=#b8e080]苔の生えた土: モコゴケ[/color]　[color=#f0b070]深い緑の土: ザクザクムシ[/color]\n・モコゴケは養分を運び、やがて木（ツボミ→モコバナ）になって仲間を増やす\n・ザクザクムシはモコゴケを食べて育ち、サナギ→成虫になって子を産む\n・時間が来るか「勇者を呼ぶ」と、[b]魔王[/b]を置いて迎え撃つ\n・勇者が魔王を入口まで運ぶと負け。魔物たちで勇者を倒そう\n\n[color=#c8bca8]カメラ: WASD・右ドラッグ・画面端（移動）／ホイール（ズーム）／中ドラッグ・Q/E（回転）\n一時停止: P / Start　速度: 右上のボタン / RB[/color]"
 	vb.add_child(how)
-	var c := CenterContainer.new()
-	c.add_child(_button("はじめる", func() -> void: start_pressed.emit()))
-	vb.add_child(c)
-	visible = true
-	_focus_first.call_deferred()
+	var close := _button("閉じる", func() -> void:
+		dim.queue_free()
+		_focus_first.call_deferred(), false)
+	close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close.custom_minimum_size = Vector2(220, 48)
+	vb.add_child(close)
+	if Pad.using_pad:
+		close.grab_focus.call_deferred()
 
 
 # ------------------------------------------------------------------ result
@@ -111,7 +177,7 @@ func show_result(data: Dictionary) -> void:
 	_clear()
 	_dim(0.55)
 	var vb := _center_panel(820)
-	var t := UiTheme.label("勇者撃退！", 64, UiTheme.GOLD, true)
+	var t := UiTheme.heading("勇者撃退！", 64, UiTheme.GOLD, 900)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(t)
 	var grid := GridContainer.new()
@@ -189,7 +255,7 @@ func show_game_over() -> void:
 	_clear()
 	_dim(0.6)
 	var vb := _center_panel(700)
-	var t := UiTheme.label("魔王が連れ去られた…", 60, UiTheme.WARN, true)
+	var t := UiTheme.heading("魔王が連れ去られた…", 56, UiTheme.WARN, 900)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(t)
 	var s := UiTheme.label("ダンジョンをもう一度作り直そう", 26)

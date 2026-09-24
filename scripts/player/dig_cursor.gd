@@ -2,7 +2,7 @@ class_name DigCursor
 extends Node3D
 ## The player's pickaxe cursor: highlights the block under the mouse (or the gamepad cursor)
 ## and emits clicks. Gamepad: D-pad / left stick move (hold to repeat, longer = faster),
-## X digs, holding X while moving digs a whole tunnel, A places the 魔王.
+## A digs / places the 魔王, holding A while moving digs a whole tunnel.
 
 signal clicked(cell: Vector2i)
 signal hovered(cell: Vector2i)
@@ -41,7 +41,10 @@ func _ready() -> void:
 	_frame_mat.albedo_color = Color(1.0, 0.7, 0.2)
 	_frame_mat.emission_enabled = true
 	_frame_mat.emission = Color(1.0, 0.6, 0.15)
-	_frame_mat.emission_energy_multiplier = 2.5
+	_frame_mat.emission_energy_multiplier = 1.6
+	_frame_mat.vertex_color_use_as_albedo = true
+	_frame_mat.no_depth_test = true
+	_frame_mat.render_priority = 5
 	_frame_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_frame_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_frame.material_override = _frame_mat
@@ -63,22 +66,37 @@ func _ready() -> void:
 			_init_pad_cell())
 
 
+## Four thin L-shaped corner brackets plus a very faint fill (pulses in _process).
 func _frame_mesh() -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var o := 0.5
-	var i := 0.43
-	var y := 0.0
-	var quads := [
-		[Vector3(-o, y, -o), Vector3(o, y, -o), Vector3(o, y, -i), Vector3(-o, y, -i)],
-		[Vector3(-o, y, i), Vector3(o, y, i), Vector3(o, y, o), Vector3(-o, y, o)],
-		[Vector3(-o, y, -i), Vector3(-i, y, -i), Vector3(-i, y, i), Vector3(-o, y, i)],
-		[Vector3(i, y, -i), Vector3(o, y, -i), Vector3(o, y, i), Vector3(i, y, i)],
-	]
 	st.set_normal(Vector3.UP)
-	for q in quads:
-		for idx in [0, 2, 1, 0, 3, 2]:
-			st.add_vertex(q[idx])
+	var o := 0.49
+	var t := 0.035   # line thickness
+	var l := 0.2     # arm length
+	var rects: Array[Rect2] = []
+	for sx in [-1, 1]:
+		for sz in [-1, 1]:
+			var cx: float = o * sx
+			var cz: float = o * sz
+			# horizontal arm and vertical arm of the bracket
+			rects.append(Rect2(minf(cx, cx - sx * l), cz - (t if sz > 0 else 0.0), l, t))
+			rects.append(Rect2(cx - (t if sx > 0 else 0.0), minf(cz, cz - sz * l), t, l))
+	var col := Color(1, 1, 1, 1)
+	for r in rects:
+		var a := Vector3(r.position.x, 0, r.position.y)
+		var b := Vector3(r.end.x, 0, r.position.y)
+		var c := Vector3(r.end.x, 0, r.end.y)
+		var d := Vector3(r.position.x, 0, r.end.y)
+		for v in [a, b, c, a, c, d]:
+			st.set_color(col)
+			st.add_vertex(v)
+	# faint fill
+	var fill := Color(1, 1, 1, 0.1)
+	var f := o - 0.02
+	for v in [Vector3(-f, 0, -f), Vector3(f, 0, -f), Vector3(f, 0, f), Vector3(-f, 0, -f), Vector3(f, 0, f), Vector3(-f, 0, f)]:
+		st.set_color(fill)
+		st.add_vertex(v)
 	return st.commit()
 
 
@@ -106,7 +124,7 @@ func _on_pad_button(b: int) -> void:
 		return
 	if not grid.in_bounds(pad_cell):
 		_init_pad_cell()
-	if b == JOY_BUTTON_X or (b == JOY_BUTTON_A and mode == Mode.PLACE):
+	if b == JOY_BUTTON_A:
 		clicked.emit(pad_cell)
 
 
@@ -147,8 +165,8 @@ func _move_pad(s: Vector2) -> void:
 		return
 	pad_cell = next
 	# (the camera follows the gliding frame every frame in _process)
-	# holding X while moving digs a tunnel
-	if mode == Mode.DIG and Pad.held(JOY_BUTTON_X):
+	# holding A while moving digs a tunnel
+	if mode == Mode.DIG and Pad.held(JOY_BUTTON_A):
 		clicked.emit(pad_cell)
 
 
@@ -195,10 +213,12 @@ func _process(delta: float) -> void:
 	if Pad.using_pad and steering and camera is GameCamera and grid.in_bounds(c):
 		if (camera as GameCamera).keep_in_view(Vector3(_frame.position.x, 0, _frame.position.z)):
 			(camera as GameCamera).user_moved = true
-	var pulse := 0.75 + 0.25 * sin(_t * 6.0)
+	var pulse := 0.75 + 0.25 * sin(_t * 5.0)
 	_frame_mat.albedo_color = Color(col.r, col.g, col.b, col.a * pulse)
+	# brackets breathe outward slightly
+	_frame.scale = Vector3.ONE * (1.0 + 0.04 * sin(_t * 5.0))
 	_frame_mat.emission = Color(col.r, col.g, col.b)
-	view.set_hover(c if solid else Vector2i(-999, -999), 0.6 * pulse * col.a)
+	view.set_hover(c if solid else Vector2i(-999, -999), 0.5 * pulse * col.a)
 	_pick_pivot.visible = mode == Mode.DIG and grid.in_bounds(c)
 	var target := Vector3(c.x + 0.95, y + 0.25 + sin(_t * 3.0) * 0.03, c.y + 0.55)
 	_pick_pivot.position = _pick_pivot.position.lerp(target, clampf(delta * 18.0, 0.0, 1.0))

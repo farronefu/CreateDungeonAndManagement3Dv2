@@ -43,6 +43,8 @@ var _yaw := 0.0
 var _enter_t := 0.0
 var _dead_t := 0.0
 var _grab_timer := -1.0
+## world-space walk from the town into the dungeon (set by main from SurfaceWorld)
+var entry_path := PackedVector3Array()
 var _look_cd := 4.0
 
 
@@ -85,12 +87,9 @@ func tick(dt: float) -> void:
 	match state:
 		State.ENTERING:
 			_enter_t += dt
-			var t := clampf(_enter_t / 1.6, 0.0, 1.0)
-			var outside := DungeonGrid.cell_center(grid.entrance) + Vector3(0, 0, -1.4)
-			position = outside.lerp(DungeonGrid.cell_center(grid.entrance), t)
-			rotation.y = 0.0
+			var done := _walk_entry(_enter_t / profile.move_time)
 			actor.play(profile.anim_walk, 0.1, profile.walk_anim_speed)
-			if t >= 1.0:
+			if done:
 				state = State.ACTIVE
 				_mark_visited()
 		State.ACTIVE:
@@ -98,6 +97,27 @@ func tick(dt: float) -> void:
 			_visual(dt)
 		State.DEAD:
 			_dead_t += dt
+
+
+## Walks `dist` cells along the entry path; returns true at the end.
+func _walk_entry(dist: float) -> bool:
+	var path := entry_path
+	if path.size() < 2:
+		path = PackedVector3Array([DungeonGrid.cell_center(grid.entrance) + Vector3(0, 0, -1.4), DungeonGrid.cell_center(grid.entrance)])
+	var left := dist
+	for i in path.size() - 1:
+		var a := path[i]
+		var b := path[i + 1]
+		var seg := a.distance_to(b)
+		if left <= seg:
+			position = a.lerp(b, left / maxf(seg, 0.001))
+			var d := b - a
+			if Vector2(d.x, d.z).length() > 0.01:
+				rotation.y = lerp_angle(rotation.y, atan2(d.x, d.z), 0.25)
+			return false
+		left -= seg
+	position = path[path.size() - 1]
+	return true
 
 
 # ------------------------------------------------------------------ logic

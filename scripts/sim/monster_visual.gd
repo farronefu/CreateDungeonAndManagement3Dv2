@@ -18,6 +18,8 @@ var _proc_tween: Tween
 var _evolving := false
 var _evo_t := 0.0
 var _evo_mat: ShaderMaterial
+## the material replaced by the autumn shader; kept alive so the renderer never sees a freed RID
+var _evo_replaced: Material
 
 static var _bar_bg_mat: StandardMaterial3D
 static var _bar_fg_mat: StandardMaterial3D
@@ -49,7 +51,12 @@ func swap_model(animate_in: bool = true) -> void:
 
 func _set_actor(a: ModelActor) -> void:
 	if actor:
-		actor.queue_free()
+		# hide now, free a moment later: freeing a model in the frame it was created leaves the
+		# renderer with a pending update that points at its (already freed) materials
+		var old := actor
+		old.visible = false
+		old.process_mode = Node.PROCESS_MODE_DISABLED
+		get_tree().create_timer(0.2).timeout.connect(old.queue_free)
 	actor = a
 	_pivot.add_child(actor)
 
@@ -65,7 +72,8 @@ func play_evolution() -> void:
 			break
 	var sprout := actor.model.find_child("Sprout_Mesh_01", true, false) as MeshInstance3D
 	if sprout:
-		var original := sprout.get_active_material(0) as BaseMaterial3D
+		_evo_replaced = sprout.get_active_material(0)
+		var original := _evo_replaced as BaseMaterial3D
 		if original:
 			if _autumn_shader == null:
 				_autumn_shader = load("res://shaders/autumn.gdshader")

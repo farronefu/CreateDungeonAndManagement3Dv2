@@ -4,6 +4,9 @@ extends Node
 ##   --dump --focus_bug=S   keep the camera on the first ザクザクムシ of stage S (0 larva, 1 pupa, 2 adult)
 
 func _ready() -> void:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--probe="):
+			_probe.call_deferred(a.get_slice("=", 1))
 	await get_tree().create_timer(0.5).timeout
 	for n in get_tree().root.find_children("*", "ModelActor", true, false):
 		var a := n as ModelActor
@@ -90,3 +93,29 @@ func _process_plants_log() -> void:
 			img.save_png("debug_shots/tree_strike.png")
 		if a and a.anim and Engine.get_process_frames() % 6 == 0:
 			print("TREE t=%.2f cur=%s playing=%s pos=%.2f speed=%.2f" % [_pt, a.current, a.anim.current_animation, a.anim.current_animation_position if a.anim.is_playing() else -1.0, a.anim.speed_scale])
+
+
+## --probe=evo|adult|fx : isolates a feature to check for renderer errors.
+func _probe(kind: String) -> void:
+	var main := get_parent()
+	var e: Ecosystem = main.eco
+	var c := Vector2i(main.grid.entrance.x - 3, 5)
+	match kind:
+		"evo":
+			var m := e.spawn(Monster.Kind.MOSS, Monster.MOSS, c, 3, "load")
+			e._evolve(m, Monster.BUD)
+		"evoactor":
+			var a := MonsterCatalog.make_actor("evolution")
+			main.add_child(a)
+			a.position = DungeonGrid.cell_center(c)
+		"evoraw":
+			var r: Node3D = MonsterCatalog.scene("evolution").instantiate()
+			main.add_child(r)
+		"adult":
+			e.spawn(Monster.Kind.BUG, Monster.ADULT, c, 3, "load")
+		"fx":
+			main.fx.ring(DungeonGrid.cell_center(c), Color.YELLOW)
+			main.fx.sparkle(DungeonGrid.cell_center(c), Color.YELLOW)
+			main.fx.motes(DungeonGrid.cell_center(c), DungeonGrid.cell_center(c + Vector2i(1, 0)))
+			main.fx.dust(DungeonGrid.cell_center(c), Color.WHITE)
+			main.fx.debris(c, 0.5)

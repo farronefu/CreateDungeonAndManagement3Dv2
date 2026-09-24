@@ -26,6 +26,8 @@ var dig_max := 0
 var build_left := 0.0
 var invasion_time := 0.0
 var speed := 1.0
+## last non-zero speed (restored when un-pausing)
+var _run_speed := 1.0
 var env: Environment
 var follow_hero := true
 
@@ -33,6 +35,7 @@ var _hero_portrait: Texture2D
 var _hero_cutin: PortraitStudio
 var _maou_cutin: PortraitStudio
 var _hud_timer := 0.0
+var _title_t := 0.0
 var _debug := {}
 var _frames := 0
 
@@ -59,42 +62,80 @@ func _ready() -> void:
 
 # ------------------------------------------------------------------ setup
 func _build_environment() -> void:
+	# late-afternoon sky over the town; the dungeon below is kept darker by its shaders,
+	# so torches read as real light sources down there
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.3, 0.46, 0.72)
+	sky_mat.sky_horizon_color = Color(0.86, 0.76, 0.62)
+	sky_mat.sky_curve = 0.12
+	sky_mat.ground_horizon_color = Color(0.72, 0.66, 0.56)
+	sky_mat.ground_bottom_color = Color(0.3, 0.32, 0.28)
+	sky_mat.sun_angle_max = 8.0
+	sky_mat.sun_curve = 0.06
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
 	env = Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.49, 0.75, 0.93)
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.66, 0.6, 0.56)
-	env.ambient_light_energy = 0.58
+	env.ambient_light_color = Color(0.62, 0.58, 0.62)
+	env.ambient_light_energy = 0.42
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.05
+	env.tonemap_exposure = 1.0
 	env.ssao_enabled = true
-	env.ssao_radius = 1.1
-	env.ssao_intensity = 2.2
-	env.ssao_power = 1.6
+	env.ssao_radius = 0.9
+	env.ssao_intensity = 2.6
+	env.ssao_power = 1.8
+	env.ssao_detail = 0.6
 	env.glow_enabled = true
-	env.glow_intensity = 0.55
-	env.glow_bloom = 0.04
-	env.glow_hdr_threshold = 1.1
+	env.glow_intensity = 0.45
+	env.glow_bloom = 0.0
+	env.glow_hdr_threshold = 1.35
+	env.fog_enabled = true
+	env.fog_mode = Environment.FOG_MODE_DEPTH
+	env.fog_light_color = Color(0.8, 0.74, 0.66)
+	env.fog_density = 1.0
+	env.fog_depth_begin = 48.0
+	env.fog_depth_end = 170.0
+	env.fog_sky_affect = 0.0
 	env.adjustment_enabled = true
+	env.adjustment_contrast = 1.06
 	env.adjustment_saturation = 1.0
-	env.adjustment_contrast = 1.05
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	var sun := DirectionalLight3D.new()
-	sun.light_color = Color(1.0, 0.93, 0.8)
-	sun.light_energy = 1.15
+	sun.light_color = Color(1.0, 0.94, 0.84)
+	sun.light_energy = 1.2
 	sun.shadow_enabled = true
-	sun.shadow_blur = 1.4
-	sun.directional_shadow_max_distance = 48.0
+	sun.shadow_blur = 1.2
+	sun.shadow_opacity = 0.85
+	sun.directional_shadow_max_distance = 50.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.rotation_degrees = Vector3(-58, -28, 0)
+	sun.rotation_degrees = Vector3(-50, -32, 0)
 	add_child(sun)
 	var fill := DirectionalLight3D.new()
-	fill.light_color = Color(0.55, 0.65, 0.9)
-	fill.light_energy = 0.25
+	fill.light_color = Color(0.5, 0.6, 0.9)
+	fill.light_energy = 0.22
 	fill.rotation_degrees = Vector3(-30, 150, 0)
 	add_child(fill)
+
+
+## Full-screen ink outline + grade + vignette, attached to the game camera.
+func _attach_post(camera: Camera3D) -> void:
+	var q := QuadMesh.new()
+	q.size = Vector2(2, 2)
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/post.gdshader")
+	mat.render_priority = -128
+	var mi := MeshInstance3D.new()
+	mi.mesh = q
+	mi.material_override = mat
+	mi.extra_cull_margin = 16384.0
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = Vector3(0, 0, -1)
+	camera.add_child(mi)
 
 
 func _setup_stage() -> void:
@@ -112,7 +153,6 @@ func _setup_stage() -> void:
 	view = DungeonView.new()
 	add_child(view)
 	view.setup(grid)
-	env.background_color = view.sky_color
 	fx = Effects.new()
 	add_child(fx)
 	layer = MonsterLayer.new()
@@ -131,6 +171,7 @@ func _setup_stage() -> void:
 	hero = Hero.new()
 	add_child(hero)
 	hero.setup(profile, grid, eco, maou, fx, float(stage["hero_mult"]))
+	hero.entry_path = view.surface.entry_path()
 	eco.hero = hero
 	hero.died.connect(_on_hero_died)
 	hero.escaped_with_maou.connect(_on_defeat)
@@ -145,6 +186,7 @@ func _setup_stage() -> void:
 	cam.set_bounds(Rect2(4, -1.5, grid.w - 8, grid.h - 3.5))
 	cam.focus_on(DungeonGrid.cell_center(grid.entrance) + Vector3(-1, 0, 4.5), true)
 	cam.current = true
+	_attach_post(cam)
 	cursor = DigCursor.new()
 	add_child(cursor)
 	cursor.grid = grid
@@ -161,7 +203,7 @@ func _build_ui() -> void:
 	hud = Hud.new()
 	add_child(hud)
 	hud.call_hero_pressed.connect(_on_call_hero)
-	hud.speed_changed.connect(func(s: float) -> void: speed = s)
+	hud.speed_changed.connect(_set_speed)
 	Pad.button_pressed.connect(_on_pad_button)
 	hud.set_stage("STAGE %d  %s" % [GameState.stage_index + 1, stage["name"]])
 	var hero_scene := load(profile.model_path) as PackedScene
@@ -197,6 +239,9 @@ func _build_ui() -> void:
 # ------------------------------------------------------------------ phases
 func _begin_intro() -> void:
 	phase = Phase.INTRO
+	cam.reset_angle()
+	cam.zoom = 1.0
+	cam.focus_on(DungeonGrid.cell_center(grid.entrance) + Vector3(-1, 0, 4.5))
 	hud.set_visible_all(true)
 	Sfx.play_bgm("build")
 	_hero_cutin.actor.play(profile.anim_idle, 0.0)
@@ -334,6 +379,13 @@ func _process(delta: float) -> void:
 	_frames += 1
 	var dt := delta * speed
 	match phase:
+		Phase.TITLE:
+			# slow orbit over the town and the dungeon behind the title
+			_title_t += delta
+			cam.focus_on(DungeonGrid.cell_center(grid.entrance) + Vector3(sin(_title_t * 0.05) * 6.0, 0, 1.5))
+			cam.set_angle(sin(_title_t * 0.07) * 0.55 - 0.25, deg_to_rad(30.0), false)
+			cam.zoom = 0.9
+			eco.tick(delta)
 		Phase.BUILD:
 			eco.tick(dt)
 			build_left -= dt
@@ -378,11 +430,11 @@ func _update_hud(_force: bool) -> void:
 	hud.update_dig(dig_left, dig_max)
 	match phase:
 		Phase.TITLE, Phase.INTRO, Phase.BUILD:
-			hud.update_phase("建設フェーズ", "勇者到着まで " + _fmt_time(build_left), phase == Phase.BUILD)
+			hud.update_phase("勇者の到着まで", _fmt_time(build_left), phase == Phase.BUILD)
 		Phase.PLACE, Phase.HERO_INTRO:
-			hud.update_phase("魔王配置", "--:--", false)
+			hud.update_phase("魔王を配置", "--:--", false)
 		_:
-			hud.update_phase("勇者侵攻中！" if phase == Phase.INVASION else "決着", "経過 " + _fmt_time(invasion_time), false)
+			hud.update_phase("侵攻経過", _fmt_time(invasion_time), false)
 	hud.update_eco({
 		"moss": eco.count(Monster.Kind.MOSS, Monster.MOSS),
 		"moss_flower": eco.count(Monster.Kind.MOSS, Monster.BUD) + eco.count(Monster.Kind.MOSS, Monster.FLOWER),
@@ -397,8 +449,11 @@ func _update_hud(_force: bool) -> void:
 func _on_pad_button(b: int) -> void:
 	match b:
 		JOY_BUTTON_RIGHT_SHOULDER:
-			if phase == Phase.BUILD or phase == Phase.PLACE or phase == Phase.INVASION:
+			if _can_change_speed():
 				_cycle_speed()
+		JOY_BUTTON_START:
+			if _can_change_speed():
+				_toggle_pause()
 		JOY_BUTTON_Y:
 			if phase == Phase.BUILD:
 				_on_call_hero()
@@ -408,9 +463,29 @@ func _on_pad_button(b: int) -> void:
 
 
 func _cycle_speed() -> void:
-	speed = 1.0 if speed >= 3.0 else speed + 1.0
-	hud.set_speed(speed)
+	_set_speed(1.0 if speed == 0.0 or speed >= 3.0 else speed + 1.0)
 	Sfx.play("click")
+
+
+func _toggle_pause() -> void:
+	_set_speed(_run_speed if speed == 0.0 else 0.0)
+	Sfx.play("click")
+
+
+## 0 pauses: the simulation stops and monsters / hero / effects freeze in place,
+## while the camera, cursor and tooltips keep working so the player can look around.
+func _set_speed(s: float) -> void:
+	speed = s
+	if s > 0.0:
+		_run_speed = s
+	hud.set_speed(s)
+	var pm := Node.PROCESS_MODE_DISABLED if s == 0.0 else Node.PROCESS_MODE_INHERIT
+	for n in [layer, fx, hero, maou]:
+		(n as Node).process_mode = pm
+
+
+func _can_change_speed() -> bool:
+	return phase == Phase.BUILD or phase == Phase.PLACE or phase == Phase.INVASION
 
 
 func _toggle_follow() -> void:
@@ -429,6 +504,10 @@ func _on_click(c: Vector2i) -> void:
 
 
 func _try_dig(c: Vector2i) -> bool:
+	if speed == 0.0:
+		Sfx.play("dig_fail")
+		hud.toast("一時停止中は掘れません", UiTheme.TEXT_DIM)
+		return false
 	if dig_left <= 0:
 		Sfx.play("dig_fail")
 		hud.toast("採掘可能数が残っていない！", UiTheme.WARN)
@@ -451,17 +530,17 @@ func _try_dig(c: Vector2i) -> bool:
 
 func _cursor_color(c: Vector2i) -> Color:
 	if phase == Phase.PLACE:
-		return Color(0.85, 0.45, 1.0, 1.0) if _valid_place(c) else Color(1, 0.25, 0.2, 0.45)
+		return Color(0.86, 0.6, 1.0, 1.0) if _valid_place(c) else Color(1, 0.4, 0.32, 0.5)
 	if grid.is_floor(c):
 		return Color(0, 0, 0, 0)
 	if grid.can_dig(c) and dig_left > 0:
 		var n := grid.get_nutrient(c)
 		if n >= Balance.BUG_SPAWN_MIN:
-			return Color(1.0, 0.45, 0.2, 1.0)
+			return Color(1.0, 0.62, 0.35, 1.0)
 		if n >= Balance.MOSS_SPAWN_MIN:
-			return Color(0.55, 1.0, 0.3, 1.0)
-		return Color(1.0, 0.8, 0.45, 1.0)
-	return Color(1.0, 0.25, 0.2, 0.5)
+			return Color(0.72, 1.0, 0.55, 1.0)
+		return Color(1.0, 0.92, 0.72, 1.0)
+	return Color(1.0, 0.45, 0.38, 0.45)
 
 
 # ------------------------------------------------------------------ hover popup
@@ -571,7 +650,9 @@ func _cell_tip(c: Vector2i) -> String:
 func _unhandled_key_input(event: InputEvent) -> void:
 	var k := event as InputEventKey
 	if k and k.pressed and not k.echo:
-		if k.keycode == KEY_SPACE and phase == Phase.BUILD:
+		if k.keycode == KEY_P and _can_change_speed():
+			_toggle_pause()
+		elif k.keycode == KEY_SPACE and phase == Phase.BUILD:
 			_on_call_hero()
 		elif k.keycode == KEY_F and phase == Phase.INVASION:
 			_toggle_follow()
@@ -598,7 +679,7 @@ func _debug_bootstrap() -> void:
 	phase = Phase.BUILD
 	cursor.mode = DigCursor.Mode.DIG
 	if _debug.has("speed"):
-		speed = float(_debug["speed"])
+		_set_speed(float(_debug["speed"]))
 	var digs := int(_debug.get("digs", 0))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
@@ -654,6 +735,8 @@ func _debug_bootstrap() -> void:
 		screens.show_title()
 	if _debug.has("cutin"):
 		cutin.play("勇者%sが現れた！" % profile.display_name, profile.intro_line, _hero_cutin.get_texture(), Color(0.8, 0.12, 0.1), 60.0)
+	if _debug.has("angle"):
+		add_child(load("res://scripts/debug/angle.gd").new())
 	if _debug.has("dump"):
 		add_child(load("res://scripts/debug/dump.gd").new())
 
@@ -723,11 +806,11 @@ func _padtest() -> void:
 		cursor.pad_cell = Vector2i(grid.entrance.x + 3, 5)
 		_pt["speed_after_RB"] = speed
 		_pt["dig0"] = dig_left
-		_pad_event(JOY_BUTTON_X, true)
+		_pad_event(JOY_BUTTON_A, true)
 		_pad_event(JOY_BUTTON_DPAD_RIGHT, true)
 	elif f == 190:
 		_pad_event(JOY_BUTTON_DPAD_RIGHT, false)
-		_pad_event(JOY_BUTTON_X, false)
+		_pad_event(JOY_BUTTON_A, false)
 		_pt["dig1"] = dig_left
 		_pt["cursor"] = cursor.pad_cell
 		_pad_event(JOY_BUTTON_Y, true)
@@ -737,7 +820,18 @@ func _padtest() -> void:
 		cursor.pad_cell = Vector2i(grid.entrance.x + 3, 8)
 		_pad_event(JOY_BUTTON_A, true)
 		_pad_event(JOY_BUTTON_A, false)
+	elif f == 205:
+		_pad_event(JOY_BUTTON_START, true)
+		_pad_event(JOY_BUTTON_START, false)
+	elif f == 208:
+		_pt["paused_speed"] = speed
+		_pt["dig_before_paused_dig"] = dig_left
+		_on_click(Vector2i(grid.entrance.x + 4, 5))
+		_pt["dig_after_paused_dig"] = dig_left
+		_pad_event(JOY_BUTTON_START, true)
+		_pad_event(JOY_BUTTON_START, false)
 	elif f == 215:
+		_pt["speed_after_unpause"] = speed
 		_pt["maou_placed"] = maou.placed
 		_pt["maou_cell"] = maou.cell
 		print("PADTEST ", _pt)
@@ -825,7 +919,8 @@ func _autoplay() -> void:
 					_auto_digs += 1
 			elif _auto_digs >= 45 and build_left < float(stage["build_time"]) - 60.0:
 				_on_call_hero()
-			speed = 3.0
+			if speed != 3.0:
+				_set_speed(3.0)
 		Phase.PLACE:
 			var dist := grid.distance_map(grid.entrance)
 			var far := grid.entrance
@@ -836,7 +931,8 @@ func _autoplay() -> void:
 						far = c
 			_on_click(far)
 		Phase.INVASION:
-			speed = 3.0
+			if speed != 3.0:
+				_set_speed(3.0)
 		Phase.RESULT:
 			if _freeze_probe.is_empty():
 				_freeze_probe = _world_probe()
