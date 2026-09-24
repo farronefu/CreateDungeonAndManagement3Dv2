@@ -61,7 +61,8 @@ func _ready() -> void:
 func _studio(key: String, px: int, cam_pos: Vector3, look: Vector3, fov: float = 30.0, height: float = 0.0) -> TextureRect:
 	var s := PortraitStudio.new()
 	add_child(s)
-	s.setup(MonsterCatalog.scene(key), Vector2i(px, px), height, cam_pos, look, fov, bool(MonsterCatalog.MODELS[key]["fix_colors"]))
+	var entry: Dictionary = MonsterCatalog.MODELS[key]
+	s.setup(MonsterCatalog.scene(key), Vector2i(px, px), height, cam_pos, look, fov, bool(entry["fix_colors"]), [], (entry["anims"] as Dictionary).duplicate())
 	s.freeze_after(4)
 	_studios.append(s)
 	var tr := TextureRect.new()
@@ -260,8 +261,8 @@ func _build_eco_panel() -> void:
 	var rows := [
 		["moss", "モコゴケ", Vector3(0, 0.55, 0.9), Vector3(0, 0.22, 0), 0.45],
 		["moss_flower", "ツボミ / モコバナ", Vector3(0, 0.62, 1.25), Vector3(0, 0.36, 0), 0.72],
-		["bug_larva", "ザクザクムシ 幼虫", Vector3(0.35, 0.5, 0.75), Vector3(0, 0.12, 0.02), 0.0],
-		["bug_pupa", "ザクザクムシ サナギ", Vector3(0, 0.5, 0.95), Vector3(0, 0.22, 0), 0.0],
+		["bug_larva", "ザクザクムシ 幼虫", Vector3(0.55, 0.62, 0.95), Vector3(0, 0.12, 0), 0.4],
+		["bug_pupa", "ザクザクムシ サナギ", Vector3(0.35, 0.55, 0.8), Vector3(0, 0.12, 0), 0.4],
 		["bug_adult", "ザクザクムシ 成虫", Vector3(0.45, 0.65, 0.8), Vector3(0, 0.22, 0), 0.0],
 	]
 	for r in rows:

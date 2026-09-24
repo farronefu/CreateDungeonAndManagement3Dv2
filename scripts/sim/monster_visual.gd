@@ -115,11 +115,20 @@ func sync(delta: float) -> void:
 		_play_request(m.anim_request, m.busy)
 		m.anim_request = ""
 	if m.is_moving() and actor.has_anim("move"):
-		actor.play("move", 0.15, actor.anim_length("move") / maxf(0.05, m.move_dur))
+		actor.play("move", 0.15, _move_speed())
 	else:
 		actor.play(m.base_anim)
 	_last_hp = m.hp
 	_update_bar(delta)
+
+
+## Walk playback rate: one cycle per cell, or matched to the model's stride (capped so legs stay readable).
+func _move_speed() -> float:
+	var clip_len := actor.anim_length("move")
+	var stride := MonsterCatalog.stride_of(m.model_key())
+	if stride > 0.0:
+		return minf(3.0, clip_len / (stride * m.move_dur))
+	return clip_len / maxf(0.05, m.move_dur)
 
 
 ## Plays a one-shot clip timed to the simulation's action length, or a procedural stand-in.

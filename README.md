@@ -101,6 +101,8 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | 勇者 | `assets/models/hero/hero.glb` | idle / walk / attack / death（死亡）/ joy（魔王を見つけて喜ぶ）/ look_around（分かれ道で見回す） |
 | モコゴケ（草の魔物） | `assets/models/grass/grass.glb` | walk（移動）/ attack（体当たり、0.44 の位置で命中）/ gather（養分吸収）。idle は walk の先頭姿勢から生成 |
 | ツボミ・モコバナ（進化後の木） | `assets/models/grass/tree.glb` | 静止モデル。吸収・被弾・消滅はゲーム側の揺れ・縮小で表現 |
+| ザクザクムシ 幼虫（ダンゴムシ幼体） | `assets/models/pillbug/juvenile-pillbug.glb` | Walk（移動）/ Attack（体当たり・捕食、44% で命中）/ Death（粉々に割れて消える） |
+| ザクザクムシ サナギ | 同上 | Curl（幼虫からサナギになる時に丸まる）→ CurlIdle（丸まったまま呼吸）/ Uncurl（羽化の直前に戻る）/ Death |
 | 進化演出 | `assets/models/grass/evolution.glb` + `evolution-color.json` + `shaders/autumn.gdshader` | モコゴケがツボミになる時に 7 秒再生（秋色への色変化つき） |
 
 ### 魔物・魔王・ツルハシ

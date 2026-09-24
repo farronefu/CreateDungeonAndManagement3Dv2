@@ -6,7 +6,7 @@ var actor: ModelActor
 var cam: Camera3D
 
 
-func setup(packed: PackedScene, px: Vector2i, height: float, cam_pos: Vector3, look_at_pos: Vector3, fov_deg: float = 30.0, fix_colors: bool = false, loops: Array = []) -> void:
+func setup(packed: PackedScene, px: Vector2i, height: float, cam_pos: Vector3, look_at_pos: Vector3, fov_deg: float = 30.0, fix_colors: bool = false, loops: Array = [], clip_map: Dictionary = {}) -> void:
 	size = px
 	transparent_bg = true
 	own_world_3d = true
@@ -33,7 +33,8 @@ func setup(packed: PackedScene, px: Vector2i, height: float, cam_pos: Vector3, l
 	add_child(rim)
 	actor = ModelActor.new()
 	add_child(actor)
-	actor.setup(packed, height, 0.0, fix_colors, loops)
+	actor.setup(packed, height, 0.0, fix_colors, loops, clip_map)
+	actor.play("idle", 0.0)
 	cam = Camera3D.new()
 	cam.fov = fov_deg
 	add_child(cam)
