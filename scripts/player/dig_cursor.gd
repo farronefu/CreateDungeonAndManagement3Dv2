@@ -1,0 +1,130 @@
+class_name DigCursor
+extends Node3D
+## The player's pickaxe cursor: highlights the block under the mouse and emits clicks.
+
+signal clicked(cell: Vector2i)
+signal hovered(cell: Vector2i)
+
+enum Mode { NONE, DIG, PLACE }
+
+var grid: DungeonGrid
+var view: DungeonView
+var camera: Camera3D
+var mode := Mode.NONE
+var hover := Vector2i(-999, -999)
+## Callable(cell) -> Color : frame colour (alpha 0 hides it)
+var validator: Callable
+
+var _frame: MeshInstance3D
+var _frame_mat: StandardMaterial3D
+var _pick: Node3D
+var _pick_pivot: Node3D
+var _t := 0.0
+var _swinging := false
+
+
+func _ready() -> void:
+	_frame = MeshInstance3D.new()
+	_frame.mesh = _frame_mesh()
+	_frame_mat = StandardMaterial3D.new()
+	_frame_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_frame_mat.albedo_color = Color(1.0, 0.7, 0.2)
+	_frame_mat.emission_enabled = true
+	_frame_mat.emission = Color(1.0, 0.6, 0.15)
+	_frame_mat.emission_energy_multiplier = 2.5
+	_frame_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_frame_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_frame.material_override = _frame_mat
+	_frame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_frame)
+	_pick_pivot = Node3D.new()
+	add_child(_pick_pivot)
+	var pick := MonsterCatalog.make_actor("pickaxe")
+	pick.set_shadows(true)
+	_pick = Node3D.new()
+	_pick.add_child(pick)
+	# grip at the bottom of the handle: rotate so the head points up-left
+	pick.position = Vector3(0, -0.12, 0)
+	_pick_pivot.add_child(_pick)
+	_pick.scale = Vector3.ONE * 0.9
+
+
+func _frame_mesh() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var o := 0.5
+	var i := 0.43
+	var y := 0.0
+	var quads := [
+		[Vector3(-o, y, -o), Vector3(o, y, -o), Vector3(o, y, -i), Vector3(-o, y, -i)],
+		[Vector3(-o, y, i), Vector3(o, y, i), Vector3(o, y, o), Vector3(-o, y, o)],
+		[Vector3(-o, y, -i), Vector3(-i, y, -i), Vector3(-i, y, i), Vector3(-o, y, i)],
+		[Vector3(i, y, -i), Vector3(o, y, -i), Vector3(o, y, i), Vector3(i, y, i)],
+	]
+	st.set_normal(Vector3.UP)
+	for q in quads:
+		for idx in [0, 2, 1, 0, 3, 2]:
+			st.add_vertex(q[idx])
+	return st.commit()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if mode == Mode.NONE:
+		return
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT and grid.in_bounds(hover):
+			clicked.emit(hover)
+
+
+func swing() -> void:
+	if _swinging:
+		return
+	_swinging = true
+	var tw := create_tween()
+	tw.tween_property(_pick, "rotation:z", 0.9, 0.08).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_pick, "rotation:z", -0.9, 0.09).set_ease(Tween.EASE_IN)
+	tw.tween_property(_pick, "rotation:z", 0.0, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func() -> void: _swinging = false)
+
+
+func _process(delta: float) -> void:
+	_t += delta
+	if mode == Mode.NONE or camera == null:
+		_frame.visible = false
+		_pick_pivot.visible = false
+		view.set_hover(Vector2i(-999, -999), 0.0)
+		return
+	var c := _mouse_cell()
+	if c != hover:
+		hover = c
+		hovered.emit(c)
+	var solid := grid.in_bounds(c) and not grid.is_floor(c)
+	var y := Balance.BLOCK_H + 0.025 if solid else 0.02
+	var col := validator.call(c) as Color if validator.is_valid() else Color(1, 0.7, 0.2)
+	_frame.visible = grid.in_bounds(c) and col.a > 0.0
+	_frame.position = Vector3(c.x + 0.5, y, c.y + 0.5)
+	var pulse := 0.75 + 0.25 * sin(_t * 6.0)
+	_frame_mat.albedo_color = Color(col.r, col.g, col.b, col.a * pulse)
+	_frame_mat.emission = Color(col.r, col.g, col.b)
+	view.set_hover(c if solid else Vector2i(-999, -999), 0.6 * pulse * col.a)
+	_pick_pivot.visible = mode == Mode.DIG and grid.in_bounds(c)
+	var target := Vector3(c.x + 0.95, y + 0.25 + sin(_t * 3.0) * 0.03, c.y + 0.55)
+	_pick_pivot.position = _pick_pivot.position.lerp(target, clampf(delta * 18.0, 0.0, 1.0))
+	_pick_pivot.rotation = Vector3(0.0, 0.0, 0.55)
+
+
+func _mouse_cell() -> Vector2i:
+	var mp := get_viewport().get_mouse_position()
+	var o := camera.project_ray_origin(mp)
+	var d := camera.project_ray_normal(mp)
+	if absf(d.y) < 1e-4:
+		return hover
+	# first test the tops of the blocks, then the floor
+	var t_top := (Balance.BLOCK_H - o.y) / d.y
+	var p_top := o + d * t_top
+	var c_top := DungeonGrid.world_to_cell(p_top)
+	if grid.in_bounds(c_top) and not grid.is_floor(c_top):
+		return c_top
+	var t_floor := (0.0 - o.y) / d.y
+	return DungeonGrid.world_to_cell(o + d * t_floor)

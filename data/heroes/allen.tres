@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="HeroProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/actors/hero_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "アレン"
+intro_line = "魔王をさらいに来たぞ！"
+model_path = "res://assets/models/hero/hero.glb"
+model_height = 0.85
+model_yaw_offset_deg = 0.0
+anim_idle = "idle"
+anim_walk = "walk"
+anim_attack = "attack"
+attack_anim_speed = 1.4
+attack_hit_time = 0.7
+walk_anim_speed = 1.0
+max_hp = 120
+max_mp = 30
+atk = 8
+defense = 1
+move_time = 0.55
+carry_move_time = 0.8
+attack_interval = 1.15
+heal_amount = 35
+heal_cost = 6
+sight = 4

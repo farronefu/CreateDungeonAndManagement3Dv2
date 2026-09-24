@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<title>Model Preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1d1a17; color: #eee; font: 13px system-ui, sans-serif; overflow: hidden; }
+  #ui { position: absolute; left: 8px; top: 8px; display: flex; flex-direction: column; gap: 6px; max-width: 60vw; }
+  .row { display: flex; flex-wrap: wrap; gap: 4px; }
+  button { background: #3a332c; color: #eee; border: 1px solid #5a5046; border-radius: 4px; padding: 3px 8px; cursor: pointer; }
+  button.on { background: #b07a2a; border-color: #e0a850; }
+  #info { position: absolute; right: 8px; bottom: 8px; background: #0008; padding: 6px 8px; border-radius: 4px; white-space: pre; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="ui"><div class="row" id="models"></div><div class="row" id="anims"></div></div>
+<div id="info"></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const params = new URLSearchParams(location.search);
+const MODELS = (params.get('models') || 'moss,moss_bud,moss_flower,bug_larva,bug_pupa,bug_adult,maou,pickaxe,hero').split(',');
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#2a241e');
+const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.01, 50);
+const view = params.get('view') || 'front';
+camera.position.set(...(view === 'game' ? [0, 1.9, 1.35] : view === 'side' ? [1.6, 0.7, 0.2] : [0.9, 0.75, 1.4]));
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.25, 0);
+controls.update();
+
+scene.add(new THREE.HemisphereLight('#fff4e0', '#4a3a2a', 1.1));
+const sun = new THREE.DirectionalLight('#ffe6c4', 2.4);
+sun.position.set(1.5, 3, 2);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = sun.shadow.camera.bottom = -1.5;
+sun.shadow.camera.right = sun.shadow.camera.top = 1.5;
+scene.add(sun);
+const rim = new THREE.DirectionalLight('#9ab8ff', 0.8);
+rim.position.set(-2, 1.5, -2);
+scene.add(rim);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshStandardMaterial({ color: '#6b4a2e', roughness: 1 }));
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+const gridHelper = new THREE.GridHelper(6, 6, '#8a6a4a', '#5a4230');
+gridHelper.position.y = 0.001;
+scene.add(gridHelper);
+
+const loader = new GLTFLoader();
+let current = null, mixer = null, clips = [], action = null;
+const clock = new THREE.Clock();
+
+function setAnim(name) {
+  if (!mixer) return;
+  const clip = clips.find((c) => c.name === name);
+  if (!clip) return;
+  if (action) action.stop();
+  action = mixer.clipAction(clip);
+  action.reset().play();
+  document.querySelectorAll('#anims button').forEach((b) => b.classList.toggle('on', b.textContent === name));
+  window.__anim = name;
+}
+
+async function load(name) {
+  const url = name === 'hero' ? '/assets/models/hero/hero.glb' : `/assets/models/monsters/${name}.glb`;
+  const gltf = await loader.loadAsync(url + '?t=' + Date.now());
+  if (current) scene.remove(current);
+  current = gltf.scene;
+  let tris = 0;
+  current.traverse((o) => {
+    if (o.isMesh) {
+      o.castShadow = o.receiveShadow = true;
+      tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
+    }
+  });
+  if (name === 'hero') {
+    const box = new THREE.Box3().setFromObject(current);
+    current.scale.setScalar(0.9 / (box.max.y - box.min.y));
+  }
+  scene.add(current);
+  mixer = new THREE.AnimationMixer(current);
+  clips = gltf.animations;
+  const animsEl = document.getElementById('anims');
+  animsEl.innerHTML = '';
+  for (const c of clips) {
+    const b = document.createElement('button');
+    b.textContent = c.name;
+    b.onclick = () => setAnim(c.name);
+    animsEl.appendChild(b);
+  }
+  document.querySelectorAll('#models button').forEach((b) => b.classList.toggle('on', b.textContent === name));
+  document.getElementById('info').textContent = `${name}\ntris: ${tris}\nclips: ${clips.map((c) => c.name + '(' + c.duration.toFixed(2) + 's)').join(', ')}`;
+  const want = params.get('anim');
+  setAnim(want && clips.some((c) => c.name === want) ? want : clips[0]?.name);
+  window.__ready = name;
+}
+
+const modelsEl = document.getElementById('models');
+for (const n of MODELS) {
+  const b = document.createElement('button');
+  b.textContent = n;
+  b.onclick = () => load(n);
+  modelsEl.appendChild(b);
+}
+window.__load = load;
+window.__setAnim = setAnim;
+window.__seek = (t) => { if (action) { action.paused = true; action.time = t; mixer.update(0); } };
+load(params.get('model') || MODELS[0]);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta();
+  if (mixer) mixer.update(dt);
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
