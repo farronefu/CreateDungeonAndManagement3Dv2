@@ -367,15 +367,33 @@ func _build_entrance() -> void:
 	add_child(hole)
 
 
+## Hand-made backdrop: drop an image here to replace the generated town (see README).
+##   town.png          pixel art (nearest filtering)
+##   town_painted.png  painted / high resolution art (smooth filtering)
+const BACKDROP_PIXEL := "res://assets/backdrop/town.png"
+const BACKDROP_PAINTED := "res://assets/backdrop/town_painted.png"
+
+
 func _build_backdrop() -> void:
 	var width := float(grid.w + OUTER_SIDE * 2)
-	var tex := TownBackdrop.new().generate(7, width)
-	var height := float(TownBackdrop.H) / TownBackdrop.PX_PER_UNIT
+	var tex: Texture2D
+	var smooth := false
+	if ResourceLoader.exists(BACKDROP_PAINTED):
+		tex = load(BACKDROP_PAINTED)
+		smooth = true
+	elif ResourceLoader.exists(BACKDROP_PIXEL):
+		tex = load(BACKDROP_PIXEL)
+	else:
+		tex = TownBackdrop.new().generate(7, width)
+	# the strip always spans the full width; its height follows the image's aspect ratio
+	var height := width * float(tex.get_height()) / float(tex.get_width())
 	var q := QuadMesh.new()
 	q.size = Vector2(width, height)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_texture = tex
-	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if smooth else BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	if tex.has_alpha():
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	var mi := MeshInstance3D.new()
 	mi.mesh = q
@@ -383,7 +401,8 @@ func _build_backdrop() -> void:
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# tilt the painting back so it faces the (55° down) camera; bottom edge sits on the surface
 	var tilt := deg_to_rad(-55.0)
-	var bottom := Vector3(grid.w * 0.5, Balance.BLOCK_H + 0.02, -0.02)
+	# image centre sits right above the dungeon entrance
+	var bottom := Vector3(grid.entrance.x + 0.5, Balance.BLOCK_H + 0.02, -0.02)
 	var up := Vector3(0, cos(tilt), sin(tilt))
 	mi.rotation.x = tilt
 	mi.position = bottom + up * height * 0.5

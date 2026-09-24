@@ -4,6 +4,10 @@ extends Node3D
 ## provides cross-faded playback plus hit-flash / fade helpers.
 ## Any GLB that follows the animation naming in HeroProfile / MonsterCatalog can be dropped in.
 
+## Effect meshes (hidden by shrunken bones, or padded with far-away bounds triangles) that must not
+## count towards the model size: supplied grass / tree / pillbug death & attack FX.
+const AABB_IGNORE := ["Withered", "Thorned", "Shard", "fx_", "Nutrient", "SwirlLeaf"]
+
 const LOOPING := ["idle", "move", "walk", "absorb", "eat", "carried", "scared", "cheer"]
 
 var model: Node3D
@@ -64,11 +68,15 @@ func anim_length(n: String) -> float:
 	return anim.get_animation(_clip(n)).length if has_anim(n) else 0.0
 
 
-## Models without an idle clip (e.g. the supplied grass) hold the first key of their walk clip.
+## Models without an idle clip hold the first key of their walk clip (the supplied grass) or,
+## failing that, of their attack clip (the static tree, whose first attack key is its rest pose).
 func _ensure_idle() -> void:
-	if has_anim("idle") or not has_anim("move"):
+	if has_anim("idle"):
 		return
-	var idle := anim.get_animation(_clip("move")).duplicate(true) as Animation
+	var src := "move" if has_anim("move") else ("attack" if has_anim("attack") else "")
+	if src == "":
+		return
+	var idle := anim.get_animation(_clip(src)).duplicate(true) as Animation
 	for track in idle.get_track_count():
 		while idle.track_get_key_count(track) > 1:
 			idle.track_remove_key(track, idle.track_get_key_count(track) - 1)
@@ -160,6 +168,8 @@ func _model_aabb() -> AABB:
 	var first := true
 	for g in _meshes:
 		if not (g is MeshInstance3D) or (g as MeshInstance3D).mesh == null:
+			continue
+		if AABB_IGNORE.any(func(p: String) -> bool: return g.name.contains(p)):
 			continue
 		var mi := g as MeshInstance3D
 		var xf := _relative_xform(g)

@@ -103,6 +103,7 @@ func _refund(c: Vector2i, n: int) -> Monster:
 
 func _set_stage(m: Monster, stage: int, fresh: bool) -> void:
 	m.stage = stage
+	m.stage_t = 0.0
 	m.age = 0.0 if fresh else m.age
 	m.timer = 0.0
 	m.busy = 0.0
@@ -118,11 +119,11 @@ func _set_stage(m: Monster, stage: int, fresh: bool) -> void:
 			Monster.BUD:
 				m.max_hp = Balance.BUD_HP * mm
 				m.hp = m.max_hp
-				m.atk = 0
+				m.atk = Balance.BUD_ATK * mm
 			Monster.FLOWER:
 				m.max_hp = Balance.FLOWER_HP * mm
 				m.hp = m.max_hp
-				m.atk = 0
+				m.atk = Balance.FLOWER_ATK * mm
 	else:
 		match stage:
 			Monster.LARVA:
@@ -188,6 +189,7 @@ func tick(delta: float) -> void:
 		if not m.alive:
 			continue
 		m.age += delta
+		m.stage_t += delta
 		m.cooldown = maxf(0.0, m.cooldown - delta)
 		if m.hit_timer >= 0.0:
 			m.hit_timer -= delta
@@ -261,7 +263,10 @@ func _try_attack_hero(m: Monster, front_only: bool) -> bool:
 		m.dir = d
 	m.anim_request = "attack"
 	m.busy = Balance.MOSS_ATTACK_BUSY if m.kind == Monster.Kind.MOSS else Balance.BUG_ATTACK_BUSY
-	m.cooldown = Balance.MOSS_ATTACK_CD if m.kind == Monster.Kind.MOSS else Balance.BUG_ATTACK_CD
+	if m.kind == Monster.Kind.MOSS:
+		m.cooldown = Balance.MOSS_ATTACK_CD if m.stage == Monster.MOSS else Balance.TREE_ATTACK_CD
+	else:
+		m.cooldown = Balance.BUG_ATTACK_CD
 	m.hit_dmg = int(round(m.atk * rng.randf_range(0.85, 1.15)))
 	m.hit_timer = m.busy * Balance.ATTACK_HIT_FRACTION
 	return true
@@ -368,6 +373,8 @@ func _tick_bud(m: Monster, delta: float) -> void:
 	if m.busy > 0.0:
 		m.busy -= delta
 		return
+	if m.stage_t > Balance.BUD_ATTACK_DELAY and _try_attack_hero(m, false):
+		return
 	m.timer += delta
 	if m.timer >= Balance.BUD_ABSORB_INTERVAL:
 		m.timer = 0.0
@@ -381,6 +388,8 @@ func _tick_flower(m: Monster, delta: float) -> void:
 		m.busy -= delta
 		if m.busy <= 0.0 and m.timer < 0.0:
 			_flower_bloom(m)
+		return
+	if _try_attack_hero(m, false):
 		return
 	m.timer += delta
 	if fmod(m.age, Balance.BUD_ABSORB_INTERVAL) < delta:

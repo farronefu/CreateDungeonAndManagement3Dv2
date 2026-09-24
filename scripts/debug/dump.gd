@@ -27,6 +27,10 @@ var _t := 0.0
 
 
 func _physics_process(delta: float) -> void:
+	if "--showcase_plants" in OS.get_cmdline_user_args():
+		_process_plants(delta)
+		_process_plants_log()
+		return
 	if not ("--showcase" in OS.get_cmdline_user_args()):
 		return
 	var main := get_parent()
@@ -45,3 +49,44 @@ func _physics_process(delta: float) -> void:
 		main.cam.zoom = 0.32
 	elif _victim and _victim.alive and _t > 1.5:
 		e.kill(_victim, "killed")
+
+
+## --showcase_plants: grass dies, a tree stabs forward with its root, another tree withers.
+var _plants := []
+var _pt := 0.0
+
+
+func _process_plants(delta: float) -> void:
+	var main := get_parent()
+	var e: Ecosystem = main.eco
+	var y := 5
+	var x0: int = main.grid.entrance.x - 3
+	_pt += delta
+	if _plants.is_empty() and _pt > 0.3:
+		var grass := e.spawn(Monster.Kind.MOSS, Monster.MOSS, Vector2i(x0, y), 2, "load")
+		var tree := e.spawn(Monster.Kind.MOSS, Monster.FLOWER, Vector2i(x0 + 2, y), 4, "load")
+		var tree2 := e.spawn(Monster.Kind.MOSS, Monster.FLOWER, Vector2i(x0 + 4, y), 4, "load")
+		for m in [grass, tree, tree2]:
+			m.busy = 999.0
+			m.dir = Vector2i(0, 1)
+		tree.dir = Vector2i(-1, 0)
+		main.cam.set_angle(0.0, deg_to_rad(78.0))
+		_plants = [grass, tree, tree2]
+		main.cam.focus_on(DungeonGrid.cell_center(Vector2i(x0 + 2, y)), true)
+		main.cam.zoom = 0.34
+	elif _plants.size() == 3 and _pt > 1.2 and _plants[0].alive:
+		e.kill(_plants[0], "killed")
+		e.kill(_plants[2], "killed")
+		_plants[1].anim_request = "attack"
+		_plants[1].busy = 1.0
+
+
+func _process_plants_log() -> void:
+	if _plants.size() == 3 and _plants[1].visual:
+		var a: ModelActor = _plants[1].visual.actor
+		if a and a.anim and a.anim.current_animation == "attack" and a.anim.current_animation_position > 0.68 and not has_meta("shot"):
+			set_meta("shot", true)
+			var img := get_viewport().get_texture().get_image()
+			img.save_png("debug_shots/tree_strike.png")
+		if a and a.anim and Engine.get_process_frames() % 6 == 0:
+			print("TREE t=%.2f cur=%s playing=%s pos=%.2f speed=%.2f" % [_pt, a.current, a.anim.current_animation, a.anim.current_animation_position if a.anim.is_playing() else -1.0, a.anim.speed_scale])

@@ -99,8 +99,8 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | ゲーム内 | ファイル | 使用クリップ |
 | --- | --- | --- |
 | 勇者 | `assets/models/hero/hero.glb` | idle / walk / attack / death（死亡）/ joy（魔王を見つけて喜ぶ）/ look_around（分かれ道で見回す） |
-| モコゴケ（草の魔物） | `assets/models/grass/grass.glb` | walk（移動）/ attack（体当たり、0.44 の位置で命中）/ gather（養分吸収）。idle は walk の先頭姿勢から生成 |
-| ツボミ・モコバナ（進化後の木） | `assets/models/grass/tree.glb` | 静止モデル。吸収・被弾・消滅はゲーム側の揺れ・縮小で表現 |
+| モコゴケ（草の魔物） | `assets/models/grass/grass.glb` | walk（移動）/ attack（体当たり、0.44 の位置で命中）/ gather（養分吸収）/ die（枯れて粒になって消える）。idle は walk の先頭姿勢から生成 |
+| ツボミ・モコバナ（進化後の木） | `assets/models/grass/tree.glb` | attack（トゲの根で隣のマスを突き刺す、0.44 で命中）/ die（枯れて粒になって消える）。idle は attack の先頭姿勢。吸収・被弾はゲーム側の揺れで表現 |
 | ザクザクムシ 幼虫（ダンゴムシ幼体） | `assets/models/pillbug/juvenile-pillbug.glb` | Walk（移動）/ Attack（体当たり・捕食、44% で命中）/ Death（粉々に割れて消える） |
 | ザクザクムシ サナギ | 同上 | Curl（幼虫からサナギになる時に丸まる）→ CurlIdle（丸まったまま呼吸）/ Uncurl（羽化の直前に戻る）/ Death |
 | 進化演出 | `assets/models/grass/evolution.glb` + `evolution-color.json` + `shaders/autumn.gdshader` | モコゴケがツボミになる時に 7 秒再生（秋色への色変化つき） |
@@ -121,6 +121,20 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | maou（魔王） | idle, carried, scared, cheer, land |
 
 モデルは +Z 向き、1ユニット = ブロック1個分、足元を原点にしてください。
+
+## 上部の背景画像（街並み）
+
+`assets/backdrop/` に画像を置くと、自動生成の街並みの代わりに使われます（無ければ自動生成）。
+
+| ファイル名 | 用途 | 推奨サイズ |
+| --- | --- | --- |
+| `town.png` | ドット絵（拡大してもぼけない最近傍補間） | **1672 × 112 px**（今の自動生成と同じ。1マス＝22px） |
+| `town_painted.png` | 描き込みイラスト（なめらか補間。両方あればこちらを優先） | **6080 × 408 px**（1マス＝80px）以上。最低でも 3040 × 204 |
+
+- 横幅はマップ全体（76マス分）に引き伸ばされ、高さは画像の縦横比で決まります（縦を大きくすると空が高くなる）
+- **画像の横中央＝ダンジョン入口の真上**、画像の下端＝地表
+- 実際に画面に映るのは横方向の中央 約70%（左右の各15%はカメラを端まで動かしても映らない）
+- 透過PNGにすると、透けた部分はゲームの空色になります
 
 ## 魔物モデルの生成（tools/modelgen）
 

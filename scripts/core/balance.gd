@@ -36,6 +36,12 @@ const FLOWER_HP := 20
 const FLOWER_MAX_NUTRIENT := 11
 const FLOWER_LIFE := 32.0      # seconds until the flower scatters its children
 const FLOWER_CHILDREN := 5
+## evolved trees stab adjacent heroes with a thorned root
+const BUD_ATK := 3
+const FLOWER_ATK := 5
+const TREE_ATTACK_CD := 2.8
+## a fresh ツボミ only fights once its 7 s grass-to-tree transformation has finished
+const BUD_ATTACK_DELAY := 7.0
 
 # --- ザクザクムシ (predator) ---
 const LARVA_HP := 36

@@ -25,6 +25,8 @@ var max_hp := 10.0
 var atk := 1.0
 var nutrient := 0
 var age := 0.0
+## seconds spent in the current stage
+var stage_t := 0.0
 var timer := 0.0
 var meta_timer := 0.0
 var cooldown := 0.0
