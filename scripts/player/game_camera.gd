@@ -50,6 +50,26 @@ func focus_on(p: Vector3, instant: bool = false) -> void:
 		_apply()
 
 
+## Pushes the camera just enough to keep `p` inside the central `frac` of the view (a soft
+## "push box"), so a moving cursor drags the camera along continuously instead of re-centring.
+## Returns true if the camera had to move.
+func keep_in_view(p: Vector3, frac: float = 0.56) -> bool:
+	var vs := get_viewport().get_visible_rect().size
+	var half_h := BASE_DIST * zoom * tan(deg_to_rad(fov) * 0.5)
+	# half extents of the view on the ground, in screen-aligned axes (x right, y down)
+	var lim := Vector2(half_h * vs.x / maxf(vs.y, 1.0), half_h / maxf(sin(_target_pitch), 0.2)) * frac
+	var rel := Vector2(p.x - _target_focus.x, p.z - _target_focus.z)
+	var c := cos(_target_yaw)
+	var sn := sin(_target_yaw)
+	var l := Vector2(c * rel.x - sn * rel.y, sn * rel.x + c * rel.y)   # inverse of screen_to_world_dir
+	var push := l - l.clamp(-lim, lim)
+	if push == Vector2.ZERO:
+		return false
+	var w := Vector2(c * push.x + sn * push.y, -sn * push.x + c * push.y)
+	_target_focus += Vector3(w.x, 0, w.y)
+	return true
+
+
 func reset_angle() -> void:
 	_target_yaw = 0.0
 	_target_pitch = DEFAULT_PITCH

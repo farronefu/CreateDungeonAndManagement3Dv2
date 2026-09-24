@@ -146,14 +146,7 @@ func _move_pad(s: Vector2) -> void:
 	if next == pad_cell:
 		return
 	pad_cell = next
-	# keep the cursor on screen
-	if cam:
-		var sp := cam.unproject_position(DungeonGrid.cell_center(pad_cell))
-		var vs := get_viewport().get_visible_rect().size
-		var inner := Rect2(vs * 0.22, vs * 0.56)
-		if not inner.has_point(sp):
-			cam.focus_on(DungeonGrid.cell_center(pad_cell))
-			cam.user_moved = true
+	# (the camera follows the gliding frame every frame in _process)
 	# holding X while moving digs a tunnel
 	if mode == Mode.DIG and Pad.held(JOY_BUTTON_X):
 		clicked.emit(pad_cell)
@@ -189,8 +182,19 @@ func _process(delta: float) -> void:
 	var solid := grid.in_bounds(c) and not grid.is_floor(c)
 	var y := Balance.BLOCK_H + 0.025 if solid else 0.02
 	var col := validator.call(c) as Color if validator.is_valid() else Color(1, 0.7, 0.2)
+	var frame_target := Vector3(c.x + 0.5, y, c.y + 0.5)
+	# glide between cells (snap after a jump or when the frame reappears)
+	if _frame.visible and _frame.position.distance_to(frame_target) < 4.0:
+		_frame.position = _frame.position.lerp(frame_target, clampf(delta * 24.0, 0.0, 1.0))
+	else:
+		_frame.position = frame_target
 	_frame.visible = grid.in_bounds(c) and col.a > 0.0
-	_frame.position = Vector3(c.x + 0.5, y, c.y + 0.5)
+	# gamepad: while the player steers the cursor, the gliding frame pushes the camera along so a
+	# held D-pad pans seamlessly (idle cursor never pushes, so hero-follow is left alone)
+	var steering := _rep_dir != Vector2.ZERO or _frame.position.distance_to(frame_target) > 0.01
+	if Pad.using_pad and steering and camera is GameCamera and grid.in_bounds(c):
+		if (camera as GameCamera).keep_in_view(Vector3(_frame.position.x, 0, _frame.position.z)):
+			(camera as GameCamera).user_moved = true
 	var pulse := 0.75 + 0.25 * sin(_t * 6.0)
 	_frame_mat.albedo_color = Color(col.r, col.g, col.b, col.a * pulse)
 	_frame_mat.emission = Color(col.r, col.g, col.b)

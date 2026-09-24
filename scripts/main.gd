@@ -659,6 +659,8 @@ func _debug_bootstrap() -> void:
 func _debug_tick() -> void:
 	if _debug.has("padtest"):
 		_padtest()
+	if _debug.has("camtest"):
+		_camtest()
 	if _debug.has("mouse_monster") and not eco.monsters.is_empty():
 		var mv: Node3D = eco.monsters[int(_debug["mouse_monster"]) % eco.monsters.size()].visual
 		if mv:
@@ -738,6 +740,46 @@ func _padtest() -> void:
 		_pt["maou_cell"] = maou.cell
 		print("PADTEST ", _pt)
 		_screenshot("debug_shots/padtest.png")
+		get_tree().quit()
+
+
+var _ct_prev := Vector3.ZERO
+var _ct_speeds: Array[float] = []
+
+
+## Holds the D-pad (no dig) and measures how smoothly the camera pans after the cursor.
+func _camtest() -> void:
+	var f := _frames
+	if f == 15:
+		_pad_event(JOY_BUTTON_LEFT_STICK, true)   # unused button: just switches into pad mode
+		_pad_event(JOY_BUTTON_LEFT_STICK, false)
+	elif f == 20:
+		cam.zoom = 1.0
+		cursor.pad_cell = Vector2i(4, 6)
+		cam.focus_on(DungeonGrid.cell_center(cursor.pad_cell), true)
+	elif f == 30:
+		_pad_event(JOY_BUTTON_DPAD_RIGHT, true)
+		_ct_prev = cam.focus
+	elif f > 30 and f <= 130:
+		var dt := get_process_delta_time()
+		_ct_speeds.append((cam.focus - _ct_prev).length() / maxf(dt, 1e-4))
+		_ct_prev = cam.focus
+	elif f == 131:
+		_pad_event(JOY_BUTTON_DPAD_RIGHT, false)
+		# measure from the moment the camera starts following the cursor
+		var first := -1
+		for i in _ct_speeds.size():
+			if _ct_speeds[i] > 1.0:
+				first = i
+				break
+		var s := _ct_speeds.slice(maxi(first, 0) + 6)
+		var mean := 0.0
+		for v in s:
+			mean += v
+		mean /= maxf(1.0, s.size())
+		var stalls := s.filter(func(v: float) -> bool: return v < mean * 0.25).size()
+		print("CAMSERIES ", ", ".join(_ct_speeds.map(func(v: float) -> String: return "%.1f" % v)))
+		print("CAMTEST follow_start=%d mean=%.2f min=%.2f max=%.2f stalled=%d/%d cursor=%s" % [first, mean, s.min(), s.max(), stalls, s.size(), cursor.pad_cell])
 		get_tree().quit()
 
 
