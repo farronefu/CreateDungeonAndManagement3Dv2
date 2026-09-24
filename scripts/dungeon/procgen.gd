@@ -108,7 +108,7 @@ static func rounded_box(half: Vector3, radius: float, seed_value: int, lump: flo
 
 
 # ------------------------------------------------------------------ textures
-static func grass_texture() -> ImageTexture:
+static func grass_texture(neutral: bool = false) -> ImageTexture:
 	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var rng := RandomNumberGenerator.new()
@@ -119,6 +119,8 @@ static func grass_texture() -> ImageTexture:
 		var lean := rng.randf_range(-14, 14)
 		var base_w := rng.randf_range(2.0, 3.6)
 		var col := Color.from_hsv(rng.randf_range(0.22, 0.3), rng.randf_range(0.55, 0.8), rng.randf_range(0.45, 0.8))
+		if neutral:
+			col = Color.from_hsv(0.2, 0.05, rng.randf_range(0.92, 1.0))
 		for s in int(height):
 			var t := s / height
 			var x := x0 + lean * t * t
@@ -126,7 +128,7 @@ static func grass_texture() -> ImageTexture:
 			var wdt := base_w * (1.0 - t)
 			for dx in range(int(floor(x - wdt)), int(ceil(x + wdt)) + 1):
 				if dx >= 0 and dx < 64 and y >= 0:
-					var c := col.lerp(Color(0.85, 0.95, 0.5), t * 0.5).darkened(0.25 * (1.0 - t))
+					var c := col.lerp(Color(0.85, 0.95, 0.5) if not neutral else Color(1, 1, 1), t * 0.5).darkened((0.25 if not neutral else 0.08) * (1.0 - t))
 					img.set_pixel(dx, y, c)
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
@@ -184,14 +186,20 @@ static func tuft_mesh(width: float = 0.34, height: float = 0.24) -> ArrayMesh:
 		var p0 := -dx
 		var p1 := dx
 		var up := Vector3(0, height, 0)
-		var n := Vector3(-sin(a), 0.6, cos(a)).normalized()
-		st.set_normal(n)
+		st.set_normal(Vector3.UP)
 		st.set_uv(Vector2(0, 1)); st.add_vertex(p0)
 		st.set_uv(Vector2(1, 1)); st.add_vertex(p1)
 		st.set_uv(Vector2(1, 0)); st.add_vertex(p1 + up)
 		st.set_uv(Vector2(0, 1)); st.add_vertex(p0)
 		st.set_uv(Vector2(1, 0)); st.add_vertex(p1 + up)
 		st.set_uv(Vector2(0, 0)); st.add_vertex(p0 + up)
+		# reversed copy: with back-face culling each side keeps its upward normal (no dark backs)
+		st.set_uv(Vector2(0, 1)); st.add_vertex(p0)
+		st.set_uv(Vector2(1, 0)); st.add_vertex(p1 + up)
+		st.set_uv(Vector2(1, 1)); st.add_vertex(p1)
+		st.set_uv(Vector2(0, 1)); st.add_vertex(p0)
+		st.set_uv(Vector2(0, 0)); st.add_vertex(p0 + up)
+		st.set_uv(Vector2(1, 0)); st.add_vertex(p1 + up)
 	return st.commit()
 
 
@@ -268,3 +276,88 @@ static func _add_prim(mesh: ArrayMesh, prim: PrimitiveMesh, xf: Transform3D, mat
 	arrays[Mesh.ARRAY_NORMAL] = norms
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	mesh.surface_set_material(mesh.get_surface_count() - 1, mat)
+
+
+# ------------------------------------------------------------------ plant meshes (tinted per instance)
+## One leaf: a folded diamond from `base` along `dir`, broadening toward `side`. White-ish so the
+## MultiMesh instance colour decides green / yellow.
+static func _leaf3d(k: MeshKit, base: Vector3, dir: Vector3, side: Vector3, up: Vector3, length: float, width: float, shade: float) -> void:
+	# rounded leaf: an elliptical outline fanned from the mid-rib, slightly cupped
+	var ref := base - up * 0.3
+	var seg := 4
+	var rib: Array[Vector3] = []
+	var lft: Array[Vector3] = []
+	var rgt: Array[Vector3] = []
+	for i in seg + 1:
+		var t := float(i) / seg
+		var w := width * sin(PI * clampf(t * 0.92 + 0.04, 0.0, 1.0)) * (1.0 - 0.25 * t)
+		var p := base + dir * length * t + up * (sin(PI * t) * width * 0.25)
+		rib.append(p)
+		lft.append(p - side * w + up * w * 0.28)
+		rgt.append(p + side * w + up * w * 0.28)
+	var c1 := Color(shade, shade, shade)
+	var c2 := Color(shade * 0.84, shade * 0.84, shade * 0.84)
+	for i in seg:
+		k.quad(rib[i], lft[i], lft[i + 1], rib[i + 1], c1, ref)
+		k.quad(rib[i], rib[i + 1], rgt[i + 1], rgt[i], c2, ref)
+
+
+## Rosette of leaves sitting on a block top (bottom at y = 0), ~0.3 wide.
+static func leaf_clump_mesh(seed_value: int) -> ArrayMesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var k := MeshKit.new()
+	var n := 12
+	for i in n:
+		var ring := 0.02 if i < 7 else 0.07
+		var a := TAU * i / (7 if i < 7 else 5) + rng.randf_range(-0.25, 0.25) + (0.4 if i >= 7 else 0.0)
+		var out := Vector3(cos(a), 0, sin(a))
+		var lift := rng.randf_range(0.5, 1.1)
+		var dir := (out + Vector3(0, lift, 0)).normalized()
+		var side := Vector3(-sin(a), 0, cos(a))
+		var up := dir.cross(side).normalized()
+		if up.y < 0:
+			up = -up
+		_leaf3d(k, out * ring + Vector3(0, 0.02 if i >= 7 else 0.0, 0), dir, side, up, rng.randf_range(0.11, 0.15), rng.randf_range(0.065, 0.08), rng.randf_range(0.85, 1.0))
+	# a couple of upright centre leaves
+	for i in 2:
+		var a2 := rng.randf() * TAU
+		var d2 := Vector3(cos(a2) * 0.3, 1.0, sin(a2) * 0.3).normalized()
+		var s2 := Vector3(-sin(a2), 0, cos(a2))
+		_leaf3d(k, Vector3.ZERO, d2, s2, d2.cross(s2).normalized(), 0.14, 0.04, 1.0)
+	return k.commit()
+
+
+## Vine hanging from y = 0 down the face it is placed on (faces +Z), with alternating leaves.
+static func vine_chain_mesh(seed_value: int) -> ArrayMesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var k := MeshKit.new()
+	var y := 0.0
+	var x := 0.0
+	var i := 0
+	var length := 0.55
+	while y > -length:
+		var ny := y - 0.07
+		var nx := x + rng.randf_range(-0.02, 0.02)
+		k.quad(Vector3(x - 0.008, y, 0.01), Vector3(x + 0.008, y, 0.01), Vector3(nx + 0.008, ny, 0.01), Vector3(nx - 0.008, ny, 0.01), Color(0.7, 0.7, 0.7), Vector3(x, y, -1))
+		var sx := 1.0 if i % 2 == 0 else -1.0
+		var base := Vector3(nx, ny + 0.02, 0.012)
+		var dir := Vector3(sx * 0.8, -0.45, 0.35).normalized()
+		_leaf3d(k, base, dir, Vector3(0, 0.3, 1).cross(dir).normalized(), Vector3(0, 0.2, 1).normalized(), 0.075 * (1.0 - float(i) * 0.05), 0.03, rng.randf_range(0.85, 1.0))
+		x = nx
+		y = ny
+		i += 1
+	return k.commit()
+
+
+## Material shared by all plant decor: toon, double sided, tinted by instance colour.
+static func plant_material() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
+	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	m.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.roughness = 1.0
+	return m

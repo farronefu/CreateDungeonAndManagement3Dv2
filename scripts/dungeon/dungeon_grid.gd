@@ -247,7 +247,7 @@ func _roll_soil(rng: RandomNumberGenerator, depth: float, bias: float) -> int:
 	if r < p_bare:
 		return 0
 	if r < p_bare + p_rich:
-		return rng.randi_range(Balance.BUG_SPAWN_MIN, 13)
+		return rng.randi_range(Balance.BUG_SPAWN_MIN, 14)
 	# nutrient soil: mostly small amounts, larger deeper down
 	var n := 1 + int(pow(rng.randf(), 1.7) * 7.0 + depth * 2.0)
 	return clampi(n, Balance.MOSS_SPAWN_MIN, Balance.BUG_SPAWN_MIN - 1)

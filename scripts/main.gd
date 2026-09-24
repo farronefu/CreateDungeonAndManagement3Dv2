@@ -633,14 +633,17 @@ func _cell_tip(c: Vector2i) -> String:
 	if t == DungeonGrid.FLOOR:
 		return "[b]入口[/b]\n勇者はここから侵入してくる" if c == grid.entrance else ""
 	var n := grid.get_nutrient(c)
-	var title := "土（養分なし）"
+	var stage := Balance.soil_stage(n)
+	var title: String = ["①", "②", "③", "④", "⑤"][stage] + " " + Balance.SOIL_NAMES[stage]
+	title = "[color=%s]%s[/color]" % [["#e8d8c0", "#c8f090", "#98e070", "#e8d070", "#f0c060"][stage], title]
 	var born := "何も生まれない"
 	if n >= Balance.BUG_SPAWN_MIN:
-		title = "[color=#ffc060]肥えた土[/color]"
-		born = "[color=#ffa060]ザクザクムシ[/color]が生まれる"
+		born = "[color=#ffa060]ザクザクムシ（ダンゴムシ）[/color]が生まれる"
 	elif n >= Balance.MOSS_SPAWN_MIN:
-		title = "[color=#b0f070]養分の土[/color]"
 		born = "[color=#a0f070]モコゴケ[/color]が生まれる"
+	if stage < 4:
+		born += "
+[color=#b0a898]養分があと %d で次の段階へ[/color]" % (Balance.SOIL_STAGE_MIN[stage + 1] - n)
 	var txt := "[b]%s[/b]\n養分 %s %d\n掘ると %s" % [title, _bar(n, Balance.MAX_NUTRIENT, "#c0ff80"), n, born]
 	if not grid.can_dig(c):
 		txt += "\n[color=#a0a0a0]通路に面していないので掘れない[/color]"

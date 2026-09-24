@@ -201,7 +201,7 @@ func _build_center() -> void:
 	_call_btn = Button.new()
 	_call_btn.text = "勇者を呼ぶ"
 	_call_btn.focus_mode = Control.FOCUS_NONE
-	_call_btn.add_theme_font_size_override("font_size", 19)
+	_call_btn.add_theme_font_size_override("font_size", UiTheme.px(19))
 	_call_btn.pressed.connect(func() -> void:
 		Sfx.play("click")
 		call_hero_pressed.emit())
@@ -387,10 +387,10 @@ func _build_info() -> void:
 	_info_label.fit_content = true
 	_info_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_info_label.scroll_active = false
-	_info_label.add_theme_font_size_override("normal_font_size", 17)
+	_info_label.add_theme_font_size_override("normal_font_size", UiTheme.px(17))
 	_info_label.add_theme_font_override("normal_font", UiTheme.font())
 	_info_label.add_theme_font_override("bold_font", UiTheme.serif(800))
-	_info_label.add_theme_font_size_override("bold_font_size", 19)
+	_info_label.add_theme_font_size_override("bold_font_size", UiTheme.px(19))
 	_info_label.add_theme_constant_override("line_separation", 2)
 	_info_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_info.add_child(_info_label)
@@ -468,7 +468,7 @@ func _build_pad_hint() -> void:
 	l.scroll_active = false
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.add_theme_font_override("normal_font", UiTheme.font(true))
-	l.add_theme_font_size_override("normal_font_size", 16)
+	l.add_theme_font_size_override("normal_font_size", UiTheme.px(16))
 	l.text = "[center][color=#6fd06f]A[/color] 掘る・決定（押しながら十字で連続）　[color=#f0c040]Y[/color] 勇者を呼ぶ　[color=#d8d0c0]RB[/color] 速度　[color=#d8d0c0]Start[/color] 一時停止　[color=#d8d0c0]LB[/color] 勇者追跡　[color=#d8d0c0]Rスティック[/color] カメラ[/center]"
 	_pad_hint.add_child(l)
 	_pad_hint.visible = false

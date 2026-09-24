@@ -69,7 +69,7 @@ func _button(text: String, cb: Callable, big: bool = true) -> Button:
 	b.text = text
 	if big:
 		b.custom_minimum_size = Vector2(320, 60)
-		b.add_theme_font_size_override("font_size", 28)
+		b.add_theme_font_size_override("font_size", UiTheme.px(28))
 	b.pressed.connect(func() -> void:
 		Sfx.play("click")
 		cb.call())
@@ -126,7 +126,7 @@ func show_title() -> void:
 	var how := _button("あそびかた", _show_howto, false)
 	how.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	how.custom_minimum_size = Vector2(340, 50)
-	how.add_theme_font_size_override("font_size", 20)
+	how.add_theme_font_size_override("font_size", UiTheme.px(20))
 	vb.add_child(how)
 	var hint := UiTheme.label("マウス / キーボード / コントローラー（Xbox配置）対応", 15, UiTheme.TEXT_DIM)
 	vb.add_child(hint)
@@ -157,10 +157,11 @@ func _show_howto() -> void:
 	how.custom_minimum_size = Vector2(780, 0)
 	how.add_theme_font_override("normal_font", UiTheme.font())
 	how.add_theme_font_override("bold_font", UiTheme.font(true))
-	how.add_theme_font_size_override("normal_font_size", 19)
-	how.add_theme_font_size_override("bold_font_size", 19)
+	how.add_theme_font_size_override("normal_font_size", UiTheme.px(19))
+	how.add_theme_font_size_override("bold_font_size", UiTheme.px(19))
 	how.add_theme_constant_override("line_separation", 6)
-	how.text = "・通路に面した土を[b]掘る[/b]（クリック / Aボタン）。掘れる回数には限りがある\n・養分を含む土を掘ると魔物が生まれる　[color=#b8e080]苔の生えた土: モコゴケ[/color]　[color=#f0b070]深い緑の土: ザクザクムシ[/color]\n・モコゴケは養分を運び、やがて木（ツボミ→モコバナ）になって仲間を増やす\n・ザクザクムシはモコゴケを食べて育ち、サナギ→成虫になって子を産む\n・時間が来るか「勇者を呼ぶ」と、[b]魔王[/b]を置いて迎え撃つ\n・勇者が魔王を入口まで運ぶと負け。魔物たちで勇者を倒そう\n\n[color=#c8bca8]カメラ: WASD・右ドラッグ・画面端（移動）／ホイール（ズーム）／中ドラッグ・Q/E（回転）\n一時停止: P / Start　速度: 右上のボタン / RB[/color]"
+	how.text = "・通路に面した土を[b]掘る[/b]（クリック / Aボタン）。掘れる回数には限りがある\n・土は養分がたまるほど 何もない土→植生のある土→植生が多い土→少し枯れた土→枯れた土 と変わる
+・植生のある土を掘ると[color=#b8e080]モコゴケ[/color]、枯れはじめた土を掘ると[color=#f0b070]ザクザクムシ（ダンゴムシ）[/color]が生まれる\n・モコゴケは養分を運び、やがて木（ツボミ→モコバナ）になって仲間を増やす\n・ザクザクムシはモコゴケを食べて育ち、サナギ→成虫になって子を産む\n・時間が来るか「勇者を呼ぶ」と、[b]魔王[/b]を置いて迎え撃つ\n・勇者が魔王を入口まで運ぶと負け。魔物たちで勇者を倒そう\n\n[color=#c8bca8]カメラ: WASD・右ドラッグ・画面端（移動）／ホイール（ズーム）／中ドラッグ・Q/E（回転）\n一時停止: P / Start　速度: 右上のボタン / RB[/color]"
 	vb.add_child(how)
 	var close := _button("閉じる", func() -> void:
 		dim.queue_free()

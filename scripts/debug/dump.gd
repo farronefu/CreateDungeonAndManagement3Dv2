@@ -111,6 +111,18 @@ func _probe(kind: String) -> void:
 		"evoraw":
 			var r: Node3D = MonsterCatalog.scene("evolution").instantiate()
 			main.add_child(r)
+		"stages":
+			# five blocks, one per soil stage, in a row just below the starter corridor
+			var y := 2
+			var x0: int = main.grid.entrance.x + 2
+			for i in 5:
+				var cc := Vector2i(x0 + i * 2, y)
+				main.grid.set_nutrient(cc, [0, 3, 7, 11, 14][i])
+				for dd in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0)]:
+					if main.grid.is_block(cc + dd):
+						main.grid.dig(cc + dd)
+			main.cam.focus_on(DungeonGrid.cell_center(Vector2i(x0 + 4, y)) + Vector3(0, 0, 0.8), true)
+			main.cam.zoom = 0.36
 		"adult":
 			e.spawn(Monster.Kind.BUG, Monster.ADULT, c, 3, "load")
 		"fx":
