@@ -30,7 +30,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | WASD / 矢印 / 画面端 / 右ドラッグ | カメラ移動 |
 | マウスホイール | ズーム |
 | Space | （建設中）勇者を呼ぶ |
-| P | 一時停止 / 再開（右上の ⏸ ボタンでも可。停止中はカメラ操作・情報表示のみ） |
+| P | 一時停止 / 再開。一時停止画面でダンジョンの魔物の種類と数を確認できる |
 | 中ドラッグ / Q・E / Home | カメラ回転 / リセット |
 | F | （侵攻中）勇者をカメラで追う / 解除 |
 | F12 | スクリーンショット（`user://`） |
@@ -42,7 +42,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | --- | --- |
 | 十字キー / 左スティック | カーソル移動（長押しでリピート、押し続けるほど速く。スティックを倒し切ると高速） |
 | A | 掘る・決定（魔王の配置・メニュー・カットインのスキップ）。**押しながら十字キーで一直線に連続で掘る** |
-| Start | 一時停止 / 再開 |
+| Start | 一時停止 / 再開（一時停止画面に魔物の種類と数を表示） |
 | Y | （建設中）勇者を呼ぶ |
 | RB | ゲーム速度 x1 → x2 → x3 |
 | LB | （侵攻中）勇者をカメラで追う / 解除 |
@@ -54,7 +54,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 
 タイトル → 勇者来訪カットイン → **建設フェーズ**（150秒 or「勇者を呼ぶ」）→ **魔王配置** →
 勇者出現カットイン → **侵攻フェーズ**（掘り続けられる）→ 勝利 → **リザルト**（撃退タイムと残り採掘数で進化ポイント）
-→ 進化ポイントを「掘削上限」「モコゴケ進化」「ザクザクムシ進化」に割り振り → 次のステージ（ダンジョン・魔物を引き継ぎ）
+→ 進化ポイントを「掘削上限」「モコチュリ進化」「ザクザクムシ進化」に割り振り → 次のステージ（ダンジョン・魔物を引き継ぎ）
 
 - 勝利条件: 勇者のHPを0にする
 - 敗北条件: 勇者が魔王を入口まで運ぶ
@@ -66,8 +66,8 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | 段階 | 養分 | 見た目 | 掘ると |
 | --- | --- | --- | --- |
 | ① 何もない土 | 0 | 土と小石だけ | 何も生まれない |
-| ② 少し植生がある土 | 1〜4 | 苔の斑点・草・短いツタ | モコゴケ |
-| ③ 植生が多い土 | 5〜9 | 緑の葉が茂り、ツタが垂れる | モコゴケ |
+| ② 少し植生がある土 | 1〜4 | 苔の斑点・草・短いツタ | モコチュリ |
+| ③ 植生が多い土 | 5〜9 | 緑の葉が茂り、ツタが垂れる | モコチュリ |
 | ④ 少し枯れた土 | 10〜12 | 緑と黄色の葉が混ざる | ザクザクムシ（ダンゴムシ） |
 | ⑤ 枯れた土 | 13〜16 | 黄色く枯れた葉 | ザクザクムシ（ダンゴムシ） |
 
@@ -79,8 +79,8 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 
 | 魔物 | 役割 | 仕様 |
 | --- | --- | --- |
-| **モコゴケ**（被食） | 養分の運び屋 | 養分1〜9の土を掘ると誕生。壁に当たるまで直進し、隣の土と養分をやり取り（所持1なら吸収、2以上なら放出）。養分2以上・HP2以下で **ツボミ** に根付き、5×5から養分を集めて8で **モコバナ** に開花。寿命で最大5匹の子を生む（繁殖） |
-| **ザクザクムシ**（捕食） | モコゴケを食べる | 養分10以上の土で誕生。空腹になるとモコゴケを探して食べる。HP60で **サナギ** → 20秒で **成虫**。成虫は養分とHPを使って幼虫を産む。勇者に近いと襲いかかる |
+| **モコチュリ**（被食） | 養分の運び屋 | 養分1〜9の土を掘ると誕生。壁に当たるまで直進し、隣の土と養分をやり取り（所持1なら吸収、2以上なら放出）。養分2以上・HP2以下で **ツボミ** に根付き、5×5から養分を集めて8で **モコバナ** に開花。寿命で最大5匹の子を生む（繁殖） |
+| **ザクザクムシ**（捕食） | モコチュリを食べる | 養分10以上の土で誕生。空腹になるとモコチュリを探して食べる。HP60で **サナギ** → 20秒で **成虫**。成虫は養分とHPを使って幼虫を産む。勇者に近いと襲いかかる |
 
 数値はすべて [`scripts/core/balance.gd`](scripts/core/balance.gd) にまとまっています。
 
@@ -102,11 +102,11 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | ゲーム内 | ファイル | 使用クリップ |
 | --- | --- | --- |
 | 勇者 | `assets/models/hero/hero.glb` | idle / walk / attack / death（死亡）/ joy（魔王を見つけて喜ぶ）/ look_around（分かれ道で見回す） |
-| モコゴケ（草の魔物） | `assets/models/grass/grass.glb` | walk（移動）/ attack（体当たり、0.44 の位置で命中）/ gather（養分吸収）/ die（枯れて粒になって消える）。idle は walk の先頭姿勢から生成 |
+| モコチュリ（草の魔物） | `assets/models/grass/grass.glb` | walk（移動）/ attack（体当たり、0.44 の位置で命中）/ gather（養分吸収）/ die（枯れて粒になって消える）。idle は walk の先頭姿勢から生成 |
 | ツボミ・モコバナ（進化後の木） | `assets/models/grass/tree.glb` | attack（トゲの根で隣のマスを突き刺す、0.44 で命中）/ die（枯れて粒になって消える）。idle は attack の先頭姿勢。吸収・被弾はゲーム側の揺れで表現 |
 | ザクザクムシ 幼虫（ダンゴムシ幼体） | `assets/models/pillbug/juvenile-pillbug.glb` | Walk（移動）/ Attack（体当たり・捕食、44% で命中）/ Death（粉々に割れて消える） |
 | ザクザクムシ サナギ | 同上 | Curl（幼虫からサナギになる時に丸まる）→ CurlIdle（丸まったまま呼吸）/ Uncurl（羽化の直前に戻る）/ Death |
-| 進化演出 | `assets/models/grass/evolution.glb` + `evolution-color.json` + `shaders/autumn.gdshader` | モコゴケがツボミになる時に 7 秒再生（秋色への色変化つき） |
+| 進化演出 | `assets/models/grass/evolution.glb` + `evolution-color.json` + `shaders/autumn.gdshader` | モコチュリがツボミになる時に 7 秒再生（秋色への色変化つき） |
 
 ### 魔物・魔王・ツルハシ
 [`scripts/sim/monster_catalog.gd`](scripts/sim/monster_catalog.gd) のパスを差し替えます。クリップ名が違う場合は `anims` で対応付けできます（例: `{"move": "walk", "absorb": "gather"}`）。無いクリップは揺れ・ポップ・縮小などで自動的に代用します。
@@ -115,7 +115,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 
 | モデル | アニメーション |
 | --- | --- |
-| moss（モコゴケ） | idle, move, absorb, attack, hurt, die, spawn |
+| moss（モコチュリ） | idle, move, absorb, attack, hurt, die, spawn |
 | moss_bud（ツボミ） | idle, absorb, hurt, die, spawn |
 | moss_flower（モコバナ） | idle, absorb, spawn_child, hurt, die, spawn |
 | bug_larva（幼虫） | idle, move, attack, eat, hurt, die, spawn |
@@ -130,12 +130,12 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 画風を「3D＋トゥーン調」に統一しています。
 
 - **地上の町は3D**（`scripts/dungeon/surface_world.gd`）：家・城・教会・森・川と橋・遠くの山を低ポリゴンで生成。勇者は町の道から岩山のトンネルを抜け、スロープを下ってダンジョンに入ります
-- **地面は一続きの土**：ブロックは隙間のない立方体で、模様はワールド座標で描くので継ぎ目が出ません。上面は土、側面は土の断面。養分は土の上の苔の量（苔の生えた土＝モコゴケ、深い緑の苔と花＝ザクザクムシ）で表します。掘った通路は暗い踏み固めた土
+- **地面**：1マスずつ細い隙間で分かれた丸みのある土ブロック（段階は「土ブロックの種類」を参照）。掘った通路は暗い踏み固めた土
 - **地上とダンジョンの境目**：地上の草原とダンジョンの土は同じシェーダーで塗り分けているため、背景が漏れる隙間はありません
 - **仕上げの画面処理**（`shaders/post.gdshader`）：輪郭線・色調補正・画面端を暗くする処理。キャラクターのモデルにはトゥーン調の光沢と弱いリムライトを自動で付与
 - **照明**：地上は夕方の空と霧、地下は奥ほど暗く、松明が実際の光源
 - **UI**：ドット絵風のウィンドウ枠（輪郭線＋ベベル）。フォントはドット文字の DotGothic16 を同梱（SIL OFL、`assets/fonts/`）
-- 松明は最初の通路にだけあり、掘っても自動では置かれません
+- 松明は置いていません（最初の通路にも、掘った後にも置かれない）
 
 ## 魔物モデルの生成（tools/modelgen）
 

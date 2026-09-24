@@ -61,7 +61,7 @@ func _set_actor(a: ModelActor) -> void:
 	_pivot.add_child(actor)
 
 
-## モコゴケ → ツボミ: plays the supplied grass-to-tree scene with its autumn colour shift.
+## モコチュリ → ツボミ: plays the supplied grass-to-tree scene with its autumn colour shift.
 func play_evolution() -> void:
 	_evolving = true
 	_evo_t = 0.0

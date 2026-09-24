@@ -1,17 +1,19 @@
 class_name Hud
 extends CanvasLayer
 ## In-game HUD. Kept light so the board stays visible:
-##   top-left   stage chip + ecosystem roster (icon, count, name)
+##   top-left   stage chip
 ##   top-centre build: arrival timer + call button / invasion: hero plate
-##   top-right  time controls (pause, x1, x2, x3)
+##   top-right  speed controls (x1, x2, x3); pausing is Start / P and opens the pause screen,
+##              which lists the dungeon's monsters
 ##   bottom-left dig gauge
 ## plus mouse/pad tooltip, prompts, toasts and the gamepad guide.
 
 signal call_hero_pressed
+signal resume_pressed
 ## 0.0 = paused
 signal speed_changed(speed: float)
 
-const SPEEDS := [0.0, 1.0, 2.0, 3.0]
+const SPEEDS := [1.0, 2.0, 3.0]
 
 var root: Control
 var _stage_label: Label
@@ -33,7 +35,8 @@ var _elapsed: Label
 var _hp_shown := 1.0
 # time controls
 var _speed_btns: Array[IconButton] = []
-var _paused_banner: Control
+var _pause_screen: Control
+var _resume_btn: Button
 # dig
 var _dig_value: Label
 var _dig_max: Label
@@ -71,7 +74,7 @@ func _ready() -> void:
 	_toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_toasts)
 	_build_pad_hint()
-	_build_paused_banner()
+	_build_pause_screen()
 
 
 func _studio(key: String, px: int, cam_pos: Vector3, look: Vector3, fov: float = 30.0, height: float = 0.0) -> TextureRect:
@@ -107,69 +110,114 @@ func _bar(w: float, h: float, col: Color) -> Array:
 	return [back, fill]
 
 
-# ------------------------------------------------------------------ top-left: stage + ecosystem
+# ------------------------------------------------------------------ top-left: stage chip
 func _build_left() -> void:
-	var col := VBoxContainer.new()
-	col.position = Vector2(18, 16)
-	col.add_theme_constant_override("separation", 8)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(col)
 	var chip := PanelContainer.new()
 	chip.add_theme_stylebox_override("panel", UiTheme.chip())
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.position = Vector2(18, 16)
 	_stage_label = UiTheme.heading("STAGE 1", 19, UiTheme.GOLD, 700)
 	chip.add_child(_stage_label)
-	col.add_child(chip)
-	var pc := PanelContainer.new()
-	var sb := UiTheme.panel()
-	sb.content_margin_left = 10
-	sb.content_margin_right = 14
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
-	pc.add_theme_stylebox_override("panel", sb)
-	pc.mouse_filter = Control.MOUSE_FILTER_STOP
-	col.add_child(pc)
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 0)
-	pc.add_child(vb)
-	var rows := [
-		["moss", "モコゴケ", Vector3(0, 0.55, 0.9), Vector3(0, 0.22, 0), 0.45],
-		["moss_flower", "ツボミ・モコバナ", Vector3(0, 0.62, 1.25), Vector3(0, 0.36, 0), 0.72],
-		["bug_larva", "ザクザクムシ幼虫", Vector3(0.55, 0.62, 0.95), Vector3(0, 0.12, 0), 0.4],
-		["bug_pupa", "サナギ", Vector3(0.35, 0.55, 0.8), Vector3(0, 0.12, 0), 0.4],
-		["bug_adult", "成虫", Vector3(0.45, 0.65, 0.8), Vector3(0, 0.22, 0), 0.0],
-	]
-	for r in rows:
-		var hb := HBoxContainer.new()
-		hb.add_theme_constant_override("separation", 6)
-		var icon := _studio(r[0], 96, r[2], r[3], 30.0, r[4])
-		icon.custom_minimum_size = Vector2(40, 40)
-		hb.add_child(icon)
-		var cnt := UiTheme.heading("0", 24, UiTheme.TEXT, 800)
-		cnt.custom_minimum_size = Vector2(38, 0)
-		cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		cnt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		hb.add_child(cnt)
-		var name_l := UiTheme.label(r[1], 15, UiTheme.TEXT_DIM)
-		name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		hb.add_child(name_l)
-		_eco_labels[r[0]] = cnt
-		vb.add_child(hb)
-	var sep := HSeparator.new()
-	vb.add_child(sep)
-	_soil_label = UiTheme.label("土の養分 0", 15, Color(0.74, 0.86, 0.58))
-	vb.add_child(_soil_label)
+	root.add_child(chip)
 
 
 func set_stage(text: String) -> void:
 	_stage_label.text = text
 
 
+# ------------------------------------------------------------------ pause screen (Start / P)
+## Shown while the game is paused: which monsters live in the dungeon and how many.
+func _build_pause_screen() -> void:
+	var dim := ColorRect.new()
+	dim.color = Color(0.02, 0.015, 0.01, 0.55)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(dim)
+	_pause_screen = dim
+	var cc := CenterContainer.new()
+	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.add_child(cc)
+	var pc := PanelContainer.new()
+	var sb := UiTheme.panel(UiTheme.INK_SOLID)
+	sb.content_margin_left = 36
+	sb.content_margin_right = 36
+	sb.content_margin_top = 22
+	sb.content_margin_bottom = 22
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.mouse_filter = Control.MOUSE_FILTER_STOP
+	cc.add_child(pc)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 10)
+	pc.add_child(vb)
+	var title := UiTheme.heading("一時停止中", 48, UiTheme.GOLD)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(title)
+	var sub := UiTheme.label("ダンジョンの生態系", 24, UiTheme.TEXT_DIM)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(sub)
+	vb.add_child(HSeparator.new())
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 4)
+	vb.add_child(grid)
+	var rows := [
+		["moss", "モコチュリ", Vector3(0, 0.55, 0.9), Vector3(0, 0.22, 0), 0.45],
+		["moss_flower", "ツボミ・モコバナ", Vector3(0, 0.62, 1.25), Vector3(0, 0.36, 0), 0.72],
+		["bug_larva", "ザクザクムシ（幼虫）", Vector3(0.55, 0.62, 0.95), Vector3(0, 0.12, 0), 0.4],
+		["bug_pupa", "ザクザクムシ（サナギ）", Vector3(0.35, 0.55, 0.8), Vector3(0, 0.12, 0), 0.4],
+		["bug_adult", "ザクザクムシ（成虫）", Vector3(0.45, 0.65, 0.8), Vector3(0, 0.22, 0), 0.0],
+	]
+	for r in rows:
+		var icon := _studio(r[0], 128, r[2], r[3], 30.0, r[4])
+		icon.custom_minimum_size = Vector2(64, 64)
+		grid.add_child(icon)
+		var name_l := UiTheme.label(r[1], 24, UiTheme.TEXT)
+		name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(name_l)
+		var cnt := UiTheme.heading("0 体", 32, UiTheme.TEXT)
+		cnt.custom_minimum_size = Vector2(110, 0)
+		cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		cnt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		grid.add_child(cnt)
+		_eco_labels[r[0]] = cnt
+	vb.add_child(HSeparator.new())
+	_soil_label = UiTheme.label("土の養分 0", 24, Color(0.74, 0.86, 0.58))
+	_soil_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(_soil_label)
+	_resume_btn = Button.new()
+	_resume_btn.text = "再開する"
+	_resume_btn.custom_minimum_size = Vector2(280, 52)
+	_resume_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_resume_btn.pressed.connect(func() -> void:
+		Sfx.play("click")
+		resume_pressed.emit())
+	vb.add_child(_resume_btn)
+	var hint := UiTheme.label("Start ボタン / P キーでも再開", 16, UiTheme.TEXT_DIM)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(hint)
+	dim.visible = false
+
+
+func set_paused(p: bool) -> void:
+	_pause_screen.visible = p
+	if p:
+		_info.visible = false
+		if Pad.using_pad:
+			_resume_btn.grab_focus.call_deferred()
+
+
+func is_paused_screen() -> bool:
+	return _pause_screen.visible
+
+
 func update_eco(counts: Dictionary, soil: int) -> void:
 	for k in counts:
 		if _eco_labels.has(k):
 			var l: Label = _eco_labels[k]
-			l.text = str(counts[k])
+			l.text = "%d 体" % int(counts[k])
 			l.modulate.a = 0.45 if int(counts[k]) == 0 else 1.0
 	_soil_label.text = "土の養分 %d" % soil
 
@@ -283,17 +331,17 @@ func _build_time_controls() -> void:
 	sb.content_margin_bottom = 3
 	pc.add_theme_stylebox_override("panel", sb)
 	pc.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	pc.position = Vector2(-236, 16)
+	pc.position = Vector2(-186, 16)
 	pc.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.add_child(pc)
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 2)
 	pc.add_child(hb)
-	var kinds := ["pause", "play1", "play2", "play3"]
+	var kinds := ["play1", "play2", "play3"]
 	for i in SPEEDS.size():
 		var b := IconButton.new(kinds[i])
 		b.button_pressed = SPEEDS[i] == 1.0
-		b.tooltip_text = "一時停止 (P / Start)" if i == 0 else "速度 x%d (RB)" % int(SPEEDS[i])
+		b.tooltip_text = "速度 x%d (RB)" % int(SPEEDS[i])
 		b.pressed.connect(_on_speed.bind(SPEEDS[i]))
 		hb.add_child(b)
 		_speed_btns.append(b)
@@ -309,22 +357,7 @@ func _on_speed(s: float) -> void:
 func set_speed(s: float) -> void:
 	for i in _speed_btns.size():
 		_speed_btns[i].button_pressed = is_equal_approx(SPEEDS[i], s)
-	_paused_banner.visible = s == 0.0
-
-
-func _build_paused_banner() -> void:
-	var pc := PanelContainer.new()
-	pc.add_theme_stylebox_override("panel", UiTheme.chip(Color(0.05, 0.04, 0.03, 0.78), Color(0.95, 0.8, 0.5, 0.8)))
-	pc.set_anchors_preset(Control.PRESET_CENTER)
-	pc.position = Vector2(-110, -250)
-	pc.custom_minimum_size = Vector2(220, 0)
-	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var l := UiTheme.heading("一時停止中", 26, UiTheme.GOLD, 800)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pc.add_child(l)
-	pc.visible = false
-	root.add_child(pc)
-	_paused_banner = pc
+	set_paused(s == 0.0)
 
 
 # ------------------------------------------------------------------ bottom-left: dig gauge
@@ -469,7 +502,7 @@ func _build_pad_hint() -> void:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.add_theme_font_override("normal_font", UiTheme.font(true))
 	l.add_theme_font_size_override("normal_font_size", UiTheme.px(16))
-	l.text = "[center][color=#6fd06f]A[/color] 掘る・決定（押しながら十字で連続）　[color=#f0c040]Y[/color] 勇者を呼ぶ　[color=#d8d0c0]RB[/color] 速度　[color=#d8d0c0]Start[/color] 一時停止　[color=#d8d0c0]LB[/color] 勇者追跡　[color=#d8d0c0]Rスティック[/color] カメラ[/center]"
+	l.text = "[center][color=#6fd06f]A[/color] 掘る・決定（押しながら十字で連続）　[color=#f0c040]Y[/color] 勇者を呼ぶ　[color=#d8d0c0]RB[/color] 速度　[color=#d8d0c0]Start[/color] 一時停止・生態系　[color=#d8d0c0]LB[/color] 勇者追跡　[color=#d8d0c0]Rスティック[/color] カメラ[/center]"
 	_pad_hint.add_child(l)
 	_pad_hint.visible = false
 	root.add_child(_pad_hint)

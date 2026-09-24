@@ -63,7 +63,7 @@ func _ready() -> void:
 # ------------------------------------------------------------------ setup
 func _build_environment() -> void:
 	# late-afternoon sky over the town; the dungeon below is kept darker by its shaders,
-	# so torches read as real light sources down there
+	# (no torches: the dungeon is lit by the sun, ambient light and the effects)
 	var sky_mat := ProceduralSkyMaterial.new()
 	sky_mat.sky_top_color = Color(0.3, 0.46, 0.72)
 	sky_mat.sky_horizon_color = Color(0.86, 0.76, 0.62)
@@ -204,6 +204,9 @@ func _build_ui() -> void:
 	add_child(hud)
 	hud.call_hero_pressed.connect(_on_call_hero)
 	hud.speed_changed.connect(_set_speed)
+	hud.resume_pressed.connect(func() -> void:
+		if speed == 0.0:
+			_toggle_pause())
 	Pad.button_pressed.connect(_on_pad_button)
 	hud.set_stage("STAGE %d  %s" % [GameState.stage_index + 1, stage["name"]])
 	var hero_scene := load(profile.model_path) as PackedScene
@@ -472,16 +475,17 @@ func _toggle_pause() -> void:
 	Sfx.play("click")
 
 
-## 0 pauses: the simulation stops and monsters / hero / effects freeze in place,
-## while the camera, cursor and tooltips keep working so the player can look around.
+## 0 pauses: everything in the dungeon freezes and the pause screen (monster roster) opens.
 func _set_speed(s: float) -> void:
 	speed = s
 	if s > 0.0:
 		_run_speed = s
 	hud.set_speed(s)
 	var pm := Node.PROCESS_MODE_DISABLED if s == 0.0 else Node.PROCESS_MODE_INHERIT
-	for n in [layer, fx, hero, maou]:
+	for n in [layer, fx, hero, maou, cursor]:
 		(n as Node).process_mode = pm
+	if s == 0.0:
+		hud.show_tooltip("", Vector2.ZERO)
 
 
 func _can_change_speed() -> bool:
@@ -549,7 +553,7 @@ var _tip_text := ""
 
 
 func _update_tooltip(delta: float) -> void:
-	var active := phase == Phase.BUILD or phase == Phase.PLACE or phase == Phase.INVASION or phase == Phase.ENDING
+	var active := (phase == Phase.BUILD or phase == Phase.PLACE or phase == Phase.INVASION or phase == Phase.ENDING) and speed != 0.0
 	hud.set_pad_hint(Pad.using_pad and active)
 	if not active or (not Pad.using_pad and get_viewport().gui_get_hovered_control() != null):
 		hud.show_tooltip("", Vector2.ZERO)
@@ -640,7 +644,7 @@ func _cell_tip(c: Vector2i) -> String:
 	if n >= Balance.BUG_SPAWN_MIN:
 		born = "[color=#ffa060]ザクザクムシ（ダンゴムシ）[/color]が生まれる"
 	elif n >= Balance.MOSS_SPAWN_MIN:
-		born = "[color=#a0f070]モコゴケ[/color]が生まれる"
+		born = "[color=#a0f070]モコチュリ[/color]が生まれる"
 	if stage < 4:
 		born += "
 [color=#b0a898]養分があと %d で次の段階へ[/color]" % (Balance.SOIL_STAGE_MIN[stage + 1] - n)

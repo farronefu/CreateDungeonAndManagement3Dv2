@@ -13,12 +13,12 @@ const BUILD_TIME := 150.0
 const DIG_MAX_BASE := 100
 
 # --- nutrient -> spawned monster ---
-const MOSS_SPAWN_MIN := 1   # 養分 1〜9 → モコゴケ
+const MOSS_SPAWN_MIN := 1   # 養分 1〜9 → モコチュリ
 const BUG_SPAWN_MIN := 10   # 養分 10〜16 → ザクザクムシ
 
 # --- soil look: nutrient builds up and the block shifts one stage to the right ---
 #   0 ① 何もない土   1 ② 少し植生がある土   2 ③ 植生が多い土   3 ④ 少し枯れた土   4 ⑤ 枯れた土
-#   ②③ hatch モコゴケ, ④⑤ hatch ザクザクムシ (the pill bug)
+#   ②③ hatch モコチュリ, ④⑤ hatch ザクザクムシ (the pill bug)
 const SOIL_STAGE_MIN := [0, 1, 5, 10, 13]
 const SOIL_NAMES := ["何もない土", "少し植生がある土", "植生が多い土", "少し枯れた土", "枯れた土"]
 
@@ -29,7 +29,7 @@ static func soil_stage(n: int) -> int:
 			return i
 	return 0
 
-# --- モコゴケ (prey) ---
+# --- モコチュリ (prey) ---
 const MOSS_HP := 16
 const MOSS_HP_MAX := 21
 const MOSS_STEP_TIME := 1.15
@@ -92,6 +92,6 @@ const EP_PER_DIG_LEFT := 1
 # --- upgrades: id -> { name, desc, cost, max } ---
 const UPGRADES := {
 	"dig": {"name": "掘削上限アップ", "desc": "採掘可能数の上限 +10", "cost": 40, "max": 10},
-	"moss": {"name": "モコゴケ進化", "desc": "HP・攻撃 +25%、モコバナの子 +1", "cost": 80, "max": 3},
+	"moss": {"name": "モコチュリ進化", "desc": "HP・攻撃 +25%、モコバナの子 +1", "cost": 80, "max": 3},
 	"bug": {"name": "ザクザクムシ進化", "desc": "HP・攻撃 +25%、成長が早くなる", "cost": 80, "max": 3},
 }

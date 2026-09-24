@@ -60,7 +60,7 @@ func model_key() -> String:
 
 func display_name() -> String:
 	if kind == Kind.MOSS:
-		return ["モコゴケ", "モコツボミ", "モコバナ"][stage]
+		return ["モコチュリ", "モコツボミ", "モコバナ"][stage]
 	return ["ザクザクムシ(幼虫)", "ザクザクムシ(サナギ)", "ザクザクムシ(成虫)"][stage]
 
 

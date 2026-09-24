@@ -48,12 +48,6 @@ func build(g: DungeonGrid, block_mat: ShaderMaterial) -> void:
 	_build_mountains()
 	_emit(_town, _town_material())
 	_emit(_glow, _glow_material())
-	# torches flanking the cave mouth
-	for sx in [-0.25, 1.25]:
-		var t := Torch.new()
-		t.light_scale = 0.55
-		t.position = Vector3(grid.entrance.x + sx, GROUND_Y, -RAMP + 0.35)
-		add_child(t)
 
 
 func _emit(kit: MeshKit, mat: Material) -> void:

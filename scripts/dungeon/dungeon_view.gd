@@ -4,16 +4,15 @@ extends Node3D
 ## (勇者のくせになまいきだ style). Each block's look follows its nutrient stage
 ## (Balance.soil_stage): ① bare → ② a few plants → ③ lush → ④ starting to wither → ⑤ withered,
 ## with 3D leaf clumps, grass tufts, hanging vines and embedded pebbles as instanced decor.
-## Also the packed-dirt floor, torches of the starter tunnel and the 3D surface world.
+## Also the packed-dirt floor and the 3D surface world. No torches are placed (not even initially).
 
 const OUTER_SIDE := 20     # undiggable rock beyond the grid, so the camera never sees the void
 const OUTER_BOTTOM := 16
-const HALF := Vector3(0.455, 0.44, 0.455)   # leaves a ~0.09 gap between neighbours
+const HALF := Vector3(0.485, 0.44, 0.485)   # a thin ~0.03 gap between neighbours
 
 var grid: DungeonGrid
 var block_mat: ShaderMaterial
 var surface: SurfaceWorld
-var torches := {}  # Vector2i -> Torch
 
 var _mms: Array[MultiMesh] = []
 var _slot := {}  # Vector2i -> [multimesh, index]
@@ -51,7 +50,6 @@ func setup(g: DungeonGrid) -> void:
 			var c := Vector2i(x, y)
 			if grid.is_floor(c):
 				_add_floor_props(c)
-	_auto_torches_initial()
 	_rebuild_decor()
 	surface = SurfaceWorld.new()
 	add_child(surface)
@@ -81,7 +79,7 @@ func _build_blocks() -> void:
 			lists[_variant_of(c) + (0 if grid.in_bounds(c) else 3)].append(c)
 	for i in 6:
 		var outer := i >= 3
-		var mesh := ProcGen.rounded_box(HALF, 0.13, 200 + (i % 3) * 31, 0.016, 0.035, 0 if outer else 1)
+		var mesh := ProcGen.rounded_box(HALF, 0.085, 200 + (i % 3) * 31, 0.012, 0.03, 0 if outer else 1)
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_custom_data = true
@@ -353,32 +351,3 @@ func _fill(mm: MultiMesh, xs: Array, cs: Array) -> void:
 		mm.set_instance_transform(i, xs[i])
 		if mm.use_colors and i < cs.size():
 			mm.set_instance_color(i, cs[i])
-
-
-# ------------------------------------------------------------------ torches
-## Only the pre-dug starter tunnel gets torches; digging never places new ones.
-func _auto_torches_initial() -> void:
-	for y in grid.h:
-		for x in grid.w:
-			var c := Vector2i(x, y)
-			if grid.is_floor(c):
-				_maybe_torch(c)
-
-
-func _maybe_torch(c: Vector2i) -> void:
-	if not grid.is_floor(c) or c == grid.entrance:
-		return
-	for t in torches:
-		if absi(t.x - c.x) + absi(t.y - c.y) < 5:
-			return
-	var walls: Array[Vector2i] = []
-	for d in DungeonGrid.DIRS:
-		if not grid.is_floor(c + d):
-			walls.append(d)
-	if walls.is_empty():
-		return
-	var d: Vector2i = walls[0]
-	var torch := Torch.new()
-	torch.position = Vector3(c.x + 0.5 + d.x * 0.3, 0, c.y + 0.5 + d.y * 0.3)
-	add_child(torch)
-	torches[c] = torch

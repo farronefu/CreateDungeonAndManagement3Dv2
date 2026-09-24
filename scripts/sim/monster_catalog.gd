@@ -9,11 +9,11 @@ extends RefCounted
 ##   stride     : optional, world units one walk cycle covers at this scale (keeps feet from sliding)
 
 const MODELS := {
-	# モコゴケ / ツボミ / モコバナ: supplied grass & tree models (Mossbound set, 2026-09-24)
+	# モコチュリ / ツボミ / モコバナ: supplied grass & tree models (Mossbound set, 2026-09-24)
 	"moss": {"path": "res://assets/models/grass/grass.glb", "scale": 0.37, "fix_colors": false, "anims": {"move": "walk", "absorb": "gather"}},
 	"moss_bud": {"path": "res://assets/models/grass/tree.glb", "scale": 0.29, "fix_colors": false, "anims": {}},
 	"moss_flower": {"path": "res://assets/models/grass/tree.glb", "scale": 0.37, "fix_colors": false, "anims": {}},
-	# grass -> tree transformation, played when モコゴケ roots into a ツボミ
+	# grass -> tree transformation, played when モコチュリ roots into a ツボミ
 	"evolution": {"path": "res://assets/models/grass/evolution.glb", "scale": 0.37, "fix_colors": false, "anims": {}},
 	# ザクザクムシ 幼虫 / サナギ: supplied juvenile pillbug (2026-09-24). The pupa is the same bug curled up.
 	"bug_larva": {"path": "res://assets/models/pillbug/juvenile-pillbug.glb", "scale": 0.38, "fix_colors": false, "stride": 0.117,

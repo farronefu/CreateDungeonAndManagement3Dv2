@@ -4,7 +4,7 @@ extends RefCounted
 ##
 ## Food chain modelled after 勇者のくせになまいきだ:
 ##  - 養分 is conserved: it moves between soil blocks and monsters and returns to the soil when they die.
-##  - モコゴケ wanders straight until it hits a wall, trading nutrient with neighbouring soil
+##  - モコチュリ wanders straight until it hits a wall, trading nutrient with neighbouring soil
 ##    (1 → absorb, 2+ → release). With nutrient ≥ 2 and HP ≤ 2 it roots into a ツボミ, which
 ##    gathers nutrient from a 5×5 area and blooms into a モコバナ at 8. The flower scatters up
 ##    to 5 new moss when its life ends (this is how moss breeds).
@@ -297,7 +297,7 @@ func _random_step(m: Monster, straight_bias: float) -> Vector2i:
 	return opts[rng.randi() % opts.size()]
 
 
-# ------------------------------------------------------------------ モコゴケ
+# ------------------------------------------------------------------ モコチュリ
 func _tick_moss(m: Monster, delta: float) -> void:
 	if not _advance(m, delta):
 		return

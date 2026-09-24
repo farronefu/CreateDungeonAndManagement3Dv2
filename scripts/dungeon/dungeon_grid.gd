@@ -210,7 +210,7 @@ func floor_count() -> int:
 # ------------------------------------------------------------------ generation
 func generate(seed_value: int) -> void:
 	# Soil types are scattered at random (like 勇者のくせになまいきだ): bare soil gives nothing,
-	# nutrient soil gives モコゴケ, rich soil gives ザクザクムシ. Deeper = richer.
+	# nutrient soil gives モコチュリ, rich soil gives ザクザクムシ. Deeper = richer.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var noise := FastNoiseLite.new()
