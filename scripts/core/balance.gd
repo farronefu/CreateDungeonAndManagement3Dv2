@@ -23,6 +23,12 @@ const MOSS_STEP_TIME := 1.15
 const MOSS_ABSORB_HEAL := 4
 const MOSS_ATK := 3
 const MOSS_ATTACK_CD := 1.6
+## action lengths (the attack / gather clips are time-stretched to these)
+const MOSS_ATTACK_BUSY := 1.0
+const MOSS_ABSORB_BUSY := 1.6
+const BUG_ATTACK_BUSY := 0.6
+## the blow lands this far into an attack (supplied grass clip: 0.667 s of 1.5 s)
+const ATTACK_HIT_FRACTION := 0.44
 const BUD_HP := 12
 const BUD_TARGET := 8          # nutrient needed for ツボミ → モコバナ
 const BUD_ABSORB_INTERVAL := 1.4

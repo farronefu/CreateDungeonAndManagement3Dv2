@@ -63,7 +63,16 @@ static func theme() -> Theme:
 	t.set_stylebox("hover", "Button", hover)
 	t.set_stylebox("pressed", "Button", pressed)
 	t.set_stylebox("disabled", "Button", disabled)
-	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
+	var focus := StyleBoxFlat.new()
+	focus.draw_center = false
+	focus.border_color = Color(1.0, 0.95, 0.6)
+	focus.set_border_width_all(4)
+	focus.set_corner_radius_all(9)
+	focus.expand_margin_left = 3
+	focus.expand_margin_right = 3
+	focus.expand_margin_top = 3
+	focus.expand_margin_bottom = 3
+	t.set_stylebox("focus", "Button", focus)
 	t.set_font("font", "Button", font(true))
 	t.set_font_size("font_size", "Button", 24)
 	t.set_color("font_color", "Button", TEXT)

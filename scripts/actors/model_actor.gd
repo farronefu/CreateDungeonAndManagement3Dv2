@@ -9,6 +9,8 @@ const LOOPING := ["idle", "move", "walk", "absorb", "eat", "carried", "scared", 
 var model: Node3D
 var anim: AnimationPlayer
 var current := ""
+## logical animation name -> clip name in the GLB (e.g. {"move": "walk", "absorb": "gather"})
+var anim_map := {}
 var _meshes: Array[GeometryInstance3D] = []
 var _flash_t := 0.0
 var _flash_mat: StandardMaterial3D
@@ -16,7 +18,8 @@ var _one_shot_until := 0.0
 var _clock := 0.0
 
 
-func setup(packed: PackedScene, target_height: float = 0.0, yaw_offset: float = 0.0, fix_vertex_colors: bool = false, extra_loops: Array = []) -> void:
+func setup(packed: PackedScene, target_height: float = 0.0, yaw_offset: float = 0.0, fix_vertex_colors: bool = false, extra_loops: Array = [], clip_map: Dictionary = {}) -> void:
+	anim_map = clip_map
 	model = packed.instantiate() as Node3D
 	add_child(model)
 	_collect(model)
@@ -29,9 +32,10 @@ func setup(packed: PackedScene, target_height: float = 0.0, yaw_offset: float = 
 	model.rotation.y = yaw_offset
 	anim = _find_player(model)
 	if anim:
+		_ensure_idle()
 		for n in LOOPING + extra_loops:
-			if anim.has_animation(n):
-				anim.get_animation(n).loop_mode = Animation.LOOP_LINEAR
+			if has_anim(n):
+				anim.get_animation(_clip(n)).loop_mode = Animation.LOOP_LINEAR
 	for g in _meshes:
 		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		if fix_vertex_colors and g is MeshInstance3D:
@@ -48,12 +52,31 @@ func setup(packed: PackedScene, target_height: float = 0.0, yaw_offset: float = 
 	_flash_mat.albedo_color = Color(1, 1, 1, 0)
 
 
+func _clip(n: String) -> String:
+	return str(anim_map.get(n, n))
+
+
 func has_anim(n: String) -> bool:
-	return anim != null and anim.has_animation(n)
+	return anim != null and anim.has_animation(_clip(n))
 
 
 func anim_length(n: String) -> float:
-	return anim.get_animation(n).length if has_anim(n) else 0.0
+	return anim.get_animation(_clip(n)).length if has_anim(n) else 0.0
+
+
+## Models without an idle clip (e.g. the supplied grass) hold the first key of their walk clip.
+func _ensure_idle() -> void:
+	if has_anim("idle") or not has_anim("move"):
+		return
+	var idle := anim.get_animation(_clip("move")).duplicate(true) as Animation
+	for track in idle.get_track_count():
+		while idle.track_get_key_count(track) > 1:
+			idle.track_remove_key(track, idle.track_get_key_count(track) - 1)
+	idle.length = 0.1
+	var lib := anim.get_animation_library("")
+	if lib and not lib.has_animation("idle"):
+		lib.add_animation("idle", idle)
+	anim_map.erase("idle")
 
 
 ## Plays a looping/base animation. Ignored while a one-shot is still running unless `force`.
@@ -66,7 +89,7 @@ func play(n: String, blend: float = 0.18, speed: float = 1.0, force: bool = fals
 		anim.speed_scale = speed
 		return
 	current = n
-	anim.play(n, blend)
+	anim.play(_clip(n), blend)
 	anim.speed_scale = speed
 
 
@@ -75,7 +98,7 @@ func play_once(n: String, speed: float = 1.0, blend: float = 0.1) -> float:
 	if not has_anim(n):
 		return 0.0
 	current = n
-	anim.play(n, blend)
+	anim.play(_clip(n), blend)
 	anim.seek(0.0, true)
 	anim.speed_scale = speed
 	var dur := anim_length(n) / maxf(speed, 0.01)

@@ -189,6 +189,10 @@ func tick(delta: float) -> void:
 			continue
 		m.age += delta
 		m.cooldown = maxf(0.0, m.cooldown - delta)
+		if m.hit_timer >= 0.0:
+			m.hit_timer -= delta
+			if m.hit_timer < 0.0:
+				_land_hit(m)
 		if m.kind == Monster.Kind.MOSS:
 			match m.stage:
 				Monster.MOSS:
@@ -256,12 +260,23 @@ func _try_attack_hero(m: Monster, front_only: bool) -> bool:
 	if d != Vector2i.ZERO:
 		m.dir = d
 	m.anim_request = "attack"
-	m.busy = 0.55
+	m.busy = Balance.MOSS_ATTACK_BUSY if m.kind == Monster.Kind.MOSS else Balance.BUG_ATTACK_BUSY
 	m.cooldown = Balance.MOSS_ATTACK_CD if m.kind == Monster.Kind.MOSS else Balance.BUG_ATTACK_CD
-	var dmg := int(round(m.atk * rng.randf_range(0.85, 1.15)))
-	hero_hit.emit(m, dmg)
-	hero.take_damage(dmg, m)
+	m.hit_dmg = int(round(m.atk * rng.randf_range(0.85, 1.15)))
+	m.hit_timer = m.busy * Balance.ATTACK_HIT_FRACTION
 	return true
+
+
+## The blow connects mid-animation, if the hero is still next to the attacker.
+func _land_hit(m: Monster) -> void:
+	var hc = _hero_cell()
+	if hc == null or not m.alive:
+		return
+	var d: Vector2i = hc - m.cell
+	if absi(d.x) + absi(d.y) > 1:
+		return
+	hero_hit.emit(m, m.hit_dmg)
+	hero.take_damage(m.hit_dmg, m)
 
 
 func _random_step(m: Monster, straight_bias: float) -> Vector2i:
@@ -308,7 +323,7 @@ func _moss_arrive(m: Monster) -> void:
 					m.nutrient += 1
 					m.hp = minf(m.max_hp, m.hp + Balance.MOSS_ABSORB_HEAL)
 					m.anim_request = "absorb"
-					m.busy = 0.7
+					m.busy = Balance.MOSS_ABSORB_BUSY
 					nutrient_flow.emit(b, m, true)
 					break
 		else:
@@ -316,7 +331,7 @@ func _moss_arrive(m: Monster) -> void:
 				if grid.add_nutrient(b, 1) > 0:
 					m.nutrient -= 1
 					m.anim_request = "absorb"
-					m.busy = 0.7
+					m.busy = Balance.MOSS_ABSORB_BUSY
 					nutrient_flow.emit(b, m, false)
 					break
 	_moss_check_life(m)

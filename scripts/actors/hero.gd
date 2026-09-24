@@ -7,6 +7,7 @@ signal hp_changed
 signal died
 signal escaped_with_maou
 signal picked_up_maou
+signal found_maou
 
 enum State { WAITING, ENTERING, ACTIVE, DEAD }
 
@@ -41,6 +42,8 @@ var _hit_timer := -1.0
 var _yaw := 0.0
 var _enter_t := 0.0
 var _dead_t := 0.0
+var _grab_timer := -1.0
+var _look_cd := 4.0
 
 
 func setup(p: HeroProfile, g: DungeonGrid, e: Ecosystem, mz: Maou, effects: Effects, mult: float) -> void:
@@ -100,6 +103,11 @@ func tick(dt: float) -> void:
 # ------------------------------------------------------------------ logic
 func _logic(dt: float) -> void:
 	attack_cd = maxf(0.0, attack_cd - dt)
+	_look_cd -= dt
+	if _grab_timer >= 0.0:
+		_grab_timer -= dt
+		if _grab_timer < 0.0 and cell == maou.cell and maou.carrier == null:
+			_pick_up()
 	if _hit_timer >= 0.0:
 		_hit_timer -= dt
 		if _hit_timer < 0.0:
@@ -137,11 +145,17 @@ func _decide() -> void:
 		knows_maou = true
 	if knows_maou and maou.placed and maou.carrier == null:
 		if cell == maou.cell:
-			_pick_up()
+			_celebrate_then_grab()
 			return
 		var path := grid.find_path(cell, maou.cell)
 		if not path.is_empty():
 			_step_along(path)
+			return
+	# at a fork, sometimes stop and look around before choosing a way
+	if _look_cd <= 0.0 and grid.floor_neighbors(cell).size() >= 3 and actor.has_anim(profile.anim_look):
+		_look_cd = 12.0
+		if rng.randf() < 0.6:
+			busy = actor.play_once(profile.anim_look, profile.look_anim_speed)
 			return
 	# explore: nearest unvisited floor cell
 	var path2 := grid.path_to_nearest(cell, func(c: Vector2i) -> bool: return visited[grid.idx(c)] == 0)
@@ -252,6 +266,16 @@ func _heal() -> void:
 	hp_changed.emit()
 
 
+## 魔王を見つけた勇者はまず喜ぶ（その間は無防備）→ 担ぎ上げる
+func _celebrate_then_grab() -> void:
+	var dur := 0.0
+	if actor.has_anim(profile.anim_joy):
+		dur = actor.play_once(profile.anim_joy, profile.joy_anim_speed)
+	busy = dur + 0.05
+	_grab_timer = dur
+	found_maou.emit()
+
+
 func _pick_up() -> void:
 	carrying = true
 	busy = 0.8
@@ -267,12 +291,15 @@ func _die() -> void:
 		carrying = false
 		maou.drop(cell)
 	died.emit()
-	# fall over and fade
-	var tw := create_tween().set_parallel(true)
-	tw.tween_property(actor, "rotation:x", -PI / 2.0, 0.6).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
-	tw.tween_property(actor, "position:y", 0.12, 0.6)
-	tw.chain().tween_interval(1.2)
-	tw.chain().tween_method(actor.set_fade, 1.0, 0.0, 0.8)
+	# death clip (or a fall-over fallback), hold the pose, then fade out
+	var tw := create_tween()
+	if actor.has_anim(profile.anim_death):
+		var dur := actor.play_once(profile.anim_death, 1.0)
+		tw.tween_interval(dur + 1.5)
+	else:
+		tw.tween_property(actor, "rotation:x", -PI / 2.0, 0.6).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+		tw.tween_interval(1.2)
+	tw.tween_method(actor.set_fade, 1.0, 0.0, 1.2)
 	fx.dust(position + Vector3(0, 0.2, 0), Color(0.8, 0.75, 0.7, 0.7), 1.2)
 
 

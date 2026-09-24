@@ -30,6 +30,9 @@ var meta_timer := 0.0
 var cooldown := 0.0
 var lay_cooldown := 0.0
 var busy := 0.0
+## pending attack on the hero: lands when hit_timer crosses 0
+var hit_timer := -1.0
+var hit_dmg := 0
 var toggle := false
 var alive := true
 var jitter := Vector2.ZERO

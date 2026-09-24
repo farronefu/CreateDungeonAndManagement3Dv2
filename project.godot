@@ -20,6 +20,7 @@ config/icon="res://icon.svg"
 
 GameState="*res://scripts/autoload/game_state.gd"
 Sfx="*res://scripts/autoload/sfx.gd"
+Pad="*res://scripts/autoload/pad.gd"
 
 [display]
 

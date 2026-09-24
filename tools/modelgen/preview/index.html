@@ -80,7 +80,7 @@ function setAnim(name) {
 }
 
 async function load(name) {
-  const url = name === 'hero' ? '/assets/models/hero/hero.glb' : `/assets/models/monsters/${name}.glb`;
+  const url = name === 'hero' ? '/assets/models/hero/hero.glb' : name.includes('/') ? `/assets/models/${name}.glb` : `/assets/models/monsters/${name}.glb`;
   const gltf = await loader.loadAsync(url + '?t=' + Date.now());
   if (current) scene.remove(current);
   current = gltf.scene;
@@ -91,7 +91,7 @@ async function load(name) {
       tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
     }
   });
-  if (name === 'hero') {
+  if (name === 'hero' || name.includes('/')) {
     const box = new THREE.Box3().setFromObject(current);
     current.scale.setScalar(0.9 / (box.max.y - box.min.y));
   }

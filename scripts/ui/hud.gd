@@ -32,6 +32,7 @@ var _seg_on: StyleBoxFlat
 var _seg_warn: StyleBoxFlat
 var _seg_off: StyleBoxFlat
 var _studios: Array[PortraitStudio] = []
+var _pad_hint: PanelContainer
 
 
 func _ready() -> void:
@@ -54,12 +55,13 @@ func _ready() -> void:
 	_toasts.alignment = BoxContainer.ALIGNMENT_END
 	_toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_toasts)
+	_build_pad_hint()
 
 
-func _studio(key: String, px: int, cam_pos: Vector3, look: Vector3, fov: float = 30.0) -> TextureRect:
+func _studio(key: String, px: int, cam_pos: Vector3, look: Vector3, fov: float = 30.0, height: float = 0.0) -> TextureRect:
 	var s := PortraitStudio.new()
 	add_child(s)
-	s.setup(MonsterCatalog.scene(key), Vector2i(px, px), 0.0, cam_pos, look, fov, true)
+	s.setup(MonsterCatalog.scene(key), Vector2i(px, px), height, cam_pos, look, fov, bool(MonsterCatalog.MODELS[key]["fix_colors"]))
 	s.freeze_after(4)
 	_studios.append(s)
 	var tr := TextureRect.new()
@@ -174,6 +176,7 @@ func _build_phase_panel() -> void:
 	vb.add_child(_phase_time)
 	_call_btn = Button.new()
 	_call_btn.text = "勇者を呼ぶ"
+	_call_btn.focus_mode = Control.FOCUS_NONE
 	_call_btn.pressed.connect(func() -> void:
 		Sfx.play("click")
 		call_hero_pressed.emit())
@@ -188,12 +191,45 @@ func _build_phase_panel() -> void:
 		var b := Button.new()
 		b.text = "x%d" % int(s)
 		b.toggle_mode = true
+		b.focus_mode = Control.FOCUS_NONE
 		b.button_pressed = s == 1.0
 		b.add_theme_font_size_override("font_size", 18)
 		b.custom_minimum_size = Vector2(62, 34)
 		b.pressed.connect(_on_speed.bind(s, b))
 		sp.add_child(b)
 		_speed_btns.append(b)
+
+
+## Reflects a speed change made elsewhere (gamepad RB).
+func set_speed(s: float) -> void:
+	for b in _speed_btns:
+		b.button_pressed = b.text == "x%d" % int(s)
+
+
+func _build_pad_hint() -> void:
+	_pad_hint = PanelContainer.new()
+	_pad_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_pad_hint.position = Vector2(-470, -52)
+	_pad_hint.custom_minimum_size = Vector2(940, 0)
+	_pad_hint.add_theme_stylebox_override("panel", UiTheme.panel(Color(0.04, 0.06, 0.1, 0.8), Color(0.45, 0.5, 0.6), 18, 1))
+	_pad_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := RichTextLabel.new()
+	l.bbcode_enabled = true
+	l.fit_content = true
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.scroll_active = false
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.add_theme_font_override("normal_font", UiTheme.font(true))
+	l.add_theme_font_size_override("normal_font_size", 18)
+	l.text = "[center][color=#5aa0ff]X[/color] 掘る（押しながら十字で連続）　[color=#6fd06f]A[/color] 決定　[color=#f0c040]Y[/color] 勇者を呼ぶ　[color=#c0c0c0]RB[/color] 速度　[color=#c0c0c0]LB[/color] 勇者追跡　[color=#c0c0c0]Rスティック[/color] カメラ　[color=#c0c0c0]R3[/color] リセット[/center]"
+	_pad_hint.add_child(l)
+	_pad_hint.visible = false
+	root.add_child(_pad_hint)
+
+
+func set_pad_hint(v: bool) -> void:
+	_pad_hint.visible = v
+	_toasts.position.y = -250.0 if v else -210.0
 
 
 func _on_speed(s: float, btn: Button) -> void:
@@ -222,16 +258,16 @@ func _build_eco_panel() -> void:
 	pc.add_child(vb)
 	vb.add_child(UiTheme.label("ダンジョンの生態系", 20, UiTheme.GOLD, true))
 	var rows := [
-		["moss", "モコゴケ", Vector3(0, 0.55, 0.75), Vector3(0, 0.2, 0)],
-		["moss_flower", "ツボミ / モコバナ", Vector3(0, 0.75, 0.95), Vector3(0, 0.38, 0)],
-		["bug_larva", "ザクザクムシ 幼虫", Vector3(0.35, 0.5, 0.75), Vector3(0, 0.12, 0.02)],
-		["bug_pupa", "ザクザクムシ サナギ", Vector3(0, 0.5, 0.95), Vector3(0, 0.22, 0)],
-		["bug_adult", "ザクザクムシ 成虫", Vector3(0.45, 0.65, 0.8), Vector3(0, 0.22, 0)],
+		["moss", "モコゴケ", Vector3(0, 0.55, 0.9), Vector3(0, 0.22, 0), 0.45],
+		["moss_flower", "ツボミ / モコバナ", Vector3(0, 0.62, 1.25), Vector3(0, 0.36, 0), 0.72],
+		["bug_larva", "ザクザクムシ 幼虫", Vector3(0.35, 0.5, 0.75), Vector3(0, 0.12, 0.02), 0.0],
+		["bug_pupa", "ザクザクムシ サナギ", Vector3(0, 0.5, 0.95), Vector3(0, 0.22, 0), 0.0],
+		["bug_adult", "ザクザクムシ 成虫", Vector3(0.45, 0.65, 0.8), Vector3(0, 0.22, 0), 0.0],
 	]
 	for r in rows:
 		var hb := HBoxContainer.new()
 		hb.add_theme_constant_override("separation", 8)
-		var icon := _studio(r[0], 96, r[2], r[3])
+		var icon := _studio(r[0], 96, r[2], r[3], 30.0, r[4])
 		icon.custom_minimum_size = Vector2(44, 44)
 		hb.add_child(icon)
 		var name_l := UiTheme.label(r[1], 19)

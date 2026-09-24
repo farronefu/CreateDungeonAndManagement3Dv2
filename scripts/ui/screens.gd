@@ -21,6 +21,20 @@ func _ready() -> void:
 	theme = UiTheme.theme()
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
+	Pad.mode_changed.connect(func(on: bool) -> void:
+		if on and visible:
+			_focus_first())
+
+
+## Gamepad: put focus on the first enabled button so the D-pad / A can drive the menu.
+func _focus_first() -> void:
+	if not Pad.using_pad:
+		return
+	for b in find_children("*", "Button", true, false):
+		var btn := b as Button
+		if btn.visible and not btn.disabled and not btn.is_queued_for_deletion():
+			btn.grab_focus()
+			return
 
 
 func _clear() -> void:
@@ -89,6 +103,7 @@ func show_title() -> void:
 	c.add_child(_button("はじめる", func() -> void: start_pressed.emit()))
 	vb.add_child(c)
 	visible = true
+	_focus_first.call_deferred()
 
 
 # ------------------------------------------------------------------ result
@@ -142,6 +157,7 @@ func show_result(data: Dictionary) -> void:
 	vb.add_child(c)
 	_refresh_upgrades()
 	visible = true
+	_focus_first.call_deferred()
 
 
 func _buy(id: String) -> void:
@@ -186,6 +202,7 @@ func show_game_over() -> void:
 	hb.add_child(_button("タイトルへ", func() -> void: title_pressed.emit()))
 	vb.add_child(hb)
 	visible = true
+	_focus_first.call_deferred()
 
 
 func hide_all() -> void:

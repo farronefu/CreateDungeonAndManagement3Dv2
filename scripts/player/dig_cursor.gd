@@ -1,6 +1,8 @@
 class_name DigCursor
 extends Node3D
-## The player's pickaxe cursor: highlights the block under the mouse and emits clicks.
+## The player's pickaxe cursor: highlights the block under the mouse (or the gamepad cursor)
+## and emits clicks. Gamepad: D-pad / left stick move (hold to repeat, longer = faster),
+## X digs, holding X while moving digs a whole tunnel, A places the 魔王.
 
 signal clicked(cell: Vector2i)
 signal hovered(cell: Vector2i)
@@ -14,6 +16,14 @@ var mode := Mode.NONE
 var hover := Vector2i(-999, -999)
 ## Callable(cell) -> Color : frame colour (alpha 0 hides it)
 var validator: Callable
+## gamepad cursor
+var pad_cell := Vector2i(-1, -1)
+const REPEAT_DELAY := 0.2
+const REPEAT_INTERVAL := 0.085
+const REPEAT_FAST := 0.04
+var _rep_dir := Vector2.ZERO
+var _rep_timer := 0.0
+var _rep_held := 0.0
 
 var _frame: MeshInstance3D
 var _frame_mat: StandardMaterial3D
@@ -47,6 +57,10 @@ func _ready() -> void:
 	pick.position = Vector3(0, -0.12, 0)
 	_pick_pivot.add_child(_pick)
 	_pick.scale = Vector3.ONE * 0.9
+	Pad.button_pressed.connect(_on_pad_button)
+	Pad.mode_changed.connect(func(on: bool) -> void:
+		if on:
+			_init_pad_cell())
 
 
 func _frame_mesh() -> ArrayMesh:
@@ -77,6 +91,74 @@ func _unhandled_input(event: InputEvent) -> void:
 			clicked.emit(hover)
 
 
+func _init_pad_cell() -> void:
+	if grid == null:
+		return
+	if grid.in_bounds(hover):
+		pad_cell = hover
+	elif camera is GameCamera:
+		pad_cell = DungeonGrid.world_to_cell((camera as GameCamera).focus)
+	pad_cell = pad_cell.clamp(Vector2i.ZERO, Vector2i(grid.w - 1, grid.h - 1))
+
+
+func _on_pad_button(b: int) -> void:
+	if mode == Mode.NONE or grid == null:
+		return
+	if not grid.in_bounds(pad_cell):
+		_init_pad_cell()
+	if b == JOY_BUTTON_X or (b == JOY_BUTTON_A and mode == Mode.PLACE):
+		clicked.emit(pad_cell)
+
+
+## Moves the gamepad cursor one step per repeat tick; returns true if it moved.
+func _pad_step(delta: float) -> void:
+	var s := Vector2(Pad.dpad())
+	var stick := Pad.left_stick()
+	var fast := false
+	if s == Vector2.ZERO and stick.length() > 0.5:
+		# stick: 8-way, full tilt = fast
+		s = Vector2(0 if absf(stick.x) < 0.38 else signf(stick.x), 0 if absf(stick.y) < 0.38 else signf(stick.y))
+		fast = stick.length() > 0.95
+	if s == Vector2.ZERO:
+		_rep_dir = Vector2.ZERO
+		return
+	if s != _rep_dir:
+		_rep_dir = s
+		_rep_held = 0.0
+		_rep_timer = REPEAT_DELAY
+		_move_pad(s)
+		return
+	_rep_held += delta
+	_rep_timer -= delta
+	if _rep_timer <= 0.0:
+		_rep_timer = REPEAT_FAST if (fast or _rep_held > 0.7) else REPEAT_INTERVAL
+		_move_pad(s)
+
+
+func _move_pad(s: Vector2) -> void:
+	var cam := camera as GameCamera
+	var step := Vector2i.ZERO
+	if s.x != 0.0:
+		step += cam.screen_to_grid_step(Vector2(s.x, 0)) if cam else Vector2i(int(s.x), 0)
+	if s.y != 0.0:
+		step += cam.screen_to_grid_step(Vector2(0, s.y)) if cam else Vector2i(0, int(s.y))
+	var next := (pad_cell + step).clamp(Vector2i.ZERO, Vector2i(grid.w - 1, grid.h - 1))
+	if next == pad_cell:
+		return
+	pad_cell = next
+	# keep the cursor on screen
+	if cam:
+		var sp := cam.unproject_position(DungeonGrid.cell_center(pad_cell))
+		var vs := get_viewport().get_visible_rect().size
+		var inner := Rect2(vs * 0.22, vs * 0.56)
+		if not inner.has_point(sp):
+			cam.focus_on(DungeonGrid.cell_center(pad_cell))
+			cam.user_moved = true
+	# holding X while moving digs a tunnel
+	if mode == Mode.DIG and Pad.held(JOY_BUTTON_X):
+		clicked.emit(pad_cell)
+
+
 func swing() -> void:
 	if _swinging:
 		return
@@ -96,6 +178,11 @@ func _process(delta: float) -> void:
 		view.set_hover(Vector2i(-999, -999), 0.0)
 		return
 	var c := mouse_cell()
+	if Pad.using_pad:
+		if not grid.in_bounds(pad_cell):
+			_init_pad_cell()
+		_pad_step(delta)
+		c = pad_cell
 	if c != hover:
 		hover = c
 		hovered.emit(c)

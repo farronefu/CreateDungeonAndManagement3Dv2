@@ -34,6 +34,20 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | F12 | スクリーンショット（`user://`） |
 | マウスを合わせる | 魔物のHP・養分・状態、土の養分量をポップアップ表示 |
 
+### コントローラー（Xbox配置）
+
+| ボタン | 内容 |
+| --- | --- |
+| 十字キー / 左スティック | カーソル移動（長押しでリピート、押し続けるほど速く。スティックを倒し切ると高速） |
+| X | 掘る。**押しながら十字キーで一直線に連続で掘る** |
+| A | 決定（魔王の配置・メニュー・カットインのスキップ） |
+| Y | （建設中）勇者を呼ぶ |
+| RB | ゲーム速度 x1 → x2 → x3 |
+| LB | （侵攻中）勇者をカメラで追う / 解除 |
+| 右スティック | カメラアングルを自由に回転・傾け（R3 でリセット） |
+
+マウスでも回転できます（中ボタンドラッグ / Q・E キー / Home でリセット）。コントローラー操作中は、カーソル位置の情報ポップアップと操作ガイドが表示されます。
+
 ## ゲームの流れ
 
 タイトル → 勇者来訪カットイン → **建設フェーズ**（150秒 or「勇者を呼ぶ」）→ **魔王配置** →
@@ -78,8 +92,21 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 
 現在は `assets/models/hero/hero.glb`（idle / walk / attack）を使用しています。
 
+### 草の魔物・木・進化演出（2026-09-24 差し替え）
+
+提供モデル一式（Mossbound）を使用しています。
+
+| ゲーム内 | ファイル | 使用クリップ |
+| --- | --- | --- |
+| 勇者 | `assets/models/hero/hero.glb` | idle / walk / attack / death（死亡）/ joy（魔王を見つけて喜ぶ）/ look_around（分かれ道で見回す） |
+| モコゴケ（草の魔物） | `assets/models/grass/grass.glb` | walk（移動）/ attack（体当たり、0.44 の位置で命中）/ gather（養分吸収）。idle は walk の先頭姿勢から生成 |
+| ツボミ・モコバナ（進化後の木） | `assets/models/grass/tree.glb` | 静止モデル。吸収・被弾・消滅はゲーム側の揺れ・縮小で表現 |
+| 進化演出 | `assets/models/grass/evolution.glb` + `evolution-color.json` + `shaders/autumn.gdshader` | モコゴケがツボミになる時に 7 秒再生（秋色への色変化つき） |
+
 ### 魔物・魔王・ツルハシ
-[`scripts/sim/monster_catalog.gd`](scripts/sim/monster_catalog.gd) のパスを差し替えます。以下のアニメーション名に対応していれば、そのまま動きます。
+[`scripts/sim/monster_catalog.gd`](scripts/sim/monster_catalog.gd) のパスを差し替えます。クリップ名が違う場合は `anims` で対応付けできます（例: `{"move": "walk", "absorb": "gather"}`）。無いクリップは揺れ・ポップ・縮小などで自動的に代用します。
+
+旧来の生成モデルの対応アニメーション:
 
 | モデル | アニメーション |
 | --- | --- |

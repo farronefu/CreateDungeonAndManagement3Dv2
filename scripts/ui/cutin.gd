@@ -54,6 +54,17 @@ func play(title: String, subtitle: String, portrait: Texture2D, color: Color, du
 	Sfx.play("cutin")
 
 
+func _input(event: InputEvent) -> void:
+	# A / Enter / Space skip the cut-in
+	if not _active or _t <= 0.4:
+		return
+	var skip: bool = event is InputEventJoypadButton and event.pressed and (event as InputEventJoypadButton).button_index == JOY_BUTTON_A
+	skip = skip or (event is InputEventKey and event.pressed and (event as InputEventKey).keycode in [KEY_ENTER, KEY_SPACE])
+	if skip:
+		_t = maxf(_t, _dur - 0.35)
+		get_viewport().set_input_as_handled()
+
+
 func _gui_input(event: InputEvent) -> void:
 	if _active and event is InputEventMouseButton and event.pressed and _t > 0.4:
 		_t = maxf(_t, _dur - 0.35)

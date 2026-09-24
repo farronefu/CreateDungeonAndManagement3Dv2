@@ -15,6 +15,12 @@ extends Resource
 @export var anim_idle := "idle"
 @export var anim_walk := "walk"
 @export var anim_attack := "attack"
+## Optional clips (leave empty if the model lacks them): death, joy before grabbing the 魔王, looking around at junctions.
+@export var anim_death := "death"
+@export var anim_joy := "joy"
+@export var anim_look := "look_around"
+@export var joy_anim_speed := 1.2
+@export var look_anim_speed := 1.4
 ## Playback speed of the attack clip and when (in clip seconds) the blow lands.
 @export var attack_anim_speed := 1.4
 @export var attack_hit_time := 0.7

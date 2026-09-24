@@ -45,7 +45,10 @@ func _on_died(m: Monster, cause: String) -> void:
 func _on_evolved(m: Monster) -> void:
 	var v: MonsterVisual = _visuals.get(m.id)
 	if v:
-		v.swap_model()
+		if m.kind == Monster.Kind.MOSS and m.stage == Monster.BUD:
+			v.play_evolution()
+		else:
+			v.swap_model()
 		fx.ring(v.position, Color(1.0, 0.9, 0.4))
 		fx.sparkle(v.position + Vector3(0, 0.3, 0), Color(1.0, 0.9, 0.4), 16)
 		Sfx.play("evolve", v.position)

@@ -132,6 +132,8 @@ func _setup_stage() -> void:
 	eco.hero = hero
 	hero.died.connect(_on_hero_died)
 	hero.escaped_with_maou.connect(_on_defeat)
+	hero.found_maou.connect(func() -> void:
+		hud.toast("勇者が魔王を見つけた！ 今のうちに攻撃だ！", UiTheme.WARN))
 	hero.picked_up_maou.connect(func() -> void:
 		hud.toast("魔王が捕まった！入口に連れて行かれる前に勇者を倒せ！", UiTheme.WARN)
 		follow_hero = true
@@ -158,6 +160,7 @@ func _build_ui() -> void:
 	add_child(hud)
 	hud.call_hero_pressed.connect(_on_call_hero)
 	hud.speed_changed.connect(func(s: float) -> void: speed = s)
+	Pad.button_pressed.connect(_on_pad_button)
 	hud.set_stage("STAGE %d  %s" % [GameState.stage_index + 1, stage["name"]])
 	var hero_scene := load(profile.model_path) as PackedScene
 	var portrait := PortraitStudio.new()
@@ -388,6 +391,33 @@ func _update_hud(_force: bool) -> void:
 
 
 # ------------------------------------------------------------------ input
+## Gamepad shortcuts (Xbox layout). Digging / placing is handled by DigCursor.
+func _on_pad_button(b: int) -> void:
+	match b:
+		JOY_BUTTON_RIGHT_SHOULDER:
+			if phase == Phase.BUILD or phase == Phase.PLACE or phase == Phase.INVASION:
+				_cycle_speed()
+		JOY_BUTTON_Y:
+			if phase == Phase.BUILD:
+				_on_call_hero()
+		JOY_BUTTON_LEFT_SHOULDER:
+			if phase == Phase.INVASION:
+				_toggle_follow()
+
+
+func _cycle_speed() -> void:
+	speed = 1.0 if speed >= 3.0 else speed + 1.0
+	hud.set_speed(speed)
+	Sfx.play("click")
+
+
+func _toggle_follow() -> void:
+	follow_hero = not follow_hero
+	if follow_hero and hero.is_targetable():
+		cursor.pad_cell = hero.cell
+	hud.toast("勇者を追跡中" if follow_hero else "追跡を解除", UiTheme.TEXT)
+
+
 func _on_click(c: Vector2i) -> void:
 	match phase:
 		Phase.BUILD, Phase.INVASION:
@@ -439,18 +469,21 @@ var _tip_text := ""
 
 func _update_tooltip(delta: float) -> void:
 	var active := phase == Phase.BUILD or phase == Phase.PLACE or phase == Phase.INVASION or phase == Phase.ENDING
-	if not active or get_viewport().gui_get_hovered_control() != null:
+	hud.set_pad_hint(Pad.using_pad and active)
+	if not active or (not Pad.using_pad and get_viewport().gui_get_hovered_control() != null):
 		hud.show_tooltip("", Vector2.ZERO)
 		return
-	var mp := get_viewport().get_mouse_position()
+	# with a gamepad the popup follows the pad cursor instead of the mouse
+	var cell := cursor.pad_cell if Pad.using_pad else cursor.mouse_cell()
+	var mp := cam.unproject_position(DungeonGrid.cell_center(cell, 0.4)) if Pad.using_pad else get_viewport().get_mouse_position()
 	_tip_timer -= delta
 	if _tip_timer <= 0.0:
 		_tip_timer = 0.1
-		_tip_text = _tooltip_text(mp)
+		_tip_text = _tooltip_text(mp, cell)
 	hud.show_tooltip(_tip_text, mp)
 
 
-func _tooltip_text(mp: Vector2) -> String:
+func _tooltip_text(mp: Vector2, cell: Vector2i) -> String:
 	# monsters / hero / 魔王 under the mouse take priority over the cell
 	# (lambdas capture locals by value, so the running best lives in a Dictionary)
 	var pick := {"obj": null, "d": 44.0}
@@ -476,7 +509,7 @@ func _tooltip_text(mp: Vector2) -> String:
 		return "[b]勇者 %s[/b]\nHP %s %d/%d\nMP %d/%d\n%s" % [profile.display_name, _bar(hero.hp, hero.max_hp, "#ff7060"), int(ceil(hero.hp)), int(hero.max_hp), int(hero.mp), int(hero.max_mp), st]
 	if best == maou:
 		return "[b][color=#d8a0ff]魔王さま[/color][/b]\n" + ("[color=#ff8070]勇者に運ばれている！[/color]" if maou.carrier else "勇者に入口まで運ばれると負け")
-	return _cell_tip(cursor.mouse_cell())
+	return _cell_tip(cell)
 
 
 func _bar(v: float, max_v: float, col: String) -> String:
@@ -539,8 +572,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		if k.keycode == KEY_SPACE and phase == Phase.BUILD:
 			_on_call_hero()
 		elif k.keycode == KEY_F and phase == Phase.INVASION:
-			follow_hero = not follow_hero
-			hud.toast("勇者を追跡中" if follow_hero else "追跡を解除", UiTheme.TEXT)
+			_toggle_follow()
 		elif k.keycode == KEY_F12:
 			_screenshot("user://shot_%d.png" % Time.get_ticks_msec())
 
@@ -625,6 +657,8 @@ func _debug_bootstrap() -> void:
 
 
 func _debug_tick() -> void:
+	if _debug.has("padtest"):
+		_padtest()
 	if _debug.has("mouse_monster") and not eco.monsters.is_empty():
 		var mv: Node3D = eco.monsters[int(_debug["mouse_monster"]) % eco.monsters.size()].visual
 		if mv:
@@ -644,6 +678,69 @@ func _debug_tick() -> void:
 
 
 var _auto_digs := 0
+var _pt := {}
+
+
+func _pad_event(button: int, pressed: bool) -> void:
+	var e := InputEventJoypadButton.new()
+	e.button_index = button
+	e.pressed = pressed
+	Input.parse_input_event(e)
+
+
+func _pad_axis(axis: int, v: float) -> void:
+	var e := InputEventJoypadMotion.new()
+	e.axis = axis
+	e.axis_value = v
+	Input.parse_input_event(e)
+
+
+## Scripted Xbox-controller session: orbit camera, RB speed, X-hold tunnel digging, A placement.
+func _padtest() -> void:
+	var f := _frames
+	if f == 20:
+		_pt["yaw0"] = cam.yaw
+		_pad_axis(JOY_AXIS_RIGHT_X, 1.0)
+		_pad_axis(JOY_AXIS_RIGHT_Y, -0.6)
+	elif f == 60:
+		_pad_axis(JOY_AXIS_RIGHT_X, 0.0)
+		_pad_axis(JOY_AXIS_RIGHT_Y, 0.0)
+		_pt["yaw1"] = cam.yaw
+		_pt["pitch1"] = rad_to_deg(cam.pitch)
+		_pad_event(JOY_BUTTON_RIGHT_STICK, true)
+		_pad_event(JOY_BUTTON_RIGHT_STICK, false)
+	elif f == 90:
+		_pt["yaw_reset"] = cam.yaw
+		_pad_event(JOY_BUTTON_RIGHT_SHOULDER, true)
+		_pad_event(JOY_BUTTON_RIGHT_SHOULDER, false)
+		_pt["speed"] = speed
+	elif f == 100:
+		# start at the east end of the starter corridor and tunnel east holding X
+		cursor.pad_cell = Vector2i(grid.entrance.x + 3, 5)
+		_pt["speed_after_RB"] = speed
+		_pt["dig0"] = dig_left
+		_pad_event(JOY_BUTTON_X, true)
+		_pad_event(JOY_BUTTON_DPAD_RIGHT, true)
+	elif f == 190:
+		_pad_event(JOY_BUTTON_DPAD_RIGHT, false)
+		_pad_event(JOY_BUTTON_X, false)
+		_pt["dig1"] = dig_left
+		_pt["cursor"] = cursor.pad_cell
+		_pad_event(JOY_BUTTON_Y, true)
+		_pad_event(JOY_BUTTON_Y, false)
+	elif f == 200:
+		_pt["phase_after_Y"] = phase
+		cursor.pad_cell = Vector2i(grid.entrance.x + 3, 8)
+		_pad_event(JOY_BUTTON_A, true)
+		_pad_event(JOY_BUTTON_A, false)
+	elif f == 215:
+		_pt["maou_placed"] = maou.placed
+		_pt["maou_cell"] = maou.cell
+		print("PADTEST ", _pt)
+		_screenshot("debug_shots/padtest.png")
+		get_tree().quit()
+
+
 var _freeze_probe := []
 var _freeze_frame := 0
 
