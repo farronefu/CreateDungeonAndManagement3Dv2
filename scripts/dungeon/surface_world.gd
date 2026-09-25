@@ -48,6 +48,7 @@ func build(g: DungeonGrid, block_mat: ShaderMaterial) -> void:
 	_build_mountains()
 	_emit(_town, _town_material())
 	_emit(_glow, _glow_material())
+	RenderLayers.apply(self, RenderLayers.SURFACE)
 
 
 func _emit(kit: MeshKit, mat: Material) -> void:

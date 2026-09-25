@@ -4,8 +4,10 @@ render_mode unshaded, fog_disabled, depth_draw_never, depth_test_disabled, cull_
 // Full-screen pass that ties every asset into one look:
 //   * ink outlines from depth + normal discontinuities
 //   * warm/cool colour grade and a gentle vignette
+//   * distance blur on the town: beyond the dungeon (world z < town_blur_start) it softens
+//     progressively, the sky / far hills most
 
-uniform sampler2D screen_tex : hint_screen_texture, repeat_disable, filter_linear;
+uniform sampler2D screen_tex : hint_screen_texture, repeat_disable, filter_linear_mipmap;
 uniform sampler2D depth_tex : hint_depth_texture, repeat_disable, filter_nearest;
 uniform sampler2D normal_tex : hint_normal_roughness_texture, repeat_disable, filter_nearest;
 
@@ -19,6 +21,9 @@ uniform float saturation = 1.02;
 // linear multipliers (no source_color: these must not be sRGB-converted)
 uniform vec3 shadow_tint = vec3(0.94, 0.96, 1.0);
 uniform vec3 light_tint = vec3(1.02, 1.0, 0.97);
+uniform float town_blur_start = -3.2;   // world z where the blur begins (just past the cave)
+uniform float town_blur_full = -10.0;   // world z where it is strongest
+uniform float town_blur_radius = 6.0;   // pixels at 1080p at full strength
 
 void vertex() {
 	POSITION = vec4(VERTEX.xy, 1.0, 1.0);
@@ -40,6 +45,28 @@ void fragment() {
 	vec3 col = texture(screen_tex, uv).rgb;
 
 	float d0 = lin_depth(uv, INV_PROJECTION_MATRIX);
+
+	// --- town distance blur -------------------------------------------------
+	float raw = texture(depth_tex, uv).r;
+	vec4 vp = INV_PROJECTION_MATRIX * vec4(uv * 2.0 - 1.0, raw, 1.0);
+	vp /= vp.w;
+	vec3 wp = (INV_VIEW_MATRIX * vec4(vp.xyz, 1.0)).xyz;
+	float far_k = smoothstep(120.0, 300.0, d0);            // sky
+	float blur = max(smoothstep(town_blur_start, town_blur_full, wp.z), far_k);
+	if (blur > 0.001) {
+		vec2 r = blur * town_blur_radius * (VIEWPORT_SIZE.y / 1080.0) / VIEWPORT_SIZE;
+		float lod = blur * 2.2;
+		vec3 acc = textureLod(screen_tex, uv, lod).rgb * 0.2;
+		acc += textureLod(screen_tex, uv + vec2(r.x, 0.0), lod).rgb * 0.1;
+		acc += textureLod(screen_tex, uv - vec2(r.x, 0.0), lod).rgb * 0.1;
+		acc += textureLod(screen_tex, uv + vec2(0.0, r.y), lod).rgb * 0.1;
+		acc += textureLod(screen_tex, uv - vec2(0.0, r.y), lod).rgb * 0.1;
+		acc += textureLod(screen_tex, uv + r * 0.7, lod).rgb * 0.1;
+		acc += textureLod(screen_tex, uv - r * 0.7, lod).rgb * 0.1;
+		acc += textureLod(screen_tex, uv + vec2(r.x, -r.y) * 0.7, lod).rgb * 0.1;
+		acc += textureLod(screen_tex, uv + vec2(-r.x, r.y) * 0.7, lod).rgb * 0.1;
+		col = mix(col, acc, smoothstep(0.0, 0.35, blur));
+	}
 	float d1 = lin_depth(uv + vec2(px.x, 0.0), INV_PROJECTION_MATRIX);
 	float d2 = lin_depth(uv - vec2(px.x, 0.0), INV_PROJECTION_MATRIX);
 	float d3 = lin_depth(uv + vec2(0.0, px.y), INV_PROJECTION_MATRIX);
@@ -57,7 +84,7 @@ void fragment() {
 
 	// fade lines with distance (the sky / far mountains stay soft)
 	float fade = 1.0 - smoothstep(45.0, 90.0, d0);
-	float edge = max(e_depth, e_norm) * line_strength * fade;
+	float edge = max(e_depth, e_norm) * line_strength * fade * (1.0 - blur);
 	col = mix(col, col * ink * 2.2, edge);
 
 	// grade: cool shadows, warm highlights, a touch more colour

@@ -159,6 +159,7 @@ func debris(c: Vector2i, mossy: float) -> void:
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 	p.emission_box_extents = Vector3(0.3, 0.3, 0.3)
 	p.position = pos
+	p.layers = RenderLayers.ACTORS
 	add_child(p)
 	p.emitting = true
 	get_tree().create_timer(1.3).timeout.connect(p.queue_free)

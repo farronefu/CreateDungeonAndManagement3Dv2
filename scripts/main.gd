@@ -63,8 +63,8 @@ func _ready() -> void:
 
 # ------------------------------------------------------------------ setup
 func _build_environment() -> void:
-	# late-afternoon sky over the town; the dungeon below is kept darker by its shaders,
-	# (no torches: the dungeon is lit by the sun, ambient light and the effects)
+	# late-afternoon sky over the town. Lighting is split by RenderLayers: the sun lights the
+	# surface only, the dungeon gets a dim light from above, monsters their own key light.
 	var sky_mat := ProceduralSkyMaterial.new()
 	sky_mat.sky_top_color = Color(0.3, 0.46, 0.72)
 	sky_mat.sky_horizon_color = Color(0.86, 0.76, 0.62)
@@ -80,7 +80,7 @@ func _build_environment() -> void:
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.62, 0.58, 0.62)
-	env.ambient_light_energy = 0.42
+	env.ambient_light_energy = 0.3
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.0
@@ -106,21 +106,49 @@ func _build_environment() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
+	# the sun shines on the surface world only
 	var sun := DirectionalLight3D.new()
 	sun.light_color = Color(1.0, 0.94, 0.84)
-	sun.light_energy = 1.2
+	sun.light_energy = 1.25
+	sun.light_cull_mask = RenderLayers.SURFACE
 	sun.shadow_enabled = true
 	sun.shadow_blur = 1.2
 	sun.shadow_opacity = 0.85
-	sun.directional_shadow_max_distance = 50.0
+	sun.directional_shadow_max_distance = 60.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.rotation_degrees = Vector3(-50, -32, 0)
 	add_child(sun)
 	var fill := DirectionalLight3D.new()
 	fill.light_color = Color(0.5, 0.6, 0.9)
 	fill.light_energy = 0.22
+	fill.light_cull_mask = RenderLayers.SURFACE
 	fill.rotation_degrees = Vector3(-30, 150, 0)
 	add_child(fill)
+	# under ground: a dim, cool light from almost straight above - tops read brighter than sides
+	var cave := DirectionalLight3D.new()
+	cave.light_color = Color(0.78, 0.8, 0.92)
+	cave.light_energy = 0.62
+	cave.light_cull_mask = RenderLayers.DUNGEON
+	cave.shadow_enabled = true
+	cave.shadow_blur = 1.6
+	cave.shadow_opacity = 0.7
+	cave.directional_shadow_max_distance = 45.0
+	cave.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	cave.rotation_degrees = Vector3(-72, -24, 0)
+	add_child(cave)
+	# characters get their own warm key light so monsters stay vivid everywhere
+	var key := DirectionalLight3D.new()
+	key.light_color = Color(1.0, 0.96, 0.9)
+	key.light_energy = 1.3
+	key.light_cull_mask = RenderLayers.ACTORS
+	key.rotation_degrees = Vector3(-55, -30, 0)
+	add_child(key)
+	var rim := DirectionalLight3D.new()
+	rim.light_color = Color(0.7, 0.8, 1.0)
+	rim.light_energy = 0.45
+	rim.light_cull_mask = RenderLayers.ACTORS
+	rim.rotation_degrees = Vector3(-25, 150, 0)
+	add_child(rim)
 
 
 ## Full-screen ink outline + grade + vignette, attached to the game camera.
@@ -735,6 +763,7 @@ func _debug_bootstrap() -> void:
 			print("hero hp %d/%d  mp %d  cell %s carrying %s  time %.1f  monsters %d  phase %d" % [hero.hp, hero.max_hp, hero.mp, hero.cell, hero.carrying, invasion_time, eco.monsters.size(), phase])
 	if _debug.has("cam"):
 		var p: PackedStringArray = str(_debug["cam"]).split(",")
+		cam.edge_scroll = false   # a fixed debug view must not drift with the real cursor
 		cam.focus_on(Vector3(float(p[0]), 0, float(p[1])), true)
 		if p.size() > 2:
 			cam.zoom = float(p[2])

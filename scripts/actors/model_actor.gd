@@ -51,6 +51,7 @@ func setup(packed: PackedScene, target_height: float = 0.0, yaw_offset: float = 
 						mat.vertex_color_use_as_albedo = true
 	for g in _meshes:
 		_toonify(g)
+	RenderLayers.apply(model, RenderLayers.ACTORS)
 	_flash_mat = StandardMaterial3D.new()
 	_flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
