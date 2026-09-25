@@ -1,20 +1,28 @@
 class_name SurfaceWorld
 extends Node3D
-## The world above the dungeon (z < 0), built from low-poly toon geometry so it matches the
-## 3D dungeon: meadow ground (same shader as the soil, so there is no seam), a dirt ramp
-## down to the entrance under a mossy rock mound, the heroes' town along a road, a castle, a
-## church, forests, a river with a bridge and distant mountains that fade into the sky fog.
+## The world above the dungeon (z < 0), all voxel art: tiled grass ground, a cobbled road, a
+## rocky mound over the cave mouth, the heroes' town lined up behind the road and facing the
+## player (castle, two houses, armour shop | cave | weapon shop, church, inn), a dense forest
+## behind it and a voxel mountain range on the horizon. Building/tree models: TownModels.
+## Small things (road, fence, lamps, props, grass tufts, the cave mound) are generated here
+## into one voxel mesh because they depend on the dungeon layout.
 
 const RAMP := 2.4          # length of the ramp from the surface down to the entrance cell
 const ROAD_Z := -4.6
 const GROUND_Y := Balance.BLOCK_H
+const VOX := TownModels.VOX
+## buildings from the cave outwards on each side; the castle ends up leftmost
+const LEFT_ROW := ["armor_shop", "house", "house", "castle"]
+const RIGHT_ROW := ["weapon_shop", "church", "inn"]
+const BUILDING_GAP := 0.9
+const CAVE_CLEAR := 2.9    # free half-width around the cave path
+const FOREST_BACK := -46.0
 
 var grid: DungeonGrid
 var rng := RandomNumberGenerator.new()
 var _occupied: Array[Rect2] = []
-
-var _town: MeshKit
-var _glow: MeshKit
+var _deco: VoxelBuilder
+var _town_x := Vector2.ZERO    # x extent of the building row
 
 
 ## Path the hero walks when entering: road -> cave mouth -> down the ramp -> entrance cell.
@@ -33,50 +41,30 @@ func entry_path() -> PackedVector3Array:
 func build(g: DungeonGrid, block_mat: ShaderMaterial) -> void:
 	grid = g
 	rng.seed = 424242
-	_town = MeshKit.new()
-	_glow = MeshKit.new()
-	_build_ground(block_mat)
+	_deco = VoxelBuilder.new(4242)
+	_deco.scale = VOX
+	_deco.origin = Vector3(0, 0.5, 0)
+	_build_ground()
 	_build_ramp(block_mat)
 	_build_road()
 	_build_cave_mound()
-	_build_river()
-	_build_castle(Vector3(-3.0, GROUND_Y, -15.5))
-	_build_church(Vector3(grid.w + 3.5, GROUND_Y, -10.0))
-	_build_houses()
-	_build_trees()
-	_build_fences()
+	_build_buildings()
+	_build_fence()
+	_build_props()
+	_build_forest()
 	_build_mountains()
-	_emit(_town, _town_material())
-	_emit(_glow, _glow_material())
+	_scatter_grass()
+	var mi := MeshInstance3D.new()
+	mi.name = "TownDeco"
+	mi.mesh = _deco.commit()
+	mi.material_override = VoxelBuilder.material()
+	mi.position = Vector3(0, GROUND_Y + 0.012, 0)
+	add_child(mi)
 	RenderLayers.apply(self, RenderLayers.SURFACE)
 
 
-func _emit(kit: MeshKit, mat: Material) -> void:
-	if kit.is_empty():
-		return
-	var mi := MeshInstance3D.new()
-	mi.mesh = kit.commit()
-	mi.material_override = mat
-	add_child(mi)
-
-
-func _town_material() -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.vertex_color_use_as_albedo = true
-	m.vertex_color_is_srgb = true
-	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	m.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
-	m.roughness = 1.0
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	return m
-
-
-func _glow_material() -> StandardMaterial3D:
-	var m := _town_material()
-	m.emission_enabled = true
-	m.emission = Color(1.0, 0.72, 0.36)
-	m.emission_energy_multiplier = 1.6
-	return m
+func _v(w: float) -> int:
+	return roundi(w / VOX)
 
 
 func _free(r: Rect2) -> bool:
@@ -87,13 +75,13 @@ func _free(r: Rect2) -> bool:
 
 
 # ------------------------------------------------------------------ ground & ramp
-func _build_ground(block_mat: ShaderMaterial) -> void:
+func _build_ground() -> void:
 	var ex := float(grid.entrance.x)
-	var x0 := -float(DungeonView.OUTER_SIDE)
-	var x1 := float(grid.w + DungeonView.OUTER_SIDE)
-	var z0 := -46.0
-	var mat := block_mat.duplicate() as ShaderMaterial
-	mat.set_shader_parameter("custom_override", Color(0, 0.5, 0, 0))
+	var x0 := -90.0
+	var x1 := float(grid.w) + 90.0
+	var z0 := FOREST_BACK - 2.0
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/town_ground.gdshader")
 	# three slabs leave a slot for the ramp
 	for r in [Rect2(x0, z0, ex - x0, -z0), Rect2(ex + 1.0, z0, x1 - ex - 1.0, -z0), Rect2(ex, z0, 1.0, -z0 - RAMP)]:
 		var pm := PlaneMesh.new()
@@ -103,12 +91,11 @@ func _build_ground(block_mat: ShaderMaterial) -> void:
 		mi.material_override = mat
 		mi.position = Vector3(r.position.x + r.size.x * 0.5, GROUND_Y, r.position.y + r.size.y * 0.5)
 		add_child(mi)
-	# the far plains, fading into fog
+	# the far plains under the mountains, fading into fog
 	var far := PlaneMesh.new()
-	far.size = Vector2(600, 400)
+	far.size = Vector2(700, 400)
 	var fm := StandardMaterial3D.new()
-	fm.albedo_color = Color(0.4, 0.5, 0.27)
-	fm.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	fm.albedo_color = Color(0.3, 0.44, 0.2)
 	fm.roughness = 1.0
 	var fmi := MeshInstance3D.new()
 	fmi.mesh = far
@@ -116,7 +103,7 @@ func _build_ground(block_mat: ShaderMaterial) -> void:
 	fmi.position = Vector3(grid.w * 0.5, GROUND_Y - 0.02, z0 - 200 + 0.5)
 	fmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(fmi)
-	# sides of the dungeon rock body, for low camera angles
+	# beside the dungeon rock body, for low camera angles
 	for sx in [x0 - 200.0, x1 + 200.0]:
 		var side := MeshInstance3D.new()
 		var sp := PlaneMesh.new()
@@ -173,242 +160,298 @@ func _build_ramp(block_mat: ShaderMaterial) -> void:
 	_occupied.append(Rect2(ex - 1.5, -RAMP - 2.0, 4.0, RAMP + 2.0))
 
 
+# ------------------------------------------------------------------ road & cave
 func _build_road() -> void:
-	var x0 := -float(DungeonView.OUTER_SIDE)
-	var x1 := float(grid.w + DungeonView.OUTER_SIDE)
-	var y := GROUND_Y + 0.012
-	var dirt := Color(0.66, 0.54, 0.38)
-	var edge := Color(0.55, 0.44, 0.3)
-	var x := x0
-	while x < x1:
-		var w := 1.0
-		var wob := sin(x * 0.35) * 0.12
-		var z0 := ROAD_Z - 0.6 + wob
-		var z1 := ROAD_Z + 0.6 + wob
-		_town.quad(Vector3(x, y, z0), Vector3(x + w, y, z0 + 0.03), Vector3(x + w, y, z1 + 0.03), Vector3(x, y, z1), dirt.lerp(edge, rng.randf() * 0.3), Vector3(x, y - 1, z0))
-		x += w
-	# path from the road to the cave
+	var b := _deco
+	for vx in range(_v(-70.0), _v(grid.w + 70.0)):
+		var wob := sin(vx * VOX * 0.35) * 0.12
+		var za := ceili((ROAD_Z - 0.62 + wob) / VOX)
+		var zb := floori((ROAD_Z + 0.62 + wob) / VOX)
+		for vz in range(za, zb + 1):
+			if (vz == za or vz == zb) and b.rnd() < 0.3:
+				continue
+			b.put(vx, 0, vz, TownModels.PATH)
+	# the path from the road through the mound to the ramp
 	var ex := float(grid.entrance.x)
-	_town.quad(Vector3(ex + 0.12, y, ROAD_Z), Vector3(ex + 0.88, y, ROAD_Z), Vector3(ex + 0.88, y, -RAMP - 1.1), Vector3(ex + 0.12, y, -RAMP - 1.1), dirt, Vector3(ex, y - 1, ROAD_Z))
-	_occupied.append(Rect2(x0, ROAD_Z - 0.9, x1 - x0, 1.8))
+	for vx in range(_v(ex + 0.1), _v(ex + 0.9) + 1):
+		for vz in range(_v(ROAD_Z), _v(-RAMP - 0.12) + 1):
+			b.put(vx, 0, vz, TownModels.PATH)
+	_occupied.append(Rect2(-70.0, ROAD_Z - 0.85, grid.w + 140.0, 1.7))
 
 
-## A mossy rock mound straddling the top of the ramp: the path from the road tunnels through it
-## and comes out as the ramp down into the dungeon (the side the camera looks at).
+## A rocky, mossy mound straddling the top of the ramp; the path tunnels through it.
 func _build_cave_mound() -> void:
-	var cx := float(grid.entrance.x) + 0.5
-	var zm := -RAMP - 0.35
-	var moss := Color(0.4, 0.52, 0.28)
-	var stone := Color(0.52, 0.5, 0.46)
-	var dark := Color(0.36, 0.35, 0.33)
-	var y := GROUND_Y
-	# flanks beside the path
-	for sx in [-1.0, 1.0]:
-		_town.blob(Vector3(cx + sx * 1.25, y + 0.45, zm + 0.25), Vector3(0.8, 0.8, 0.95), rng, moss, stone, 4, 8, 0.18)
-		_town.blob(Vector3(cx + sx * 1.1, y + 0.8, zm - 0.55), Vector3(0.75, 0.95, 0.8), rng, moss, stone, 4, 8, 0.18)
-		_town.blob(Vector3(cx + sx * 1.9, y + 0.3, zm - 0.1), Vector3(0.55, 0.5, 0.6), rng, moss, stone, 3, 7, 0.2)
-	# roof of the tunnel
-	_town.blob(Vector3(cx, y + 1.3, zm - 0.1), Vector3(1.15, 0.5, 1.05), rng, moss, dark, 4, 9, 0.12)
-	_town.blob(Vector3(cx + 0.2, y + 1.72, zm - 0.35), Vector3(0.7, 0.4, 0.6), rng, moss, stone, 3, 8, 0.15)
-	# dark mouths (camera side and road side)
-	var black := Color(0.04, 0.03, 0.025)
-	for side in [[zm + 0.62, 1.0], [zm - 0.9, -1.0]]:
-		var z: float = side[0]
-		var ref := Vector3(cx, y + 0.5, z - side[1])
-		_town.quad(Vector3(cx - 0.47, y - 0.05, z), Vector3(cx + 0.47, y - 0.05, z), Vector3(cx + 0.4, y + 0.98, z), Vector3(cx - 0.4, y + 0.98, z), black, ref)
-		_town.tri(Vector3(cx - 0.4, y + 0.98, z), Vector3(cx + 0.4, y + 0.98, z), Vector3(cx, y + 1.18, z), black, ref)
-	# a little signpost
-	_town.box(Vector3(cx + 1.0, y + 0.3, zm - 1.35), Vector3(0.05, 0.6, 0.05), Color(0.45, 0.32, 0.2))
-	_town.box(Vector3(cx + 1.0, y + 0.55, zm - 1.33), Vector3(0.42, 0.2, 0.04), Color(0.62, 0.46, 0.28))
-	_occupied.append(Rect2(cx - 2.6, zm - 1.6, 5.2, 2.2 - zm))
-
-
-func _build_river() -> void:
-	var x := -8.5
-	var y := GROUND_Y + 0.008
-	var water := Color(0.3, 0.52, 0.72)
-	var z := 0.0
-	while z > -46.0:
-		var wob := sin(z * 0.3) * 0.8
-		var wob2 := sin((z - 1.5) * 0.3) * 0.8
-		_glow.quad(Vector3(x + wob - 0.7, y, z), Vector3(x + wob + 0.7, y, z), Vector3(x + wob2 + 0.7, y, z - 1.5), Vector3(x + wob2 - 0.7, y, z - 1.5), water, Vector3(x, y - 1, z))
-		z -= 1.5
-	# bridge
-	var bz := ROAD_Z
-	var bx := x + sin(bz * 0.3) * 0.8
-	var wood := Color(0.52, 0.36, 0.22)
-	_town.box(Vector3(bx, GROUND_Y + 0.08, bz), Vector3(2.0, 0.12, 1.3), wood)
-	for sz in [-0.6, 0.6]:
-		_town.box(Vector3(bx, GROUND_Y + 0.25, bz + sz), Vector3(2.0, 0.06, 0.06), wood.darkened(0.2))
-	_occupied.append(Rect2(x - 1.6, -46, 3.2, 46))
+	var b := _deco
+	var ex := float(grid.entrance.x)
+	var cx := (ex + 0.5) / VOX
+	var cz := (-RAMP - 0.95) / VOX
+	var rx := 2.5 / VOX
+	var rz := 1.1 / VOX
+	var ry := 2.1 / VOX
+	var tx0 := _v(ex + 0.08)
+	var tx1 := _v(ex + 0.92)
+	var t_top := int(1.2 / VOX) + 1
+	var z_front := _v(-RAMP - 0.12)
+	for vx in range(floori(cx - rx) - 1, ceili(cx + rx) + 2):
+		for vz in range(floori(cz - rz) - 1, z_front + 1):
+			var dx := (vx - cx) / rx
+			var dz := (vz - cz) / rz
+			var q := 1.0 - dx * dx - dz * dz
+			if q <= 0.0:
+				continue
+			var h := int(ry * sqrt(q) * (0.85 + b.rnd() * 0.3)) + 1
+			for y in range(1, h + 1):
+				var near_tunnel := vx >= tx0 - 1 and vx <= tx1 + 1 and y <= t_top + 1
+				if vx >= tx0 and vx <= tx1 and y <= t_top:
+					continue
+				var k: Variant
+				if y >= h - 1 and y > ry * 0.55 and b.rnd() < 0.8:
+					k = ["moss", "grassDark", "moss", "grass", "leafDark"]
+				elif near_tunnel:
+					k = ["stoneDark", "rockDark"]
+				else:
+					k = ["stone", "stone", "stoneDark", "stoneLight", "rock"]
+				b.put(vx, y, vz, k)
+	# stone arch framing both mouths of the tunnel
+	for vz in [z_front, floori(cz - rz) - 1]:
+		for y in range(1, t_top + 2):
+			b.put(tx0 - 1, y, vz, ["stoneLight", "stone"]); b.put(tx1 + 1, y, vz, ["stoneLight", "stone"])
+		for vx in range(tx0 - 1, tx1 + 2):
+			b.put(vx, t_top + 1, vz, "stoneLight")
+		b.put(tx0, t_top, vz, "stoneLight"); b.put(tx1, t_top, vz, "stoneLight")
+		b.put((tx0 + tx1) / 2, t_top + 2, vz, "stoneLight"); b.put((tx0 + tx1) / 2 + 1, t_top + 2, vz, "stoneLight")
+	# boulders at its feet
+	for q in [[-2.9, -0.2, 2.2], [2.9, -0.1, 2.0], [-2.2, 0.9, 1.4], [2.4, 1.0, 1.6], [-3.6, -1.0, 1.5]]:
+		b.rock(cx + q[0] / VOX, cz + q[1] / VOX, q[2])
+	# a moss tuft or two on top
+	b.bush(cx + 0.6 / VOX, cz - 0.1 / VOX, 1.6, int(ry * 0.9))
+	_occupied.append(Rect2(ex + 0.5 - 3.6, -RAMP - 2.3, 7.2, 2.3))
 
 
 # ------------------------------------------------------------------ buildings
-const WALLS := [Color(0.93, 0.88, 0.76), Color(0.88, 0.82, 0.7), Color(0.8, 0.74, 0.64), Color(0.9, 0.85, 0.8)]
-const ROOFS := [Color(0.72, 0.28, 0.2), Color(0.28, 0.4, 0.66), Color(0.8, 0.5, 0.24), Color(0.36, 0.5, 0.44), Color(0.5, 0.36, 0.28)]
-const TIMBER := Color(0.4, 0.27, 0.17)
-
-
-func _house(base: Vector3, w: float, d: float, facing: float) -> void:
-	var wall: Color = WALLS[rng.randi() % WALLS.size()]
-	var roof: Color = ROOFS[rng.randi() % ROOFS.size()]
-	var h := rng.randf_range(0.8, 1.0)
-	var bs := Basis(Vector3.UP, facing)
-	var fwd := bs * Vector3(0, 0, 1)
-	var right := bs * Vector3(1, 0, 0)
-	_town.box(base + Vector3(0, h * 0.5, 0), Vector3(w, h, d), wall, facing)
-	# stone plinth
-	_town.box(base + Vector3(0, 0.08, 0), Vector3(w + 0.04, 0.16, d + 0.04), Color(0.55, 0.52, 0.48), facing)
-	# timber frame on the facade
-	var front := base + fwd * (d * 0.5 + 0.005)
-	for i in 3:
-		var t := -0.5 + i * 0.5
-		_town.box(front + right * (t * (w - 0.08)) + Vector3(0, h * 0.5, 0), Vector3(0.06, h, 0.02), TIMBER, facing)
-	_town.box(front + Vector3(0, h * 0.62, 0), Vector3(w, 0.05, 0.02), TIMBER, facing)
-	# door + lit windows
-	_town.box(front + right * (-w * 0.22) + Vector3(0, 0.26, 0.01), Vector3(0.24, 0.48, 0.03), Color(0.35, 0.22, 0.13), facing)
-	_glow.box(front + right * (w * 0.2) + Vector3(0, 0.44, 0.012), Vector3(0.2, 0.18, 0.02), Color(1.0, 0.8, 0.45), facing)
-	_glow.box(front + right * (w * 0.2) + Vector3(0, 0.8, 0.012), Vector3(0.16, 0.14, 0.02), Color(1.0, 0.8, 0.45), facing)
-	# roof along the wide side
-	_town.gable(base + Vector3(0, h, 0), w + 0.24, d + 0.3, rng.randf_range(0.55, 0.75), roof, facing)
-	if rng.randf() < 0.6:
-		_town.box(base + right * (w * 0.28) + Vector3(0, h + 0.5, -0.1), Vector3(0.14, 0.45, 0.14), Color(0.5, 0.4, 0.36), facing)
-	# flower box
-	if rng.randf() < 0.5:
-		for k in 4:
-			_town.box(front + right * (w * 0.2 + (k - 1.5) * 0.06) + Vector3(0, 0.3, 0.05), Vector3(0.05, 0.05, 0.05), [Color(0.95, 0.45, 0.5), Color(1, 0.85, 0.35), Color(0.95, 0.95, 0.9)][k % 3], facing)
-
-
-func _build_houses() -> void:
+func _build_buildings() -> void:
 	var ex := float(grid.entrance.x)
-	var rows := [[ROAD_Z - 2.1, 0.0], [ROAD_Z - 5.2, 0.0], [-2.0, PI]]
-	for row in rows:
-		var z: float = row[0]
-		var facing: float = row[1]
-		var x := -DungeonView.OUTER_SIDE + 1.5
-		while x < grid.w + DungeonView.OUTER_SIDE - 2:
-			var w := rng.randf_range(1.3, 1.9)
-			var d := rng.randf_range(1.0, 1.3)
-			var r := Rect2(x - w * 0.5 - 0.3, z - d * 0.5 - 0.3, w + 0.6, d + 0.6)
-			var skip := rng.randf() < (0.35 if row == rows[2] else 0.18)
-			if not skip and _free(r) and absf(x - ex) > 3.2:
-				_house(Vector3(x, GROUND_Y, z + rng.randf_range(-0.3, 0.3)), w, d, facing)
-				_occupied.append(r)
-			x += w + rng.randf_range(0.9, 2.2)
+	var front := ROAD_Z - 0.8
+	var x := ex + 0.5 - CAVE_CLEAR
+	for n in LEFT_ROW:
+		var info := TownModels.get_model(n)
+		var w: float = info.width
+		_place(info, x - w * 0.5, front)
+		x -= w + BUILDING_GAP
+	_town_x.x = x + BUILDING_GAP
+	x = ex + 0.5 + CAVE_CLEAR
+	for n in RIGHT_ROW:
+		var info := TownModels.get_model(n)
+		var w: float = info.width
+		_place(info, x + w * 0.5, front)
+		x += w + BUILDING_GAP
+	_town_x.y = x - BUILDING_GAP
 
 
-func _build_castle(p: Vector3) -> void:
-	var stone := Color(0.72, 0.71, 0.7)
-	var stone_d := Color(0.6, 0.59, 0.6)
-	var roof := Color(0.3, 0.38, 0.62)
-	var W := 7.0
-	var D := 5.0
-	# curtain walls
-	for s in [[Vector3(0, 0, D * 0.5), Vector3(W, 1.5, 0.4)], [Vector3(0, 0, -D * 0.5), Vector3(W, 1.5, 0.4)], [Vector3(W * 0.5, 0, 0), Vector3(0.4, 1.5, D)], [Vector3(-W * 0.5, 0, 0), Vector3(0.4, 1.5, D)]]:
-		_town.box(p + s[0] + Vector3(0, 0.75, 0), s[1], stone)
-		# crenellations
-		var span: float = maxf(s[1].x, s[1].z)
-		var along := Vector3(1, 0, 0) if s[1].x > s[1].z else Vector3(0, 0, 1)
-		var n := int(span / 0.5)
-		for i in n:
-			if i % 2 == 0:
-				_town.box(p + s[0] + along * (-span * 0.5 + 0.25 + i * 0.5) + Vector3(0, 1.62, 0), Vector3(0.25, 0.25, 0.42) if along.x > 0 else Vector3(0.42, 0.25, 0.25), stone_d)
-	# towers
-	for c in [Vector3(-W, 0, -D), Vector3(W, 0, -D), Vector3(-W, 0, D), Vector3(W, 0, D)]:
-		var tp: Vector3 = p + c * 0.5
-		_town.cylinder(tp, 0.75, 2.6, stone, 10)
-		_town.cone(tp + Vector3(0, 2.6, 0), 0.95, 1.6, roof, 10)
-		_glow.box(tp + Vector3(0, 1.9, 0.76), Vector3(0.14, 0.3, 0.02), Color(1.0, 0.8, 0.45))
-		_town.box(tp + Vector3(0, 4.5, 0), Vector3(0.04, 0.7, 0.04), Color(0.3, 0.25, 0.2))
-		_town.box(tp + Vector3(0.22, 4.7, 0), Vector3(0.4, 0.24, 0.02), Color(0.85, 0.2, 0.18))
-	# keep
-	_town.box(p + Vector3(0, 1.6, -0.4), Vector3(3.0, 3.2, 2.4), stone_d)
-	_town.gable(p + Vector3(0, 3.2, -0.4), 3.3, 2.7, 1.2, roof)
+func _place(info: Dictionary, cx: float, front: float) -> void:
+	var mi := MeshInstance3D.new()
+	mi.mesh = info.mesh
+	mi.material_override = VoxelBuilder.material()
+	mi.position = Vector3(cx, GROUND_Y + 0.012, front)
+	add_child(mi)
+	var aabb: AABB = info.aabb
+	_occupied.append(Rect2(cx + aabb.position.x, front + aabb.position.z, aabb.size.x, aabb.size.z))
+
+
+# ------------------------------------------------------------------ fence, lamps, props
+func _build_fence() -> void:
+	# low fence along the dungeon edge, leaving the cave path open
+	var b := _deco
+	var ex := float(grid.entrance.x)
+	var vz := _v(-0.42)
+	var prev := -99999
+	var vx := _v(-60.0)
+	while vx <= _v(grid.w + 60.0):
+		if absf(vx * VOX - (ex + 0.5)) > 2.5:
+			b.put(vx, 1, vz, "wood"); b.put(vx, 2, vz, "wood")
+			if vx - prev == 5:
+				for y in [1.15, 1.9]:
+					b.det((vx + prev) * 0.5, y, vz, 5.0, 0.22, 0.24, "plank")
+			prev = vx
+		vx += 5
+	_occupied.append(Rect2(-60.0, -0.62, grid.w + 120.0, 0.4))
+
+
+func _build_props() -> void:
+	var b := _deco
+	var ex := float(grid.entrance.x) + 0.5
+	# street lamps on the dungeon side of the road
+	var x := ex - 3.6
+	while x > -40.0:
+		_prop_lamp(x)
+		x -= 6.5
+	x = ex + 3.6
+	while x < grid.w + 40.0:
+		_prop_lamp(x)
+		x += 6.5
+	# signpost by the cave path
+	var sx := _v(ex + 1.35)
+	var sz := _v(ROAD_Z + 1.05)
+	for y in range(1, 6):
+		b.put(sx, y, sz, "wood")
+	b.det(sx + 1.2, 4.6, sz, 2.6, 0.9, 0.2, "sign")
+	b.det(sx + 2.65, 4.6, sz, 0.35, 0.55, 0.2, "sign")
+	b.det(sx + 1.1, 4.6, sz + 0.13, 1.6, 0.14, 0.05, "signIcon")
+	_occupied.append(Rect2(ex + 1.1, ROAD_Z + 0.8, 0.9, 0.5))
+	# a well, a hay cart, barrels and crates in the strip before the fence
+	_prop_well(ex - 9.3, -2.3)
+	_prop_cart(ex + 8.6, -2.2)
+	_prop_stack(ex - 5.2, -1.4)
+	_prop_stack(ex + 13.4, -1.6)
+	_prop_stack(ex - 17.0, -1.5)
+	# bushes, rocks and flower beds wherever there is room
+	for i in 60:
+		var p := Vector2(rng.randf_range(-40.0, grid.w + 40.0), rng.randf_range(-3.7, -1.0))
+		if absf(p.x - ex) < 3.3:
+			continue
+		var r := Rect2(p.x - 0.6, p.y - 0.6, 1.2, 1.2)
+		if not _free(r):
+			continue
+		var kind := rng.randf()
+		if kind < 0.5:
+			b.bush(p.x / VOX, p.y / VOX, rng.randf_range(1.8, 2.8))
+		elif kind < 0.65:
+			b.rock(p.x / VOX, p.y / VOX, rng.randf_range(1.0, 1.6))
+		else:
+			_flower_bed(p)
+		_occupied.append(r)
+
+
+func _prop_lamp(x: float) -> void:
+	var r := Rect2(x - 0.25, ROAD_Z + 0.75, 0.5, 0.5)
+	if not _free(r):
+		return
+	_deco.lamp_post(_v(x), _v(ROAD_Z + 1.0), 4)
+	_occupied.append(r)
+
+
+func _prop_well(x: float, z: float) -> void:
+	var b := _deco
+	var cx := _v(x)
+	var cz := _v(z)
+	b.fill(cx - 2, cx + 2, 1, 2, cz - 2, cz + 2, TownModels.STONE)
+	b.clear(cx - 1, cx + 1, 1, 2, cz - 1, cz + 1)
+	b.det(cx, 1.2, cz, 3.0, 0.1, 3.0, "water")
+	for s in [-2, 2]:
+		for y in range(3, 7):
+			b.put(cx + s, y, cz, "wood")
+	for xx in range(cx - 3, cx + 4):
+		b.put(xx, 7, cz - 1, b.roof_k(7)); b.put(xx, 7, cz + 1, b.roof_k(7)); b.put(xx, 8, cz, "roofDark")
+	b.det(cx, 5.6, cz, 4.0, 0.22, 0.22, "wood")
+	b.det(cx, 4.4, cz, 0.08, 2.2, 0.08, "plank")
+	b.det(cx, 3.2, cz, 0.7, 0.6, 0.7, "barrel")
+	b.det(cx, 3.5, cz, 0.76, 0.1, 0.76, "metal")
+	_occupied.append(Rect2(x - 0.8, z - 0.8, 1.6, 1.6))
+
+
+func _prop_cart(x: float, z: float) -> void:
+	var b := _deco
+	var cx := x / VOX
+	var cz := z / VOX
+	b.det(cx, 2.0, cz, 5.0, 0.35, 2.6, "plank")
+	for s in [-1.25, 1.25]:
+		b.det(cx, 2.45, cz + s, 5.0, 0.6, 0.16, "plankDark")
+		TownModels._wheel(b, cx - 0.8, 1.5, cz + s * 1.15, 1.0)
 	for i in 3:
-		_glow.box(p + Vector3(-0.9 + i * 0.9, 2.3, 0.81), Vector3(0.18, 0.34, 0.02), Color(1.0, 0.8, 0.45))
-	# gate
-	_town.box(p + Vector3(0, 0.55, D * 0.5 + 0.21), Vector3(1.0, 1.1, 0.04), Color(0.3, 0.2, 0.12))
-	_occupied.append(Rect2(p.x - W * 0.5 - 1.2, p.z - D * 0.5 - 1.2, W + 2.4, D + 2.4))
+		b.det(cx - 3.1, 1.6 + i * 0.01, cz + (i - 1) * 0.5, 2.2, 0.16, 0.16, "wood")
+	for xx in range(roundi(cx) - 2, roundi(cx) + 2):
+		for zz in range(roundi(cz) - 1, roundi(cz) + 2):
+			b.put(xx, 3, zz, "hay")
+			if b.rnd() < 0.6:
+				b.put(xx, 4, zz, "hay")
+	_occupied.append(Rect2(x - 1.0, z - 0.6, 2.0, 1.2))
 
 
-func _build_church(p: Vector3) -> void:
-	var wall := Color(0.86, 0.84, 0.8)
-	var roof := Color(0.3, 0.38, 0.6)
-	_town.box(p + Vector3(0, 0.8, 0), Vector3(2.0, 1.6, 3.2), wall)
-	_town.gable(p + Vector3(0, 1.6, 0), 3.5, 2.4, 1.1, roof, PI * 0.5)
-	# bell tower in front
-	var tp := p + Vector3(0, 0, 1.9)
-	_town.box(tp + Vector3(0, 1.5, 0), Vector3(1.0, 3.0, 1.0), wall.darkened(0.05))
-	_town.pyramid(tp + Vector3(0, 3.0, 0), 1.2, 1.3, roof)
-	_town.box(tp + Vector3(0, 4.55, 0), Vector3(0.06, 0.5, 0.06), Color(0.95, 0.8, 0.3))
-	_town.box(tp + Vector3(0, 4.62, 0), Vector3(0.3, 0.06, 0.06), Color(0.95, 0.8, 0.3))
-	_glow.box(tp + Vector3(0, 2.3, 0.51), Vector3(0.3, 0.42, 0.02), Color(1.0, 0.85, 0.5))
-	_town.box(tp + Vector3(0, 0.4, 0.51), Vector3(0.4, 0.8, 0.02), Color(0.35, 0.22, 0.13))
-	_occupied.append(Rect2(p.x - 2.2, p.z - 2.4, 4.4, 5.4))
+func _prop_stack(x: float, z: float) -> void:
+	var b := _deco
+	var cx := _v(x)
+	var cz := _v(z)
+	b.barrel(cx, cz)
+	b.crate(cx + 1, 1, cz)
+	b.crate(cx + 1, 1, cz - 1)
+	b.crate(cx + 1, 2, cz)
+	b.barrel(cx - 1, cz - 1)
+	_occupied.append(Rect2(x - 0.5, z - 0.5, 1.0, 0.8))
+
+
+func _flower_bed(p: Vector2) -> void:
+	var b := _deco
+	var cols := [["flowerW", "flowerY"], ["flowerP", "flowerW"], ["flowerB", "flowerW"], ["flowerY", "flowerP"]]
+	var c: Array = cols[rng.randi() % cols.size()]
+	for i in 12:
+		var q := p / VOX + Vector2(rng.randf_range(-1.6, 1.6), rng.randf_range(-1.2, 1.2))
+		b.det(q.x, 0.65, q.y, 0.12, 0.3, 0.12, "leafDark")
+		b.det(q.x, 0.86, q.y, 0.28, 0.18, 0.28, c)
+		b.det(q.x + 0.2, 0.62, q.y + 0.1, 0.3, 0.2, 0.3, ["leaf", "leafLight"])
 
 
 # ------------------------------------------------------------------ nature
-func _tree(p: Vector3, s: float) -> void:
-	var trunk := Color(0.42, 0.29, 0.18)
-	_town.cylinder(p, 0.09 * s, 0.5 * s, trunk, 6)
-	var g := Color(0.28, 0.5, 0.22).lerp(Color(0.4, 0.58, 0.24), rng.randf())
-	for i in 3:
-		var o := Vector3(rng.randf_range(-0.25, 0.25), 0.7 + i * 0.18, rng.randf_range(-0.25, 0.25)) * s
-		_town.blob(p + o, Vector3.ONE * rng.randf_range(0.38, 0.5) * s, rng, g.lightened(0.12), g.darkened(0.25), 3, 7, 0.15)
-
-
-func _pine(p: Vector3, s: float) -> void:
-	_town.cylinder(p, 0.08 * s, 0.35 * s, Color(0.4, 0.28, 0.18), 5)
-	var g := Color(0.2, 0.4, 0.26).lerp(Color(0.26, 0.46, 0.28), rng.randf())
-	for i in 3:
-		_town.cone(p + Vector3(0, (0.3 + i * 0.42) * s, 0), (0.62 - i * 0.16) * s, 0.75 * s, g.lightened(i * 0.05), 7)
-
-
-func _build_trees() -> void:
-	var x0 := -float(DungeonView.OUTER_SIDE)
-	var x1 := float(grid.w + DungeonView.OUTER_SIDE)
-	# scattered in town
-	for i in 90:
-		var p := Vector3(rng.randf_range(x0, x1), GROUND_Y, rng.randf_range(-15.0, -0.8))
-		var s := rng.randf_range(0.8, 1.2)
-		if _free(Rect2(p.x - 0.5, p.z - 0.5, 1.0, 1.0)):
-			if rng.randf() < 0.7:
-				_tree(p, s)
-			else:
-				_pine(p, s)
-			_occupied.append(Rect2(p.x - 0.4, p.z - 0.4, 0.8, 0.8))
-	# forest belt behind the town
-	for i in 320:
-		var p2 := Vector3(rng.randf_range(x0 - 10, x1 + 10), GROUND_Y, rng.randf_range(-44.0, -17.0))
-		if _free(Rect2(p2.x - 0.3, p2.z - 0.3, 0.6, 0.6)):
-			var s2 := rng.randf_range(1.0, 1.7)
-			if rng.randf() < 0.55:
-				_pine(p2, s2)
-			else:
-				_tree(p2, s2)
-
-
-func _build_fences() -> void:
-	# low fence along the dungeon edge, leaving the cave path open
-	var ex := float(grid.entrance.x)
-	var wood := Color(0.55, 0.4, 0.25)
-	var z := -0.35
-	var x := -float(DungeonView.OUTER_SIDE) + 0.5
-	while x < grid.w + DungeonView.OUTER_SIDE - 0.5:
-		if absf(x + 0.5 - (ex + 0.5)) > 2.6:
-			_town.box(Vector3(x, GROUND_Y + 0.18, z), Vector3(0.06, 0.36, 0.06), wood)
-			_town.box(Vector3(x + 0.5, GROUND_Y + 0.26, z), Vector3(1.0, 0.05, 0.03), wood.darkened(0.1))
-		x += 1.0
+func _build_forest() -> void:
+	var lists := {}
+	for n in TownModels.TREES:
+		lists[n] = []
+	var zf := ROAD_Z - 0.8
+	var x := -48.0
+	while x < grid.w + 48.0:
+		var z := zf - 0.5
+		while z > FOREST_BACK:
+			var far := z < -26.0
+			var p := Vector3(x + rng.randf_range(-0.6, 0.6), GROUND_Y + 0.01, z + rng.randf_range(-0.5, 0.5))
+			if _free(Rect2(p.x - 0.6, p.z - 0.6, 1.2, 1.2)):
+				var n: String = TownModels.TREES[rng.randi() % TownModels.TREES.size()]
+				var s := rng.randf_range(0.8, 1.15) * (1.25 if far else 1.0)
+				var bs := Basis(Vector3.UP, (rng.randi() % 4) * PI * 0.5).scaled(Vector3.ONE * s)
+				lists[n].append(Transform3D(bs, p))
+			z -= 2.1 if far else 1.45
+		x += 1.65 if z > -26.0 else 1.9
+	for n in lists:
+		var ts: Array = lists[n]
+		if ts.is_empty():
+			continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = TownModels.get_model(n).mesh
+		mm.instance_count = ts.size()
+		for i in ts.size():
+			mm.set_instance_transform(i, ts[i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "Forest_" + n
+		mmi.multimesh = mm
+		mmi.material_override = VoxelBuilder.material()
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mmi)
 
 
 func _build_mountains() -> void:
-	for i in 26:
-		var x := rng.randf_range(-140.0, 180.0)
-		var z := rng.randf_range(-150.0, -80.0)
-		var h := rng.randf_range(22.0, 48.0)
-		var r := h * rng.randf_range(0.9, 1.3)
-		var base := Vector3(x, GROUND_Y - 1.0, z)
-		var body := Color(0.42, 0.5, 0.58).lerp(Color(0.5, 0.56, 0.62), rng.randf())
-		_town.cone(base, r, h, body, 9, 0.2, rng)
-		# snow cap
-		_town.cone(base + Vector3(0, h * 0.72, 0), r * 0.3, h * 0.28 + 0.2, Color(0.93, 0.95, 0.98), 9)
+	var mi := MeshInstance3D.new()
+	mi.name = "Mountains"
+	mi.mesh = TownModels.get_model("mountains").mesh
+	mi.material_override = VoxelBuilder.material()
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = Vector3(0, GROUND_Y - 0.05, 0)
+	add_child(mi)
+
+
+## grass tufts and little flowers over the free town ground (as in the inn reference)
+func _scatter_grass() -> void:
+	var b := _deco
+	for i in 4200:
+		var p := Vector2(rng.randf_range(-45.0, grid.w + 45.0), rng.randf_range(-14.0, -0.7))
+		if not _free(Rect2(p.x - 0.08, p.y - 0.08, 0.16, 0.16)):
+			continue
+		var vx := p.x / VOX
+		var vz := p.y / VOX
+		if rng.randf() < 0.2:
+			b.det(vx, 0.62, vz, 0.1, 0.26, 0.1, "leafDark")
+			b.det(vx, 0.8, vz, 0.26, 0.16, 0.26, ["flowerW", "flowerW", "flowerY", "flowerP", "flowerB"])
+		else:
+			# a tuft of two or three thin blades
+			var k: String = ["grassLight", "grass", "leaf", "leafDark"][rng.randi() % 4]
+			for j in rng.randi_range(2, 3):
+				var h := 0.25 + rng.randf() * 0.4
+				b.det(vx + rng.randf_range(-0.14, 0.14), 0.5 + h / 2.0, vz + rng.randf_range(-0.14, 0.14), 0.1, h, 0.1, k)

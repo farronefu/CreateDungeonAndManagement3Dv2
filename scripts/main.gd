@@ -764,6 +764,7 @@ func _debug_bootstrap() -> void:
 	if _debug.has("cam"):
 		var p: PackedStringArray = str(_debug["cam"]).split(",")
 		cam.edge_scroll = false   # a fixed debug view must not drift with the real cursor
+		cam.set_bounds(Rect2(-60, -40, 160, 80))   # debug shots may look anywhere
 		cam.focus_on(Vector3(float(p[0]), 0, float(p[1])), true)
 		if p.size() > 2:
 			cam.zoom = float(p[2])
