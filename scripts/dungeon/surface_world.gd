@@ -12,7 +12,7 @@ const ROAD_Z := -4.6
 const GROUND_Y := Balance.BLOCK_H
 const VOX := TownModels.VOX
 ## buildings from the cave outwards on each side; the castle ends up leftmost
-const LEFT_ROW := ["armor_shop", "house", "house", "castle"]
+const LEFT_ROW := ["armor_shop", "house", "castle"]
 const RIGHT_ROW := ["weapon_shop", "church", "inn"]
 const BUILDING_GAP := 0.9
 const CAVE_CLEAR := 2.9    # free half-width around the cave path
