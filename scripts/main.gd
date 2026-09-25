@@ -41,6 +41,7 @@ var _frames := 0
 
 
 func _ready() -> void:
+	MonsterVisual.time_scale = 1.0
 	_debug = _parse_args()
 	if not GameState.in_run:
 		GameState.new_run()
@@ -480,6 +481,7 @@ func _set_speed(s: float) -> void:
 	speed = s
 	if s > 0.0:
 		_run_speed = s
+		MonsterVisual.time_scale = s
 	hud.set_speed(s)
 	var pm := Node.PROCESS_MODE_DISABLED if s == 0.0 else Node.PROCESS_MODE_INHERIT
 	for n in [layer, fx, hero, maou, cursor]:

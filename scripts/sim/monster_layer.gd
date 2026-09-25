@@ -20,6 +20,15 @@ func setup(e: Ecosystem, effects: Effects) -> void:
 
 
 func _on_spawned(m: Monster, cause: String) -> void:
+	# laid by a scythe bug: pop out exactly at the tip of its tail
+	if m.born_from:
+		var pv := m.born_from.visual as MonsterVisual
+		if pv and pv.actor:
+			var tip = pv.actor.bone_world_position("tail_tip")
+			if tip != null:
+				var cc := DungeonGrid.cell_center(m.cell)
+				m.jitter = Vector2(clampf(tip.x - cc.x, -0.45, 0.45), clampf(tip.z - cc.z, -0.45, 0.45))
+		m.born_from = null
 	var v := MonsterVisual.new()
 	add_child(v)
 	v.setup(m, cause != "load")

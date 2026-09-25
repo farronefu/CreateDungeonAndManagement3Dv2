@@ -89,6 +89,18 @@ func _toonify(g: GeometryInstance3D) -> void:
 		mi.set_surface_override_material(i, m)
 
 
+## World position of a named bone of the (first) skeleton, e.g. the scythe bug's tail_tip.
+func bone_world_position(bone: String) -> Variant:
+	if model == null:
+		return null
+	for sk in model.find_children("*", "Skeleton3D", true, false):
+		var s := sk as Skeleton3D
+		var i := s.find_bone(bone)
+		if i >= 0:
+			return s.global_transform * s.get_bone_global_pose(i).origin
+	return null
+
+
 func has_anim(n: String) -> bool:
 	return anim != null and anim.has_animation(_clip(n))
 

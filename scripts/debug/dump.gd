@@ -111,6 +111,8 @@ func _probe(kind: String) -> void:
 		"evoraw":
 			var r: Node3D = MonsterCatalog.scene("evolution").instantiate()
 			main.add_child(r)
+		"scythe":
+			_probe_scythe()
 		"stages":
 			# five blocks, one per soil stage, in a row just below the starter corridor
 			var y := 2
@@ -131,3 +133,24 @@ func _probe(kind: String) -> void:
 			main.fx.motes(DungeonGrid.cell_center(c), DungeonGrid.cell_center(c + Vector2i(1, 0)))
 			main.fx.dust(DungeonGrid.cell_center(c), Color.WHITE)
 			main.fx.debris(c, 0.5)
+
+
+## --probe=scythe : a pupa that hatches right away, and an adult that lays an egg (checks tail_tip).
+func _probe_scythe() -> void:
+	var main := get_parent()
+	var e: Ecosystem = main.eco
+	var c := Vector2i(main.grid.entrance.x - 3, 5)
+	var pupa := e.spawn(Monster.Kind.BUG, Monster.PUPA, c, 10, "load")
+	pupa.timer = Balance.PUPA_TIME - 0.2
+	var adult := e.spawn(Monster.Kind.BUG, Monster.ADULT, c + Vector2i(3, 0), 20, "load")
+	adult.dir = Vector2i(1, 0)
+	adult.hp = 90
+	adult.lay_cooldown = 0.0
+	main.cam.focus_on(DungeonGrid.cell_center(c + Vector2i(1, 0)), true)
+	main.cam.zoom = 0.35
+	e.spawned.connect(func(m: Monster, cause: String) -> void:
+		if m.kind == Monster.Kind.BUG and m.stage == Monster.LARVA and cause == "birth":
+			var tip = (adult.visual as MonsterVisual).actor.bone_world_position("tail_tip")
+			print("LAID larva cell=%s jitter=%s tip=%s adult_pos=%s" % [m.cell, m.jitter, tip, adult.visual.global_position]))
+	e.evolved.connect(func(m: Monster) -> void:
+		print("EVOLVED ", m.display_name(), " t=", Time.get_ticks_msec()))

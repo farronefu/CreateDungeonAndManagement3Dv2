@@ -67,6 +67,11 @@ const BUG_METABOLISM := 2.2    # seconds per 1 HP lost
 const BUG_SIGHT := 4           # manhattan range to notice prey
 const EAT_HEAL := 18
 const PUPA_TIME := 20.0
+## the pupa cracks open and the adult flies out (length of the supplied Evolve clip)
+const PUPA_HATCH_TIME := 3.5
+## LayEgg: 1.5 s action, the tail touches the ground (and the larva pops out) 1.0 s in
+const ADULT_LAY_TIME := 1.5
+const ADULT_LAY_CONTACT := 1.0
 const ADULT_HP_MAX := 95
 const ADULT_STEP_TIME := 0.7
 const ADULT_ATK := 9

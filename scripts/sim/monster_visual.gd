@@ -20,10 +20,15 @@ var _evo_t := 0.0
 var _evo_mat: ShaderMaterial
 ## the material replaced by the autumn shader; kept alive so the renderer never sees a freed RID
 var _evo_replaced: Material
+var _evo_time := 7.0
+## the effect keeps playing until the monster has left this model (sim may lag the effect)
+var _evo_wait_key := ""
 
 static var _bar_bg_mat: StandardMaterial3D
 static var _bar_fg_mat: StandardMaterial3D
 static var _autumn_shader: Shader
+## game speed (x1/x2/x3): one-shot clips and evolution effects follow the simulation clock
+static var time_scale := 1.0
 
 
 func setup(monster: Monster, animate_in: bool) -> void:
@@ -61,14 +66,18 @@ func _set_actor(a: ModelActor) -> void:
 	_pivot.add_child(actor)
 
 
-## モコチュリ → ツボミ: plays the supplied grass-to-tree scene with its autumn colour shift.
-func play_evolution() -> void:
+## Plays an evolution effect model once, then swaps to the monster's new model:
+##   "evolution"      モコチュリ → ツボミ (grass-to-tree scene with its autumn colour shift)
+##   "bug_evolution"  ザクザクムシ サナギ → 成虫 (shell cracks, the scythe bug flies out)
+func play_evolution(key: String = "evolution") -> void:
 	_evolving = true
 	_evo_t = 0.0
-	_set_actor(MonsterCatalog.make_actor("evolution"))
+	_evo_time = MonsterCatalog.evo_time_of(key)
+	_evo_wait_key = m.model_key() if key == "bug_evolution" else ""
+	_set_actor(MonsterCatalog.make_actor(key))
 	for clip in actor.anim.get_animation_list() if actor.anim else []:
 		if clip != "RESET":
-			actor.play_once(clip)
+			actor.play_once(clip, time_scale)
 			break
 	var sprout := actor.model.find_child("Sprout_Mesh_01", true, false) as MeshInstance3D
 	if sprout:
@@ -84,15 +93,17 @@ func play_evolution() -> void:
 
 
 func _update_evolution(delta: float) -> void:
-	_evo_t += delta
-	var frac := clampf(_evo_t / MonsterCatalog.EVOLUTION_TIME, 0.0, 1.0)
+	_evo_t += delta * time_scale
+	if actor.anim:
+		actor.anim.speed_scale = time_scale
+	var frac := clampf(_evo_t / _evo_time, 0.0, 1.0)
 	var curve := MonsterCatalog.evolution_curve()
 	if _evo_mat and not curve.is_empty():
 		var idx := frac * (curve.size() - 1)
 		var l := int(idx)
 		var r := mini(l + 1, curve.size() - 1)
 		_evo_mat.set_shader_parameter("autumn", lerpf(float(curve[l]), float(curve[r]), idx - l))
-	if frac >= 1.0:
+	if frac >= 1.0 and m.model_key() != _evo_wait_key:
 		_evolving = false
 		_evo_mat = null
 		swap_model(false)
@@ -123,7 +134,7 @@ func sync(delta: float) -> void:
 		_play_request(m.anim_request, m.busy)
 		m.anim_request = ""
 	if m.is_moving() and actor.has_anim("move"):
-		actor.play("move", 0.15, _move_speed())
+		actor.play("move", 0.15, _move_speed() * time_scale)
 	else:
 		actor.play(m.base_anim)
 	_last_hp = m.hp
@@ -141,11 +152,15 @@ func _move_speed() -> float:
 
 ## Plays a one-shot clip timed to the simulation's action length, or a procedural stand-in.
 func _play_request(n: String, busy: float) -> void:
+	# サナギ → 成虫: the dedicated evolution scene replaces the pupa's own hatch clip
+	if n == "hatch" and m.kind == Monster.Kind.BUG and MonsterCatalog.MODELS.has("bug_evolution"):
+		play_evolution("bug_evolution")
+		return
 	if actor.has_anim(n):
 		var speed := 1.0
 		if busy > 0.05:
 			speed = clampf(actor.anim_length(n) / busy, 0.6, 3.0)
-		actor.play_once(n, speed)
+		actor.play_once(n, speed * time_scale)
 		return
 	var d := maxf(busy, 0.35)
 	if _proc_tween:

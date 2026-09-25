@@ -67,7 +67,7 @@ func _bug_mult() -> float:
 
 
 # ------------------------------------------------------------------ spawning
-func spawn(kind: int, stage: int, c: Vector2i, n: int, cause: String = "birth") -> Monster:
+func spawn(kind: int, stage: int, c: Vector2i, n: int, cause: String = "birth", parent: Monster = null) -> Monster:
 	var m := Monster.new()
 	m.id = _next_id
 	_next_id += 1
@@ -77,6 +77,9 @@ func spawn(kind: int, stage: int, c: Vector2i, n: int, cause: String = "birth") 
 	m.nutrient = n
 	m.dir = grid.DIRS[rng.randi() % 4]
 	m.jitter = Vector2(rng.randf_range(-0.16, 0.16), rng.randf_range(-0.16, 0.16))
+	if parent:
+		m.born_from = parent
+		m.dir = parent.dir
 	_set_stage(m, stage, true)
 	monsters.append(m)
 	spawned.emit(m, cause)
@@ -212,7 +215,7 @@ func tick(delta: float) -> void:
 				Monster.ADULT:
 					_tick_adult(m, delta)
 	for s in _pending_spawns:
-		spawn(s[0], s[1], s[2], s[3], s[4])
+		spawn(s[0], s[1], s[2], s[3], s[4], s[5] if s.size() > 5 else null)
 	_pending_spawns.clear()
 	monsters = monsters.filter(func(m: Monster) -> bool: return m.alive)
 
@@ -488,13 +491,13 @@ func _tick_pupa(m: Monster, delta: float) -> void:
 	if m.busy > 0.0:
 		m.busy -= delta
 		if m.busy <= 0.0 and m.timer < 0.0:
+			# the Evolve effect ends in the adult's hover pose, so no extra spawn animation
 			_evolve(m, Monster.ADULT)
-			m.anim_request = "spawn"
 		return
 	m.timer += delta * (1.0 + 0.15 * bug_level)
 	if m.timer >= Balance.PUPA_TIME:
 		m.anim_request = "hatch"
-		m.busy = 1.3
+		m.busy = Balance.PUPA_HATCH_TIME
 		m.timer = -1.0
 
 
@@ -506,7 +509,8 @@ func _tick_adult(m: Monster, delta: float) -> void:
 		return
 	if m.busy > 0.0:
 		m.busy -= delta
-		if m.busy <= 0.0 and m.timer < 0.0:
+		# the larva comes out when the tail touches the ground
+		if m.timer < 0.0 and m.busy <= Balance.ADULT_LAY_TIME - Balance.ADULT_LAY_CONTACT:
 			m.timer = 0.0
 			_lay(m)
 		return
@@ -525,7 +529,7 @@ func _tick_adult(m: Monster, delta: float) -> void:
 				return
 	if m.nutrient >= Balance.ADULT_LAY_NUTRIENT and m.hp >= Balance.ADULT_LAY_HP and m.lay_cooldown <= 0.0 and count(Monster.Kind.BUG) < Balance.MAX_BUGS:
 		m.anim_request = "lay_egg"
-		m.busy = 1.5
+		m.busy = Balance.ADULT_LAY_TIME
 		m.timer = -1.0
 		m.lay_cooldown = Balance.ADULT_LAY_COOLDOWN
 		return
@@ -541,11 +545,8 @@ func _tick_adult(m: Monster, delta: float) -> void:
 func _lay(m: Monster) -> void:
 	m.nutrient -= Balance.ADULT_LAY_NUTRIENT
 	m.hp -= Balance.ADULT_LAY_COST_HP
-	var c := m.cell
-	var n := grid.floor_neighbors(m.cell)
-	if not n.is_empty():
-		c = n[rng.randi() % n.size()]
-	_pending_spawns.append([Monster.Kind.BUG, Monster.LARVA, c, Balance.ADULT_LAY_NUTRIENT, "birth"])
+	# born in the parent's cell; MonsterLayer places it exactly at the tail tip
+	_pending_spawns.append([Monster.Kind.BUG, Monster.LARVA, m.cell, Balance.ADULT_LAY_NUTRIENT, "birth", m])
 
 
 # ------------------------------------------------------------------ persistence

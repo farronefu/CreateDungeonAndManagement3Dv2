@@ -42,6 +42,8 @@ var base_anim := "idle"
 ## One-shot animation requested by the simulation; consumed by the visual.
 var anim_request := ""
 var visual: Node3D
+## parent that laid this monster (only set at birth, used to place it at the tail tip)
+var born_from: Monster
 
 
 func is_moving() -> bool:

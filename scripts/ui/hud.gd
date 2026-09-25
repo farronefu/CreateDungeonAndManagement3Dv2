@@ -151,7 +151,7 @@ func _build_pause_screen() -> void:
 		["moss_flower", "ツボミ・モコバナ", Vector3(0, 0.62, 1.25), Vector3(0, 0.36, 0), 0.72],
 		["bug_larva", "ザクザクムシ（幼虫）", Vector3(0.55, 0.62, 0.95), Vector3(0, 0.12, 0), 0.4],
 		["bug_pupa", "ザクザクムシ（サナギ）", Vector3(0.35, 0.55, 0.8), Vector3(0, 0.12, 0), 0.4],
-		["bug_adult", "ザクザクムシ（成虫）", Vector3(0.45, 0.65, 0.8), Vector3(0, 0.22, 0), 0.0],
+		["bug_adult", "ザクザクムシ（成虫）", Vector3(0.5, 0.62, 0.95), Vector3(0, 0.2, 0), 0.4],
 	]
 	for r in rows:
 		var icon := _studio(r[0], 128, r[2], r[3], 30.0, r[4])

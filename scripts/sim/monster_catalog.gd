@@ -14,20 +14,25 @@ const MODELS := {
 	"moss_bud": {"path": "res://assets/models/grass/tree.glb", "scale": 0.29, "fix_colors": false, "anims": {}},
 	"moss_flower": {"path": "res://assets/models/grass/tree.glb", "scale": 0.37, "fix_colors": false, "anims": {}},
 	# grass -> tree transformation, played when モコチュリ roots into a ツボミ
-	"evolution": {"path": "res://assets/models/grass/evolution.glb", "scale": 0.37, "fix_colors": false, "anims": {}},
+	"evolution": {"path": "res://assets/models/grass/evolution.glb", "scale": 0.37, "fix_colors": false, "anims": {}, "evo_time": 7.0},
 	# ザクザクムシ 幼虫 / サナギ: supplied juvenile pillbug (2026-09-24). The pupa is the same bug curled up.
 	"bug_larva": {"path": "res://assets/models/pillbug/juvenile-pillbug.glb", "scale": 0.38, "fix_colors": false, "stride": 0.117,
 		"anims": {"move": "Walk", "attack": "Attack", "eat": "Attack", "die": "Death"}},
 	"bug_pupa": {"path": "res://assets/models/pillbug/juvenile-pillbug.glb", "scale": 0.38, "fix_colors": false,
 		"anims": {"idle": "CurlIdle", "spawn": "Curl", "hatch": "Uncurl", "die": "Death"}},
-	# ザクザクムシ 成虫 / 魔王 / cursor: procedurally generated (tools/modelgen)
-	"bug_adult": {"path": "res://assets/models/monsters/bug_adult.glb", "scale": 1.15, "fix_colors": true, "anims": {}},
+	# ザクザクムシ 成虫: supplied flying scythe bug (broad-scythe, 2026-09-25). It hovers; LayEgg has a tail_tip bone
+	"bug_adult": {"path": "res://assets/models/broad-scythe/broad-scythe.glb", "scale": 0.3, "fix_colors": false,
+		"anims": {"move": "Fly", "idle": "Hover", "attack": "Attack", "eat": "Attack", "lay_egg": "LayEgg", "die": "Death"}},
+	# pupa -> adult: the curled pill bug cracks open and the scythe bug flies out (3.5 s)
+	"bug_evolution": {"path": "res://assets/models/broad-scythe/pillbug-to-scythe-evolution.glb", "scale": 0.38, "fix_colors": false, "anims": {}, "evo_time": 3.5},
+	# 魔王 / cursor: procedurally generated (tools/modelgen)
 	"maou": {"path": "res://assets/models/monsters/maou.glb", "scale": 1.15, "fix_colors": true, "anims": {}},
 	"pickaxe": {"path": "res://assets/models/monsters/pickaxe.glb", "scale": 1.0, "fix_colors": true, "anims": {}},
 	# previous generated moss models (kept as alternatives)
 	"moss_generated": {"path": "res://assets/models/monsters/moss.glb", "scale": 1.0, "fix_colors": true, "anims": {}},
 	"moss_bud_generated": {"path": "res://assets/models/monsters/moss_bud.glb", "scale": 1.0, "fix_colors": true, "anims": {}},
 	"bug_larva_generated": {"path": "res://assets/models/monsters/bug_larva.glb", "scale": 1.05, "fix_colors": true, "anims": {}},
+	"bug_adult_generated": {"path": "res://assets/models/monsters/bug_adult.glb", "scale": 1.15, "fix_colors": true, "anims": {}},
 	"bug_pupa_generated": {"path": "res://assets/models/monsters/bug_pupa.glb", "scale": 1.0, "fix_colors": true, "anims": {}},
 	"moss_flower_generated": {"path": "res://assets/models/monsters/moss_flower.glb", "scale": 1.0, "fix_colors": true, "anims": {}},
 }
@@ -57,6 +62,10 @@ static func make_actor(key: String) -> ModelActor:
 	a.setup(scene(key), 0.0, 0.0, bool(entry["fix_colors"]), [], (entry["anims"] as Dictionary).duplicate())
 	a.scale = Vector3.ONE * scale_of(key)
 	return a
+
+
+static func evo_time_of(key: String) -> float:
+	return float(MODELS[key].get("evo_time", EVOLUTION_TIME))
 
 
 static func stride_of(key: String) -> float:
