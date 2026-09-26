@@ -50,6 +50,10 @@ var _prompt_label: Label
 var _toasts: VBoxContainer
 var _studios: Array[PortraitStudio] = []
 var _pad_hint: PanelContainer
+var _confirm: Control
+var _confirm_label: Label
+var _confirm_yes: Button
+var _confirm_cb := Callable()
 var _t := 0.0
 
 
@@ -75,6 +79,7 @@ func _ready() -> void:
 	root.add_child(_toasts)
 	_build_pad_hint()
 	_build_pause_screen()
+	_build_confirm()
 
 
 func _studio(key: String, px: int, cam_pos: Vector3, look: Vector3, fov: float = 30.0, height: float = 0.0, yaw: float = 0.0) -> TextureRect:
@@ -182,6 +187,72 @@ func _build_pause_screen() -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(hint)
 	dim.visible = false
+
+
+# ------------------------------------------------------------------ yes / no dialog
+func _build_confirm() -> void:
+	var dim := ColorRect.new()
+	dim.color = Color(0.02, 0.015, 0.01, 0.45)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(dim)
+	_confirm = dim
+	var cc := CenterContainer.new()
+	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.add_child(cc)
+	var pc := PanelContainer.new()
+	var sb := UiTheme.dark_panel()
+	sb.content_margin_left = 36
+	sb.content_margin_right = 36
+	sb.content_margin_top = 20
+	sb.content_margin_bottom = 20
+	pc.add_theme_stylebox_override("panel", sb)
+	cc.add_child(pc)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 16)
+	pc.add_child(vb)
+	_confirm_label = UiTheme.label("", 28)
+	_confirm_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(_confirm_label)
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 20)
+	hb.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.add_child(hb)
+	for yes in [true, false]:
+		var b := Button.new()
+		b.text = "はい（A）" if yes else "いいえ（B）"
+		b.custom_minimum_size = Vector2(170, 48)
+		b.pressed.connect(answer.bind(yes))
+		hb.add_child(b)
+		if yes:
+			_confirm_yes = b
+	dim.visible = false
+
+
+## Shows a yes / no question; `cb` receives true (はい / A) or false (いいえ / B).
+func ask(text: String, cb: Callable) -> void:
+	_confirm_label.text = text
+	_confirm_cb = cb
+	_confirm.visible = true
+	_info.visible = false
+	_confirm_yes.grab_focus.call_deferred()
+
+
+func is_confirming() -> bool:
+	return _confirm.visible
+
+
+func answer(yes: bool) -> void:
+	if not _confirm.visible:
+		return
+	Sfx.play("click")
+	_confirm.visible = false
+	_confirm_yes.release_focus()
+	var cb := _confirm_cb
+	_confirm_cb = Callable()
+	if cb.is_valid():
+		cb.call(yes)
 
 
 func set_paused(p: bool) -> void:
@@ -520,7 +591,7 @@ func _build_pad_hint() -> void:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.add_theme_font_override("normal_font", UiTheme.font(true))
 	l.add_theme_font_size_override("normal_font_size", UiTheme.px(16))
-	l.text = "[center][color=#6fd06f]A[/color] 掘る・決定（押しながら十字で連続）　[color=#f0c040]Y[/color] 勇者を呼ぶ　[color=#d8d0c0]RB[/color] 速度　[color=#d8d0c0]Start[/color] 一時停止・生態系　[color=#d8d0c0]LB[/color] 勇者追跡　[color=#d8d0c0]Rスティック[/color] カメラ移動（LT+で回転）　[color=#6fa8ff]X[/color] ズーム[/center]"
+	l.text = "[center][color=#6fd06f]A[/color] 掘る・決定　[color=#ff7060]B[/color] キャンセル　[color=#f0c040]Y[/color] 勇者を呼ぶ　[color=#d8d0c0]RB/LB[/color] 速度↑↓　[color=#d8d0c0]LT[/color] 勇者へ　[color=#d8d0c0]Rスティック[/color] 見回す（RT+で移動）　[color=#d8d0c0]R3[/color] ズーム　[color=#d8d0c0]Start[/color] 一時停止[/center]"
 	_pad_hint.add_child(l)
 	_pad_hint.visible = false
 	root.add_child(_pad_hint)

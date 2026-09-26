@@ -223,6 +223,8 @@ func _setup_stage() -> void:
 	# up to the town on the cliff (the focus rises onto it), down to the bottom rows
 	cam.set_bounds(Rect2(4, -9.5, grid.w - 8, grid.h + 4.5))
 	cam.lift = Vector3(-1.0, -8.5, SurfaceWorld.GROUND_Y)
+	# the right stick looks around the pad cursor
+	cam.orbit_pivot = func() -> Vector3: return DungeonGrid.cell_center(cursor.pad_cell)
 	cam.focus_on(DungeonGrid.cell_center(grid.entrance) + Vector3(-1, 0, 4.5), true)
 	cam.current = true
 	_attach_post(cam)
@@ -250,6 +252,7 @@ func _build_ui() -> void:
 		if speed == 0.0:
 			_toggle_pause())
 	Pad.button_pressed.connect(_on_pad_button)
+	Pad.trigger_pressed.connect(_on_pad_trigger)
 	var hero_scene := load(profile.model_path) as PackedScene
 	_hero_portrait = load(profile.icon_path) as Texture2D
 	hud.set_hero(profile.display_name, _hero_portrait)
@@ -296,9 +299,18 @@ func _begin_build() -> void:
 	hud.toast("通路につながったブロックをクリックして掘ろう", UiTheme.TEXT)
 
 
+## Y / the button / Space: asks before calling the hero early.
 func _on_call_hero() -> void:
-	if phase == Phase.BUILD:
-		_begin_place()
+	if phase != Phase.BUILD or hud.is_confirming() or speed == 0.0:
+		return
+	cursor.mode = DigCursor.Mode.NONE
+	hud.ask("勇者を呼びますか？", func(yes: bool) -> void:
+		if phase != Phase.BUILD:
+			return
+		if yes:
+			_begin_place()
+		else:
+			cursor.mode = DigCursor.Mode.DIG)
 
 
 func _begin_place() -> void:
@@ -432,7 +444,10 @@ func _process(delta: float) -> void:
 			build_left -= dt
 			if build_left <= 0.0:
 				build_left = 0.0
-				_begin_place()
+				if hud.is_confirming():
+					hud.answer(true)
+				else:
+					_begin_place()
 		Phase.PLACE, Phase.HERO_INTRO:
 			hero.tick(dt)
 		Phase.INVASION:
@@ -492,28 +507,56 @@ func _update_hud(_force: bool) -> void:
 # ------------------------------------------------------------------ input
 ## Gamepad shortcuts (Xbox layout). Digging / placing is handled by DigCursor.
 func _on_pad_button(b: int) -> void:
-	# paused: only Start (resume) and A on the focused resume button do anything
+	# a yes / no question is open: A presses the focused button, B answers no
+	if hud.is_confirming():
+		if b == JOY_BUTTON_B:
+			hud.answer(false)
+		return
+	# paused: Start / B resume, A presses the focused menu button
 	if speed == 0.0 and _can_change_speed():
-		if b == JOY_BUTTON_START:
+		if b == JOY_BUTTON_START or b == JOY_BUTTON_B:
 			_toggle_pause()
 		return
 	match b:
 		JOY_BUTTON_RIGHT_SHOULDER:
 			if _can_change_speed():
-				_cycle_speed()
+				_step_speed(1)
+		JOY_BUTTON_LEFT_SHOULDER:
+			if _can_change_speed():
+				_step_speed(-1)
 		JOY_BUTTON_START:
 			if _can_change_speed():
 				_toggle_pause()
 		JOY_BUTTON_Y:
 			if phase == Phase.BUILD:
 				_on_call_hero()
-		JOY_BUTTON_LEFT_SHOULDER:
-			if phase == Phase.INVASION:
-				_toggle_follow()
 
 
-func _cycle_speed() -> void:
-	_set_speed(1.0 if speed == 0.0 or speed >= 3.0 else speed + 1.0)
+func _on_pad_trigger(axis: int) -> void:
+	if axis == JOY_AXIS_TRIGGER_LEFT and not hud.is_confirming() and speed != 0.0:
+		_focus_hero()
+
+
+## RB / LB: one speed step up or down (x1 .. x3).
+func _step_speed(d: int) -> void:
+	_set_speed(clampf(_run_speed + d, 1.0, 3.0))
+	Sfx.play("click")
+
+
+## Where LT takes the camera: the hero, or the gate while it is still up in the town / fog.
+func _hero_focus_point() -> Vector3:
+	if hero.visible and hero.state != Hero.State.DEAD:
+		return hero.position
+	return DungeonGrid.cell_center(grid.entrance) + Vector3(0, 0, 1.0)
+
+
+## LT: jump the camera (and the pad cursor) to the hero; during the invasion keep following it.
+func _focus_hero() -> void:
+	var p := _hero_focus_point()
+	cam.focus_on(p)
+	if hero.is_targetable():
+		cursor.pad_cell = hero.cell
+	follow_hero = phase == Phase.INVASION and hero.is_targetable()
 	Sfx.play("click")
 
 
@@ -571,19 +614,19 @@ func _monster_at(c: Vector2i) -> Monster:
 	return null
 
 
-## Breaker poke: every monster dies on the BREAKER_POKES_TO_KILL-th hit (whatever its HP), and
-## like any death its nutrient scatters into the surrounding soil. Costs no dig.
+## Breaker poke: deals 1/BREAKER_POKES_TO_KILL of the monster's max HP, so a healthy monster
+## dies on the third poke; like any death its nutrient scatters into the soil. Costs no dig.
 func _poke_monster(m: Monster) -> void:
 	cursor.swing()
-	var pokes := int(m.get_meta("pokes", 0)) + 1
-	m.set_meta("pokes", pokes)
+	var dmg := m.max_hp / float(Balance.BREAKER_POKES_TO_KILL)
+	m.hp -= dmg
 	var v := m.visual as MonsterVisual
 	if v:
 		v.hurt()
-		fx.number(v.position + Vector3(0, 0.6, 0), "%d/%d" % [pokes, Balance.BREAKER_POKES_TO_KILL], Color(1.0, 0.85, 0.3))
+		fx.number(v.position + Vector3(0, 0.6, 0), str(int(round(dmg))), Color(1, 1, 1))
 	cam.shake(0.15)
 	Sfx.play("hit")
-	if pokes >= Balance.BREAKER_POKES_TO_KILL:
+	if m.hp <= 0.01:
 		m.hp = 0.0
 		eco.kill(m, "killed")
 
@@ -668,7 +711,7 @@ var _tip_text := ""
 func _update_tooltip(delta: float) -> void:
 	var active := (phase == Phase.BUILD or phase == Phase.PLACE or phase == Phase.INVASION or phase == Phase.ENDING) and speed != 0.0
 	hud.set_pad_hint(Pad.using_pad and active)
-	if not active or (not Pad.using_pad and get_viewport().gui_get_hovered_control() != null):
+	if not active or hud.is_confirming() or (not Pad.using_pad and get_viewport().gui_get_hovered_control() != null):
 		hud.show_tooltip("", Vector2.ZERO)
 		return
 	# with a gamepad the popup follows the pad cursor instead of the mouse
@@ -865,6 +908,9 @@ func _debug_tick() -> void:
 		_dragtest()
 	if _debug.has("herotest") and _frames == 20:
 		_herotest()
+	# --askhero: open the "call the hero?" question (for screenshots)
+	if _debug.has("askhero") and _frames == 10:
+		_on_call_hero()
 	if _debug.has("poketest") and _frames == 20:
 		_poketest()
 	# --tiptest: every monster that can still evolve shows what it needs; BGM files are used
@@ -952,9 +998,13 @@ func _menutest() -> void:
 	elif f == 86:
 		var fo := get_viewport().gui_get_focus_owner()
 		_mt["focus_after_down"] = (fo as Button).text if fo is Button else ""
+		_pad_event(JOY_BUTTON_B, true)
+		_pad_event(JOY_BUTTON_B, false)
+	elif f == 90:
+		_mt["speed_after_B"] = speed
 		var ok: bool = _mt.get("phase_after_A_on_title") == Phase.INTRO and _mt.get("paused_speed") == 0.0 \
 			and _mt.get("phase_after_Y_while_paused") == Phase.BUILD and _mt.get("speed_after_RB_while_paused") == 0.0 \
-			and _mt.get("speed_after_A_on_resume") == 1.0 and _mt["focus_after_down"] == "このステージをやり直す"
+			and _mt.get("speed_after_A_on_resume") == 1.0 and _mt["focus_after_down"] == "このステージをやり直す" and _mt.get("speed_after_B") == 1.0
 		print("MENUTEST ", "PASS " if ok else "FAIL ", _mt)
 		get_tree().quit()
 var _pt := {}
@@ -1047,7 +1097,7 @@ func _poketest() -> void:
 			break
 	var total0 := grid.total_nutrient() + eco.total_nutrient()
 	var dig0 := dig_left
-	m.hp = 999.0
+	m.hp = m.max_hp
 	var alive_after := []
 	for i in Balance.BREAKER_POKES_TO_KILL:
 		_try_dig(m.cell)
@@ -1099,55 +1149,61 @@ func _dragtest() -> void:
 	get_tree().quit()
 
 
-## Scripted Xbox-controller session (run with --autostart --padtest): right stick pans up to the
-## town, LT + right stick orbits, RB speed, A-hold tunnel digging, Y call, A placement.
+## Scripted Xbox-controller session (run with --autostart --padtest), new layout:
+## RT + right stick moves the camera (up to the town), right stick alone looks around the cursor,
+## R3 zoom steps, RB / LB speed up / down, LT jumps to the hero, A-hold digs a tunnel,
+## Y asks before calling the hero (B = no, A = yes), A places the 魔王, Start pauses, B resumes.
 func _padtest() -> void:
 	var f := _frames
 	# re-send the stick state every frame: a real controller plugged into the machine emits its
 	# own (near-zero) axis events that would otherwise overwrite the scripted ones
 	if f > 10 and f < 40:
+		_pad_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)
 		_pad_axis(JOY_AXIS_RIGHT_Y, -1.0)
 	elif f > 40 and f < 80:
-		_pad_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)
 		_pad_axis(JOY_AXIS_RIGHT_X, 1.0)
 		_pad_axis(JOY_AXIS_RIGHT_Y, -0.6)
 	if f == 10:
 		_pt["focus_z0"] = cam.focus.z
-		_pad_axis(JOY_AXIS_RIGHT_Y, -1.0)
 	elif f == 40:
+		_pad_axis(JOY_AXIS_TRIGGER_RIGHT, 0.0)
 		_pad_axis(JOY_AXIS_RIGHT_Y, 0.0)
-		_pt["focus_z_after_pan_up"] = snappedf(cam.focus.z, 0.01)
+		_pt["focus_z_after_RT_pan_up"] = snappedf(cam.focus.z, 0.01)
 		_pt["yaw0"] = cam.yaw
-		_pad_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)
-		_pad_axis(JOY_AXIS_RIGHT_X, 1.0)
-		_pad_axis(JOY_AXIS_RIGHT_Y, -0.6)
 	elif f == 80:
 		_pad_axis(JOY_AXIS_RIGHT_X, 0.0)
 		_pad_axis(JOY_AXIS_RIGHT_Y, 0.0)
-		_pad_axis(JOY_AXIS_TRIGGER_LEFT, 0.0)
 		_pt["yaw1"] = cam.yaw
-		_pt["pitch1"] = rad_to_deg(cam.pitch)
+		_pt["pitch1"] = snappedf(rad_to_deg(cam.pitch), 0.1)
+		var pc := DungeonGrid.cell_center(cursor.pad_cell)
+		_pt["orbit_around_cursor"] = Vector2(cam._target_focus.x, cam._target_focus.z).distance_to(Vector2(pc.x, pc.z)) < 0.05
 		_pad_event(JOY_BUTTON_RIGHT_STICK, true)
 		_pad_event(JOY_BUTTON_RIGHT_STICK, false)
 	elif f == 84:
-		_pad_event(JOY_BUTTON_X, true)
-		_pad_event(JOY_BUTTON_X, false)
-	elif f == 88:
-		# X steps the zoom out; two more presses wrap back to the closest (default) view
-		_pt["zoom_after_X"] = cam._zoom_goal
+		# R3 steps the zoom out; two more presses wrap back to the closest (default) view
+		_pt["zoom_after_R3"] = cam._zoom_goal
 		for i in 2:
-			_pad_event(JOY_BUTTON_X, true)
-			_pad_event(JOY_BUTTON_X, false)
-	elif f == 90:
-		_pt["zoom_after_3X"] = cam._zoom_goal
-		_pt["yaw_reset"] = cam.yaw
+			_pad_event(JOY_BUTTON_RIGHT_STICK, true)
+			_pad_event(JOY_BUTTON_RIGHT_STICK, false)
+	elif f == 88:
+		_pt["zoom_after_3R3"] = cam._zoom_goal
+		_pt["speed"] = speed
 		_pad_event(JOY_BUTTON_RIGHT_SHOULDER, true)
 		_pad_event(JOY_BUTTON_RIGHT_SHOULDER, false)
-		_pt["speed"] = speed
-	elif f == 100:
-		# start at the east end of the starter corridor and tunnel east holding X
-		cursor.pad_cell = Vector2i(grid.entrance.x + 3, 5)
+	elif f == 92:
 		_pt["speed_after_RB"] = speed
+		_pad_event(JOY_BUTTON_LEFT_SHOULDER, true)
+		_pad_event(JOY_BUTTON_LEFT_SHOULDER, false)
+	elif f == 96:
+		_pt["speed_after_LB"] = speed
+		_pad_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)
+	elif f == 98:
+		_pad_axis(JOY_AXIS_TRIGGER_LEFT, 0.0)
+		var hp := _hero_focus_point()
+		_pt["LT_to_hero"] = Vector2(cam._target_focus.x, cam._target_focus.z).distance_to(Vector2(hp.x, hp.z)) < 1.0
+	elif f == 100:
+		# start at the east end of the starter corridor and tunnel east holding A
+		cursor.pad_cell = Vector2i(grid.entrance.x + 3, 5)
 		_pt["dig0"] = dig_left
 		_pad_event(JOY_BUTTON_A, true)
 		_pad_event(JOY_BUTTON_DPAD_RIGHT, true)
@@ -1158,29 +1214,43 @@ func _padtest() -> void:
 		_pt["cursor"] = cursor.pad_cell
 		_pad_event(JOY_BUTTON_Y, true)
 		_pad_event(JOY_BUTTON_Y, false)
-	elif f == 200:
-		_pt["phase_after_Y"] = phase
+	elif f == 194:
+		_pt["Y_asks"] = hud.is_confirming()
+		_pad_event(JOY_BUTTON_B, true)
+		_pad_event(JOY_BUTTON_B, false)
+	elif f == 198:
+		_pt["phase_after_B"] = phase
+		_pt["asks_after_B"] = hud.is_confirming()
+		_pad_event(JOY_BUTTON_Y, true)
+		_pad_event(JOY_BUTTON_Y, false)
+	elif f == 202:
+		_pad_event(JOY_BUTTON_A, true)
+		_pad_event(JOY_BUTTON_A, false)
+	elif f == 206:
+		_pt["phase_after_Y_A"] = phase
 		cursor.pad_cell = Vector2i(grid.entrance.x + 3, 8)
 		_pad_event(JOY_BUTTON_A, true)
 		_pad_event(JOY_BUTTON_A, false)
-	elif f == 205:
+	elif f == 211:
 		_pad_event(JOY_BUTTON_START, true)
 		_pad_event(JOY_BUTTON_START, false)
-	elif f == 208:
+	elif f == 214:
 		_pt["paused_speed"] = speed
 		_pt["dig_before_paused_dig"] = dig_left
 		_on_click(Vector2i(grid.entrance.x + 4, 5))
 		_pt["dig_after_paused_dig"] = dig_left
-		_pad_event(JOY_BUTTON_START, true)
-		_pad_event(JOY_BUTTON_START, false)
-	elif f == 215:
-		_pt["speed_after_unpause"] = speed
+		_pad_event(JOY_BUTTON_B, true)
+		_pad_event(JOY_BUTTON_B, false)
+	elif f == 220:
+		_pt["speed_after_B_resume"] = speed
 		_pt["maou_placed"] = maou.placed
 		_pt["maou_cell"] = maou.cell
-		var ok: bool = _pt["focus_z_after_pan_up"] < _pt["focus_z0"] - 0.5 and absf(_pt["yaw1"] - _pt["yaw0"]) > 0.1
-		ok = ok and _pt["zoom_after_X"] == GameCamera.ZOOM_STEPS[1] and _pt["zoom_after_3X"] == GameCamera.ZOOM_STEPS[0]
-		ok = ok and _pt["speed_after_RB"] == 2.0 and _pt["dig1"] < _pt["dig0"] and _pt["phase_after_Y"] == Phase.PLACE
-		ok = ok and _pt["paused_speed"] == 0.0 and _pt["dig_after_paused_dig"] == _pt["dig_before_paused_dig"] and _pt["maou_placed"]
+		var ok: bool = _pt["focus_z_after_RT_pan_up"] < _pt["focus_z0"] - 0.5 and absf(_pt["yaw1"] - _pt["yaw0"]) > 0.1 and _pt["orbit_around_cursor"]
+		ok = ok and _pt["zoom_after_R3"] == GameCamera.ZOOM_STEPS[1] and _pt["zoom_after_3R3"] == GameCamera.ZOOM_STEPS[0]
+		ok = ok and _pt["speed_after_RB"] == 2.0 and _pt["speed_after_LB"] == 1.0 and _pt["LT_to_hero"]
+		ok = ok and _pt["dig1"] < _pt["dig0"] and _pt["Y_asks"] and _pt["phase_after_B"] == Phase.BUILD and not _pt["asks_after_B"]
+		ok = ok and _pt["phase_after_Y_A"] == Phase.PLACE and _pt["maou_placed"]
+		ok = ok and _pt["paused_speed"] == 0.0 and _pt["dig_after_paused_dig"] == _pt["dig_before_paused_dig"] and _pt["speed_after_B_resume"] == 1.0
 		print("PADTEST ", "PASS " if ok else "FAIL ", _pt)
 		_screenshot("debug_shots/padtest.png")
 		get_tree().quit()
@@ -1265,7 +1335,7 @@ func _autoplay() -> void:
 					_on_click(best)
 					_auto_digs += 1
 			elif _auto_digs >= 45 and build_left < float(stage["build_time"]) - 60.0:
-				_on_call_hero()
+				_begin_place()
 			if speed != 3.0:
 				_set_speed(3.0)
 		Phase.PLACE:

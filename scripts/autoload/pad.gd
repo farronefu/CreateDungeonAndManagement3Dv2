@@ -1,12 +1,15 @@
 extends Node
 ## Gamepad state (Xbox layout). Tracks buttons / sticks from input events so gameplay code can
 ## query them, and remembers whether the player is currently using a pad or the mouse.
-##   A: dig / confirm / place 魔王 / skip cut-in (hold + D-pad = dig a tunnel)
-##   Y: call the hero   RB: game speed   Start: pause   LB: follow the hero
-##   D-pad / left stick: move the cursor    right stick: orbit camera   R3: reset camera
+##   A: dig / confirm / place 魔王 / skip cut-in (hold + D-pad = dig a tunnel)   B: cancel
+##   Y: call the hero (asks first)   RB / LB: faster / slower   Start: pause
+##   D-pad / left stick: move the cursor   right stick: look around the cursor
+##   RT + right stick: move the camera   LT: jump to the hero   R3: zoom step
 
 signal button_pressed(button: int)
 signal mode_changed(using_pad: bool)
+## LT / RT pulled past half way (JOY_AXIS_TRIGGER_LEFT / _RIGHT)
+signal trigger_pressed(axis: int)
 
 const STICK_DEADZONE := 0.22
 
@@ -33,7 +36,10 @@ func _input(event: InputEvent) -> void:
 			button_pressed.emit(b.button_index)
 	elif event is InputEventJoypadMotion:
 		var m := event as InputEventJoypadMotion
+		var was := float(_axes.get(m.axis, 0.0))
 		_axes[m.axis] = m.axis_value
+		if (m.axis == JOY_AXIS_TRIGGER_LEFT or m.axis == JOY_AXIS_TRIGGER_RIGHT) and was <= 0.5 and m.axis_value > 0.5:
+			trigger_pressed.emit(m.axis)
 		if absf(m.axis_value) > 0.4:
 			_set_pad(true)
 	elif event is InputEventMouseMotion:

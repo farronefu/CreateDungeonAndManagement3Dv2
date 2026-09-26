@@ -1,9 +1,9 @@
 class_name GameCamera
 extends Camera3D
 ## Angled top-down camera (風来のシレン style) that can orbit freely.
-##   Pan : right stick / WASD / arrows / screen edges / right-drag (up to the town on the cliff)
-##   Orbit: LT + right stick / middle-drag / Q・E (yaw)   Reset: R3 / Home
-##   Zoom : X button cycles ZOOM_STEPS (closest = default) / mouse wheel within the same range
+##   Pan : RT + right stick / WASD / arrows / screen edges / right-drag (up to the town on the cliff)
+##   Orbit: right stick (around the pad cursor, see orbit_pivot) / middle-drag / Q・E   Reset: Home
+##   Zoom : R3 cycles ZOOM_STEPS (closest = default) / mouse wheel within the same range
 
 const DEFAULT_PITCH := deg_to_rad(55.0)
 const MIN_PITCH := deg_to_rad(28.0)
@@ -17,6 +17,8 @@ const ZOOM_STEPS := [1.0, 1.4, 1.9]
 var focus := Vector3(18, 0, 7)
 var zoom := 1.0
 var _zoom_goal := -1.0   # eased towards when a zoom step is picked
+## returns the point the right stick orbits around (the pad cursor); unset = the view centre
+var orbit_pivot := Callable()
 var yaw := 0.0
 var pitch := DEFAULT_PITCH
 var bounds := Rect2(0, -2, 36, 28)
@@ -41,8 +43,6 @@ func _ready() -> void:
 	_target_focus = focus
 	Pad.button_pressed.connect(func(b: int) -> void:
 		if b == JOY_BUTTON_RIGHT_STICK:
-			reset_angle()
-		elif b == JOY_BUTTON_X:
 			cycle_zoom())
 	_apply()
 
@@ -164,14 +164,17 @@ func _process(delta: float) -> void:
 		_target_yaw += ORBIT_YAW_SPEED * 0.6 * delta
 	if Input.is_key_pressed(KEY_E):
 		_target_yaw -= ORBIT_YAW_SPEED * 0.6 * delta
-	# right stick pans (like WASD); holding LT turns it into a seamless orbit
+	# right stick looks around the cursor (orbit); holding RT turns it into a camera move
 	var rs := Pad.right_stick()
 	if rs != Vector2.ZERO:
-		if Pad.axis(JOY_AXIS_TRIGGER_LEFT) > 0.5:
+		if Pad.axis(JOY_AXIS_TRIGGER_RIGHT) > 0.5:
+			move += rs * 1.2
+		else:
 			_target_yaw -= rs.x * ORBIT_YAW_SPEED * delta
 			_target_pitch = clampf(_target_pitch - rs.y * ORBIT_PITCH_SPEED * delta, MIN_PITCH, MAX_PITCH)
-		else:
-			move += rs * 1.2
+			if orbit_pivot.is_valid():
+				var p: Vector3 = orbit_pivot.call()
+				_target_focus = Vector3(p.x, 0, p.z)
 	if edge_scroll and not Pad.using_pad and DisplayServer.window_is_focused():
 		var vp := get_viewport()
 		var mp := vp.get_mouse_position()
