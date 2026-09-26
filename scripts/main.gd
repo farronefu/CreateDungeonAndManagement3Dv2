@@ -867,16 +867,24 @@ func _pad_axis(axis: int, v: float) -> void:
 	Input.parse_input_event(e)
 
 
-## Scripted Xbox-controller session: orbit camera, RB speed, X-hold tunnel digging, A placement.
+## Scripted Xbox-controller session (run with --autostart --padtest): right stick pans up to the
+## town, LT + right stick orbits, RB speed, A-hold tunnel digging, Y call, A placement.
 func _padtest() -> void:
 	var f := _frames
-	if f == 20:
+	if f == 10:
+		_pt["focus_z0"] = cam.focus.z
+		_pad_axis(JOY_AXIS_RIGHT_Y, -1.0)
+	elif f == 40:
+		_pad_axis(JOY_AXIS_RIGHT_Y, 0.0)
+		_pt["focus_z_after_pan_up"] = snappedf(cam.focus.z, 0.01)
 		_pt["yaw0"] = cam.yaw
+		_pad_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)
 		_pad_axis(JOY_AXIS_RIGHT_X, 1.0)
 		_pad_axis(JOY_AXIS_RIGHT_Y, -0.6)
-	elif f == 60:
+	elif f == 80:
 		_pad_axis(JOY_AXIS_RIGHT_X, 0.0)
 		_pad_axis(JOY_AXIS_RIGHT_Y, 0.0)
+		_pad_axis(JOY_AXIS_TRIGGER_LEFT, 0.0)
 		_pt["yaw1"] = cam.yaw
 		_pt["pitch1"] = rad_to_deg(cam.pitch)
 		_pad_event(JOY_BUTTON_RIGHT_STICK, true)
@@ -919,7 +927,8 @@ func _padtest() -> void:
 		_pt["speed_after_unpause"] = speed
 		_pt["maou_placed"] = maou.placed
 		_pt["maou_cell"] = maou.cell
-		print("PADTEST ", _pt)
+		var ok: bool = _pt["focus_z_after_pan_up"] < _pt["focus_z0"] - 0.5 and absf(_pt["yaw1"] - _pt["yaw0"]) > 0.1 			and _pt["speed_after_RB"] == 2.0 and _pt["dig1"] < _pt["dig0"] and _pt["phase_after_Y"] == Phase.PLACE 			and _pt["paused_speed"] == 0.0 and _pt["dig_after_paused_dig"] == _pt["dig_before_paused_dig"] and _pt["maou_placed"]
+		print("PADTEST ", "PASS " if ok else "FAIL ", _pt)
 		_screenshot("debug_shots/padtest.png")
 		get_tree().quit()
 

@@ -164,6 +164,21 @@ node tools/modelgen/preview/serve.mjs    # http://localhost:5178 でブラウザ
 
 ## テスト・デバッグ
 
+push の前に必ず自動テスト一式を実行します（すべて PASS で終了コード 0）。
+
+```bash
+GODOT=/path/to/godot tools/run_tests.sh
+```
+
+| テスト | 内容 |
+| --- | --- |
+| sim_test | 生態系の耐久シミュレーションで養分の総量が保存されるか |
+| autoplay | 1ステージを自動プレイして勝利で終わるか |
+| padtest | コントローラー操作（右スティックで町までパン、LT+右スティックで回転、RB 速度、A 長押し連続掘り、Y、魔王配置、一時停止中は掘れない） |
+| menutest | タイトル・一時停止メニューをコントローラーで操作できるか |
+
+個別に実行する場合：
+
 ```bash
 # 生態系の耐久シミュレーション（ヘッドレス）
 godot --headless -s res://scripts/debug/sim_test.gd -- 450 90
