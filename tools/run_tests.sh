@@ -40,6 +40,16 @@ check "padtest" "$OUT/padtest.txt" "PADTEST PASS"
 "$GODOT" --resolution 1280x720 -- --autostart --dragtest > "$OUT/dragtest.txt" 2>&1
 check "dragtest" "$OUT/dragtest.txt" "DRAGTEST PASS"
 
+# the hero ignores tunnels dug after it came in, and looks around once per one-block-wide fork
+"$GODOT" --resolution 1280x720 -- --autostart --seed=3 --herotest > "$OUT/herotest.txt" 2>&1
+check "herotest (starter map)" "$OUT/herotest.txt" "HEROTEST PASS"
+"$GODOT" --resolution 1280x720 -- --autostart --seed=3 --digs=45 --simulate=40 --herotest > "$OUT/herotest2.txt" 2>&1
+check "herotest (dug map)" "$OUT/herotest2.txt" "HEROTEST PASS"
+
+# pause menu "retry" restarts the stage at the arrival cut-in
+"$GODOT" --resolution 1280x720 -- --retrytest > "$OUT/retrytest.txt" 2>&1
+check "retrytest" "$OUT/retrytest.txt" "RETRYTEST PASS"
+
 # title / pause menu driven by the pad
 "$GODOT" --resolution 1280x720 -- --menutest > "$OUT/menutest.txt" 2>&1
 check "menutest" "$OUT/menutest.txt" "MENUTEST PASS"

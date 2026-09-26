@@ -97,10 +97,15 @@ func dig(c: Vector2i) -> int:
 	return n
 
 
-func floor_neighbors(c: Vector2i) -> Array[Vector2i]:
+## Floor that is also allowed by `mask` (1 = walkable; an empty mask allows every floor cell).
+func walkable(c: Vector2i, mask: PackedByteArray = PackedByteArray()) -> bool:
+	return is_floor(c) and (mask.is_empty() or mask[idx(c)] == 1)
+
+
+func floor_neighbors(c: Vector2i, mask: PackedByteArray = PackedByteArray()) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for d in DIRS:
-		if is_floor(c + d):
+		if walkable(c + d, mask):
 			out.append(c + d)
 	return out
 
@@ -114,11 +119,11 @@ func block_neighbors(c: Vector2i) -> Array[Vector2i]:
 
 
 ## Breadth-first distances over floor cells. -1 = unreachable.
-func distance_map(from: Vector2i) -> PackedInt32Array:
+func distance_map(from: Vector2i, mask: PackedByteArray = PackedByteArray()) -> PackedInt32Array:
 	var dist := PackedInt32Array()
 	dist.resize(w * h)
 	dist.fill(-1)
-	if not is_floor(from):
+	if not walkable(from, mask):
 		return dist
 	var queue: Array[Vector2i] = [from]
 	dist[idx(from)] = 0
@@ -129,18 +134,18 @@ func distance_map(from: Vector2i) -> PackedInt32Array:
 		var dc := dist[idx(c)]
 		for d in DIRS:
 			var n := c + d
-			if is_floor(n) and dist[idx(n)] < 0:
+			if walkable(n, mask) and dist[idx(n)] < 0:
 				dist[idx(n)] = dc + 1
 				queue.append(n)
 	return dist
 
 
 ## Shortest floor path from `from` to `to`, excluding `from`. Empty if unreachable or same cell.
-func find_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+func find_path(from: Vector2i, to: Vector2i, mask: PackedByteArray = PackedByteArray()) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
-	if from == to or not is_floor(to):
+	if from == to or not walkable(to, mask):
 		return out
-	var dist := distance_map(to)
+	var dist := distance_map(to, mask)
 	if dist[idx(from)] < 0:
 		return out
 	# walk downhill from `from` towards `to`
@@ -152,7 +157,7 @@ func find_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 		var bd := dist[idx(c)]
 		for d in DIRS:
 			var n := c + d
-			if is_floor(n) and dist[idx(n)] >= 0 and dist[idx(n)] < bd:
+			if walkable(n, mask) and dist[idx(n)] >= 0 and dist[idx(n)] < bd:
 				bd = dist[idx(n)]
 				best = n
 		if best == c:
@@ -163,7 +168,7 @@ func find_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 
 
 ## First step from `from` towards the nearest cell for which pred(cell) is true (BFS order).
-func path_to_nearest(from: Vector2i, pred: Callable, max_dist: int = 9999) -> Array[Vector2i]:
+func path_to_nearest(from: Vector2i, pred: Callable, max_dist: int = 9999, mask: PackedByteArray = PackedByteArray()) -> Array[Vector2i]:
 	var parent := {}
 	var queue: Array[Vector2i] = [from]
 	parent[from] = from
@@ -185,7 +190,7 @@ func path_to_nearest(from: Vector2i, pred: Callable, max_dist: int = 9999) -> Ar
 		dirs.shuffle()
 		for d in dirs:
 			var n: Vector2i = c + d
-			if is_floor(n) and not parent.has(n):
+			if walkable(n, mask) and not parent.has(n):
 				parent[n] = c
 				depth[n] = depth[c] + 1
 				queue.append(n)

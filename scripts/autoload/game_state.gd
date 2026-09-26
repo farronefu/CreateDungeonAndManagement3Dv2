@@ -11,6 +11,8 @@ var upgrades := {"dig": 0, "moss": 0, "bug": 0}
 var dungeon_snapshot := {}
 ## Snapshot taken when the current stage began (used by "retry").
 var stage_start_snapshot := {}
+## Set by "retry": the reloaded stage starts at the hero's arrival cut-in, not the title.
+var restart_stage := false
 
 
 func new_run() -> void:

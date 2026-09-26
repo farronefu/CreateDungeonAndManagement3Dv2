@@ -52,7 +52,8 @@ func _ready() -> void:
 	_build_ui()
 	if _debug.has("autostart") or _debug.has("skip_title"):
 		_debug_bootstrap()
-	elif GameState.stage_index > 0 or _debug.has("stage_reload"):
+	elif GameState.stage_index > 0 or _debug.has("stage_reload") or GameState.restart_stage:
+		GameState.restart_stage = false
 		_begin_intro()
 	else:
 		phase = Phase.TITLE
@@ -391,6 +392,7 @@ func _on_next_stage() -> void:
 
 func _on_retry() -> void:
 	GameState.dungeon_snapshot = GameState.stage_start_snapshot
+	GameState.restart_stage = true
 	get_tree().reload_current_scene()
 
 
@@ -649,55 +651,23 @@ func _bar(v: float, max_v: float, col: String) -> String:
 	return "[color=%s]%s[/color][color=#3a4150]%s[/color]" % [col, "■".repeat(n), "■".repeat(10 - n)]
 
 
+## Popup for a monster: HP and nutrient only (a ツボミ also shows how much it needs to bloom).
 func _monster_tip(m: Monster) -> String:
-	var col := "#a8f070" if m.kind == Monster.Kind.MOSS else "#ffb060"
-	var status := ""
-	if m.kind == Monster.Kind.MOSS:
-		match m.stage:
-			Monster.MOSS:
-				status = "養分を運びながら壁まで直進"
-				if m.nutrient >= 2 and m.hp <= 6:
-					status += "\n[color=#f0e070]もうすぐツボミになる[/color]"
-			Monster.BUD:
-				status = "開花まで 養分 %d / %d" % [m.nutrient, Balance.BUD_TARGET]
-			Monster.FLOWER:
-				status = "子を生むまで %d秒" % maxi(0, int(ceil(Balance.FLOWER_LIFE - m.age)))
-	else:
-		match m.stage:
-			Monster.LARVA:
-				status = "HP %d でサナギになる" % int(Balance.LARVA_PUPATE * (1.0 + 0.25 * eco.bug_level))
-				if m.hp <= Balance.LARVA_HUNGRY * (1.0 + 0.25 * eco.bug_level):
-					status += "　[color=#ffb060]空腹[/color]"
-			Monster.PUPA:
-				status = "羽化まで %d秒" % maxi(0, int(ceil((Balance.PUPA_TIME - maxf(0.0, m.timer)) / (1.0 + 0.15 * eco.bug_level))))
-			Monster.ADULT:
-				status = "産卵に必要な養分 %d / %d" % [m.nutrient, Balance.ADULT_LAY_NUTRIENT]
-	return "[b][color=%s]%s[/color][/b]\nHP %s %d/%d\n養分 %d\n%s" % [col, m.display_name(), _bar(m.hp, m.max_hp, "#70e060"), int(ceil(m.hp)), int(m.max_hp), m.nutrient, status]
+	var txt := "HP %s %d/%d\n養分 %d" % [_bar(m.hp, m.max_hp, "#70e060"), int(ceil(m.hp)), int(m.max_hp), m.nutrient]
+	if m.kind == Monster.Kind.MOSS and m.stage == Monster.BUD:
+		txt += "\n[color=#b0a898]養分があと %d で次の段階へ[/color]" % maxi(0, Balance.BUD_TARGET - m.nutrient)
+	return txt
 
 
+## Popup for a soil block: nutrient and how much more reaches the next stage.
 func _cell_tip(c: Vector2i) -> String:
-	if not grid.in_bounds(c):
-		return "[b]岩盤[/b]\n硬すぎて掘れない" if c.y > 0 else ""
-	var t := grid.get_type(c)
-	if t == DungeonGrid.BEDROCK:
-		return "[b]岩盤[/b]\n硬すぎて掘れない" if c.y > 0 else ("[b]入口[/b]" if c == grid.entrance else "")
-	if t == DungeonGrid.FLOOR:
-		return "[b]入口[/b]\n勇者はここから侵入してくる" if c == grid.entrance else ""
+	if not grid.is_block(c):
+		return ""
 	var n := grid.get_nutrient(c)
 	var stage := Balance.soil_stage(n)
-	var title: String = ["①", "②", "③", "④", "⑤"][stage] + " " + Balance.SOIL_NAMES[stage]
-	title = "[color=%s]%s[/color]" % [["#e8d8c0", "#c8f090", "#98e070", "#e8d070", "#f0c060"][stage], title]
-	var born := "何も生まれない"
-	if n >= Balance.BUG_SPAWN_MIN:
-		born = "[color=#ffa060]ザクザクムシ（ダンゴムシ）[/color]が生まれる"
-	elif n >= Balance.MOSS_SPAWN_MIN:
-		born = "[color=#a0f070]モコチュリ[/color]が生まれる"
-	if stage < 4:
-		born += "
-[color=#b0a898]養分があと %d で次の段階へ[/color]" % (Balance.SOIL_STAGE_MIN[stage + 1] - n)
-	var txt := "[b]%s[/b]\n養分 %s %d\n掘ると %s" % [title, _bar(n, Balance.MAX_NUTRIENT, "#c0ff80"), n, born]
-	if not grid.can_dig(c):
-		txt += "\n[color=#a0a0a0]通路に面していないので掘れない[/color]"
+	var txt := "養分 %s %d" % [_bar(n, Balance.MAX_NUTRIENT, "#c0ff80"), n]
+	if stage < Balance.SOIL_STAGE_MIN.size() - 1:
+		txt += "\n[color=#b0a898]養分があと %d で次の段階へ[/color]" % (Balance.SOIL_STAGE_MIN[stage + 1] - n)
 	return txt
 
 
@@ -809,6 +779,16 @@ func _debug_tick() -> void:
 		_padtest()
 	if _debug.has("dragtest") and _frames == 20:
 		_dragtest()
+	if _debug.has("herotest") and _frames == 20:
+		_herotest()
+	# --retrytest: "retry" from the pause menu must reload the stage at the arrival cut-in
+	if _debug.has("retrytest") and _frames == 30:
+		if not GameState.has_meta("retried"):
+			GameState.set_meta("retried", true)
+			_on_retry()
+		else:
+			print("RETRYTEST ", "PASS " if phase == Phase.INTRO else "FAIL ", {"phase_after_retry": phase})
+			get_tree().quit()
 	if _debug.has("camtest"):
 		_camtest()
 	if _debug.has("mouse_monster") and not eco.monsters.is_empty():
@@ -891,6 +871,51 @@ func _pad_axis(axis: int, v: float) -> void:
 	e.axis = axis
 	e.axis_value = v
 	Input.parse_input_event(e)
+
+
+## Hero rules (run with --autostart --digs=45 --simulate=40 --herotest): once the invasion has
+## started, tunnels dug afterwards are never entered, and the hero looks around at most once per
+## cell, only at forks of one-block-wide corridors.
+func _herotest() -> void:
+	maou.place(_farthest_floor())
+	_begin_invasion()
+	# dig a fresh tunnel off the known dungeon: 12 cells, following whatever can be dug
+	var fresh: Array[Vector2i] = []
+	for i in 12:
+		var pick := Vector2i(-1, -1)
+		for y in grid.h:
+			for x in grid.w:
+				var c := Vector2i(x, y)
+				if pick.x < 0 and grid.can_dig(c) and (fresh.is_empty() or grid.floor_neighbors(c).has(fresh[-1])):
+					pick = c
+		if pick.x < 0:
+			break
+		grid.dig(pick)
+		fresh.append(pick)
+	var entered := 0
+	var bad_looks := 0
+	var t := 0.0
+	while t < 200.0 and phase == Phase.INVASION and hero.state != Hero.State.DEAD:
+		eco.tick(0.05)
+		hero.tick(0.05)
+		t += 0.05
+		if hero.known[grid.idx(hero.cell)] == 0:
+			entered += 1
+	for c in hero._looked:
+		if not hero._is_corridor_fork(c):
+			bad_looks += 1
+	var ok := fresh.size() > 0 and entered == 0 and bad_looks == 0
+	print("HEROTEST ", "PASS " if ok else "FAIL ", {"fresh_cells": fresh.size(), "ticks_on_fresh_cells": entered, "forks_looked": hero._looked.size(), "non_fork_looks": bad_looks, "time": snappedf(t, 0.1)})
+	get_tree().quit()
+
+
+func _farthest_floor() -> Vector2i:
+	var dist := grid.distance_map(grid.entrance)
+	var best := grid.entrance
+	for i in dist.size():
+		if dist[i] > dist[grid.idx(best)]:
+			best = Vector2i(i % grid.w, i / grid.w)
+	return best
 
 
 ## Mouse drag digging (run with --autostart --dragtest): a fast drag from the end of the starter

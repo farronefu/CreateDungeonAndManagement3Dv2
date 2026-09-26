@@ -35,7 +35,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | 中ドラッグ / Q・E / Home | カメラ回転 / リセット |
 | F | （侵攻中）勇者をカメラで追う / 解除 |
 | F12 | スクリーンショット（`user://`） |
-| マウスを合わせる | 魔物のHP・養分・状態、土の養分量をポップアップ表示 |
+| マウスを合わせる | 魔物は HP と養分、土は養分と「養分があと○で次の段階へ」だけをポップアップ表示 |
 
 ### コントローラー（Xbox配置）
 
@@ -112,7 +112,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 
 | ゲーム内 | ファイル | 使用クリップ |
 | --- | --- | --- |
-| 勇者 | `assets/models/hero/hero.glb` | idle / walk / attack / death（死亡）/ joy（魔王を見つけて喜ぶ）/ look_around（分かれ道で見回す） |
+| 勇者 | `assets/models/hero/hero.glb` | idle / walk / attack / death（死亡）/ joy（魔王を見つけて喜ぶ）/ look_around（1マス幅の通路の分かれ道で、その場所につき1回だけ見回す） |
 | モコチュリ（草の魔物） | `assets/models/grass/grass.glb` | walk（移動）/ attack（体当たり、0.44 の位置で命中）/ gather（養分吸収）/ die（枯れて粒になって消える）。idle は walk の先頭姿勢から生成 |
 | ツボミ・モコバナ（進化後の木） | `assets/models/grass/tree.glb` | attack（トゲの根で隣のマスを突き刺す、0.44 で命中）/ die（枯れて粒になって消える）。idle は attack の先頭姿勢。吸収・被弾はゲーム側の揺れで表現 |
 | ザクザクムシ 幼虫（ダンゴムシ幼体） | `assets/models/pillbug/juvenile-pillbug.glb` | Walk（移動）/ Attack（体当たり・捕食、44% で命中）/ Death（粉々に割れて消える） |
@@ -189,6 +189,8 @@ GODOT=/path/to/godot tools/run_tests.sh
 | sim_test | 生態系の耐久シミュレーションで養分の総量が保存されるか |
 | autoplay | 1ステージを自動プレイして勝利で終わるか |
 | padtest | コントローラー操作（右スティックで町までパン、LT+右スティックで回転、X でズーム切り替え、RB 速度、A 長押し連続掘り、Y、魔王配置、一時停止中は掘れない） |
+| herotest | 侵入後に掘った通路へ勇者が入らないか、見回すのが1マス幅の通路の分かれ道で1回だけか（初期マップと掘ったマップの2通り） |
+| retrytest | 一時停止メニューの「このステージをやり直す」で、勇者到着のカットインから始まるか |
 | dragtest | マウスの長押しドラッグで、通ったブロックを順に掘れるか（通路上をなぞっても消費しない） |
 | menutest | タイトル・一時停止メニューをコントローラーで操作できるか（「このステージをやり直す」へのフォーカス移動を含む） |
 

@@ -54,7 +54,10 @@ var entry_path := PackedVector3Array()
 ## the surface world, which owns the gate doors
 var gate: SurfaceWorld
 var _descent_t := 0.0
-var _look_cd := 4.0
+## the dungeon as it was when the hero came in (1 = floor then); tunnels dug later are ignored
+var known := PackedByteArray()
+## corridor forks where the hero already looked around
+var _looked := {}
 
 
 func setup(p: HeroProfile, g: DungeonGrid, e: Ecosystem, mz: Maou, effects: Effects, mult: float) -> void:
@@ -108,6 +111,10 @@ func begin_invasion() -> void:
 	if gate:
 		gate.open_gate()
 	visited.fill(0)
+	_looked.clear()
+	known.resize(grid.w * grid.h)
+	for i in known.size():
+		known[i] = 1 if grid.types[i] == DungeonGrid.FLOOR else 0
 
 
 func tick(dt: float) -> void:
@@ -175,7 +182,6 @@ func _walk(path: PackedVector3Array, dist: float) -> bool:
 # ------------------------------------------------------------------ logic
 func _logic(dt: float) -> void:
 	attack_cd = maxf(0.0, attack_cd - dt)
-	_look_cd -= dt
 	if _grab_timer >= 0.0:
 		_grab_timer -= dt
 		if _grab_timer < 0.0 and cell == maou.cell and maou.carrier == null:
@@ -213,7 +219,7 @@ func _decide() -> void:
 			state = State.DEAD
 			escaped_with_maou.emit()
 			return
-		_step_along(grid.find_path(cell, grid.entrance))
+		_step_along(grid.find_path(cell, grid.entrance, known))
 		return
 	if not knows_maou and maou.placed and _can_see(maou.cell):
 		knows_maou = true
@@ -221,20 +227,19 @@ func _decide() -> void:
 		if cell == maou.cell:
 			_celebrate_then_grab()
 			return
-		var path := grid.find_path(cell, maou.cell)
+		var path := grid.find_path(cell, maou.cell, known)
 		if not path.is_empty():
 			_step_along(path)
 			return
-	# at a fork, sometimes stop and look around before choosing a way
-	if _look_cd <= 0.0 and grid.floor_neighbors(cell).size() >= 3 and actor.has_anim(profile.anim_look):
-		_look_cd = 12.0
-		if rng.randf() < 0.6:
-			busy = actor.play_once(profile.anim_look, profile.look_anim_speed)
-			return
+	# at a fork of one-block-wide corridors, look around once (not again when passing back)
+	if not _looked.has(cell) and _is_corridor_fork(cell) and actor.has_anim(profile.anim_look):
+		_looked[cell] = true
+		busy = actor.play_once(profile.anim_look, profile.look_anim_speed)
+		return
 	# explore: nearest unvisited floor cell
-	var path2 := grid.path_to_nearest(cell, func(c: Vector2i) -> bool: return visited[grid.idx(c)] == 0)
+	var path2 := grid.path_to_nearest(cell, func(c: Vector2i) -> bool: return visited[grid.idx(c)] == 0, 9999, known)
 	if path2.is_empty():
-		var n := grid.floor_neighbors(cell)
+		var n := grid.floor_neighbors(cell, known)
 		if n.is_empty():
 			busy = 0.5
 			return
@@ -243,11 +248,23 @@ func _decide() -> void:
 		_step_along(path2)
 
 
+## Three or more ways out, and the cell is part of a one-block-wide corridor (no 2x2 patch of
+## floor around it, so open rooms do not count).
+func _is_corridor_fork(c: Vector2i) -> bool:
+	if grid.floor_neighbors(c, known).size() < 3:
+		return false
+	for sx in [-1, 1]:
+		for sy in [-1, 1]:
+			if grid.walkable(c + Vector2i(sx, 0), known) and grid.walkable(c + Vector2i(0, sy), known) and grid.walkable(c + Vector2i(sx, sy), known):
+				return false
+	return true
+
+
 func _can_see(c: Vector2i) -> bool:
 	var d := absi(c.x - cell.x) + absi(c.y - cell.y)
 	if d > profile.sight:
 		return false
-	var path := grid.find_path(cell, c)
+	var path := grid.find_path(cell, c, known)
 	return path.size() <= profile.sight + 2 or d == 0
 
 
