@@ -30,7 +30,7 @@ const MODELS := {
 	"pickaxe": {"path": "res://assets/models/monsters/pickaxe.glb", "scale": 1.0, "fix_colors": true, "anims": {}},
 	# dig cursor: supplied hydraulic breaker (2026-09-26, reduced for the game). MetalChisel slides
 	# along its local Y out of BreakerBody; the tip is at the model origin, the body is 2.4 tall
-	"breaker": {"path": "res://assets/models/breaker/breaker.glb", "scale": 0.6, "fix_colors": false, "anims": {}},
+	"breaker": {"path": "res://assets/models/breaker/breaker.glb", "scale": 0.45, "fix_colors": false, "anims": {}},
 	# previous generated moss models (kept as alternatives)
 	"moss_generated": {"path": "res://assets/models/monsters/moss.glb", "scale": 1.0, "fix_colors": true, "anims": {}},
 	"moss_bud_generated": {"path": "res://assets/models/monsters/moss_bud.glb", "scale": 1.0, "fix_colors": true, "anims": {}},

@@ -357,6 +357,8 @@ func set_speed(s: float) -> void:
 
 
 # ------------------------------------------------------------------ bottom-left: dig gauge
+const DIG_YELLOW := Color(1.0, 0.82, 0.12)   # matches the yellow of the dig icon (assets/ui/dig_icon.png)
+
 func _build_dig() -> void:
 	var pc := PanelContainer.new()
 	pc.add_theme_stylebox_override("panel", UiTheme.panel())
@@ -367,8 +369,13 @@ func _build_dig() -> void:
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 10)
 	pc.add_child(hb)
-	var icon := _studio("breaker", 128, Vector3(0.0, 0.55, 2.1), Vector3(0, 0.5, 0), 34.0, 1.0, DigCursor.BREAKER_YAW)
+	var icon := TextureRect.new()
+	icon.texture = load("res://assets/ui/dig_icon.png")
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.custom_minimum_size = Vector2(64, 64)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(icon)
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 2)
@@ -377,7 +384,7 @@ func _build_dig() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	vb.add_child(row)
-	_dig_value = UiTheme.heading("100", 30, UiTheme.TEXT, 900)
+	_dig_value = UiTheme.heading("100", 30, DIG_YELLOW, 900)
 	row.add_child(_dig_value)
 	_dig_max = UiTheme.label("/ 100", 15, UiTheme.TEXT_DIM)
 	_dig_max.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
@@ -391,7 +398,7 @@ func update_dig(left: int, max_dig: int) -> void:
 	_dig_fill.ratio = ratio
 	_dig_fill.set_color(UiTheme.GOLD if ratio >= 0.2 else UiTheme.WARN)
 	_dig_value.text = str(left)
-	_dig_value.add_theme_color_override("font_color", UiTheme.TEXT if ratio >= 0.2 else UiTheme.WARN)
+	_dig_value.add_theme_color_override("font_color", DIG_YELLOW if ratio >= 0.2 else UiTheme.WARN)
 	_dig_max.text = "/ %d" % max_dig
 
 

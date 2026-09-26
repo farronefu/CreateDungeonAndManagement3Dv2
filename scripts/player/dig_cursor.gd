@@ -178,6 +178,7 @@ func _move_pad(s: Vector2) -> void:
 
 
 const BREAKER_YAW := -PI / 2.0
+const BREAKER_TILT := -0.5   # lean (rad) about the chisel tip: the body leans to the upper right
 const HOVER := 0.06          # gap between the chisel tip and the block top at rest
 const EXTEND := 0.3          # how far the chisel shoots out (model units; 0.3 is hidden inside the body)
 const HITS := 3              # hydraulic hammer blows per dig
@@ -239,7 +240,7 @@ func _process(delta: float) -> void:
 	_pick_pivot.visible = mode == Mode.DIG and grid.in_bounds(c)
 	var target := Vector3(c.x + 0.5, y + HOVER + (0.0 if _swinging else (sin(_t * 3.0) * 0.5 + 0.5) * 0.04), c.y + 0.5)
 	_pick_pivot.position = _pick_pivot.position.lerp(target, clampf(delta * 18.0, 0.0, 1.0))
-	_pick_pivot.rotation = Vector3.ZERO
+	_pick_pivot.rotation = Vector3(0.0, 0.0, BREAKER_TILT)
 
 
 func mouse_cell() -> Vector2i:
