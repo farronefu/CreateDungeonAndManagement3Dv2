@@ -118,14 +118,6 @@ func fill(x0: int, x1: int, y0: int, y1: int, z0: int, z1: int, k: Variant) -> v
 				put(x, y, z, k)
 
 
-func fill_empty(x0: int, x1: int, y0: int, y1: int, z0: int, z1: int, k: Variant) -> void:
-	for x in range(x0, x1 + 1):
-		for y in range(y0, y1 + 1):
-			for z in range(z0, z1 + 1):
-				if not has_v(x, y, z):
-					put(x, y, z, k)
-
-
 func clear(x0: int, x1: int, y0: int, y1: int, z0: int, z1: int) -> void:
 	for x in range(x0, x1 + 1):
 		for y in range(y0, y1 + 1):

@@ -204,14 +204,6 @@ func total_nutrient() -> int:
 	return s
 
 
-func floor_count() -> int:
-	var s := 0
-	for t in types:
-		if t == FLOOR:
-			s += 1
-	return s
-
-
 # ------------------------------------------------------------------ generation
 func generate(seed_value: int) -> void:
 	# Soil types are scattered at random (like 勇者のくせになまいきだ): bare soil gives nothing,

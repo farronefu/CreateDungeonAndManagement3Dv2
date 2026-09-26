@@ -45,8 +45,6 @@ var _dig_fill: PipBar
 # misc
 var _info: PanelContainer
 var _info_label: RichTextLabel
-var _prompt: PanelContainer
-var _prompt_label: Label
 var _toasts: VBoxContainer
 var _studios: Array[PortraitStudio] = []
 var _pad_hint: PanelContainer
@@ -68,7 +66,6 @@ func _ready() -> void:
 	_build_time_controls()
 	_build_dig()
 	_build_info()
-	_build_prompt()
 	_toasts = VBoxContainer.new()
 	_toasts.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_toasts.position = Vector2(-400, -230)
@@ -262,10 +259,6 @@ func set_paused(p: bool) -> void:
 		_resume_btn.grab_focus.call_deferred()
 	else:
 		_resume_btn.release_focus()
-
-
-func is_paused_screen() -> bool:
-	return _pause_screen.visible
 
 
 func update_eco(counts: Dictionary, soil: int) -> void:
@@ -536,25 +529,6 @@ func show_tooltip(bbcode: String, mouse_pos: Vector2) -> void:
 	if p.y + sz.y > vp.y - 8:
 		p.y = mouse_pos.y - sz.y - 12
 	_info.position = p
-
-
-func _build_prompt() -> void:
-	_prompt = PanelContainer.new()
-	_prompt.add_theme_stylebox_override("panel", UiTheme.chip(Color(0.16, 0.06, 0.2, 0.86), Color(0.9, 0.65, 1.0, 0.8)))
-	_prompt.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_prompt.position = Vector2(-360, 150)
-	_prompt.custom_minimum_size = Vector2(720, 0)
-	_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(_prompt)
-	_prompt_label = UiTheme.heading("", 22, UiTheme.TEXT, 700)
-	_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_prompt.add_child(_prompt_label)
-	_prompt.visible = false
-
-
-func set_prompt(text: String) -> void:
-	_prompt.visible = text != ""
-	_prompt_label.text = text
 
 
 func toast(text: String, color: Color = UiTheme.TEXT) -> void:

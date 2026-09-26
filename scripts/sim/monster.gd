@@ -31,6 +31,9 @@ var timer := 0.0
 var meta_timer := 0.0
 var cooldown := 0.0
 var lay_cooldown := 0.0
+## larvae a freshly emerged adult still lays straight away (see Ecosystem._tick_adult)
+var birth_lays := 0
+var _birth_lay := false
 var busy := 0.0
 ## pending attack on the hero: lands when hit_timer crosses 0
 var hit_timer := -1.0

@@ -5,6 +5,14 @@ extends Node3D
 var eco: Ecosystem
 var fx: Effects
 var _visuals := {}  # Monster.id -> MonsterVisual
+## how far outside the view (world units) a monster still counts as on screen
+const ON_SCREEN_MARGIN := 1.5
+## on-screen monsters advance their skeletal animation every this many frames
+const ANIM_STEP := 2
+var _frame := 0
+## monsters born this frame whose visuals are still to be built ([Monster, cause])
+var _pending: Array = []
+const SPAWNS_PER_FRAME := 4
 
 
 func setup(e: Ecosystem, effects: Effects) -> void:
@@ -15,6 +23,10 @@ func setup(e: Ecosystem, effects: Effects) -> void:
 	eco.evolved.connect(_on_evolved)
 	eco.nutrient_flow.connect(_on_flow)
 	eco.ate.connect(_on_ate)
+	# build every model once up front: the first instance of each pays for loading and for
+	# generating its idle clip, which would otherwise hitch the frame the monster first appears
+	for key in ["moss", "moss_bud", "moss_flower", "evolution", "bug_larva", "bug_pupa", "bug_adult", "bug_evolution"]:
+		MonsterCatalog.make_actor(key).free()
 	for m in eco.monsters:
 		_on_spawned(m, "load")
 
@@ -29,6 +41,14 @@ func _on_spawned(m: Monster, cause: String) -> void:
 				var cc := DungeonGrid.cell_center(m.cell)
 				m.jitter = Vector2(clampf(tip.x - cc.x, -0.45, 0.45), clampf(tip.z - cc.z, -0.45, 0.45))
 		m.born_from = null
+	# a flower can scatter 20+ children at once: build their visuals a few per frame
+	if cause != "load":
+		_pending.append([m, cause])
+		return
+	_create_visual(m, cause)
+
+
+func _create_visual(m: Monster, cause: String) -> void:
 	var v := MonsterVisual.new()
 	add_child(v)
 	v.setup(m, cause != "load")
@@ -86,6 +106,29 @@ func visual_of(m: Monster) -> MonsterVisual:
 	return _visuals.get(m.id)
 
 
+## Skeletal animation is the biggest per-frame cost (the supplied models have 100-300 bones),
+## so the monsters' animations are stepped by hand: on screen every ANIM_STEP frames (spread
+## over the frames so the load stays even), off screen not at all until they come back.
 func _process(delta: float) -> void:
+	_frame += 1
+	var built := 0
+	while not _pending.is_empty() and built < SPAWNS_PER_FRAME:
+		var p: Array = _pending.pop_front()
+		var pm: Monster = p[0]
+		if pm.alive:
+			_create_visual(pm, p[1])
+			built += 1
+	var cam := get_viewport().get_camera_3d()
+	var planes: Array[Plane] = cam.get_frustum() if cam else []
 	for v in _visuals.values():
-		(v as MonsterVisual).sync(delta)
+		var mv := v as MonsterVisual
+		mv.sync(delta)
+		var on := planes.is_empty() or _in_view(planes, mv.global_position)
+		mv.step_animation(delta, on, (_frame + mv.m.id) % ANIM_STEP == 0)
+
+
+static func _in_view(planes: Array[Plane], p: Vector3) -> bool:
+	for pl in planes:
+		if pl.distance_to(p) > ON_SCREEN_MARGIN:
+			return false
+	return true

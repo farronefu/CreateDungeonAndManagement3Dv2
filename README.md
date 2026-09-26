@@ -121,7 +121,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | ツボミ・モコバナ（進化後の木） | `assets/models/grass/tree.glb` | attack（トゲの根で隣のマスを突き刺す、0.44 で命中）/ die（枯れて粒になって消える）。idle は attack の先頭姿勢。吸収・被弾はゲーム側の揺れで表現 |
 | ザクザクムシ 幼虫（ダンゴムシ幼体） | `assets/models/pillbug/juvenile-pillbug.glb` | Walk（移動）/ Attack（体当たり・捕食、44% で命中）/ Death（粉々に割れて消える） |
 | ザクザクムシ サナギ | 同上 | Curl（幼虫からサナギになる時に丸まる）→ CurlIdle（丸まったまま呼吸）/ Uncurl（羽化の直前に戻る）/ Death |
-| ザクザクムシ 成虫（鎌と羽の魔物） | `assets/models/broad-scythe/broad-scythe.glb` | Fly（移動）/ Hover（待機）/ Attack（鎌の二段斬り・捕食）/ LayEgg（尻尾を地面に振り下ろし、接地した瞬間＝1.0秒目に尻尾の先 `tail_tip` から幼虫が1匹生まれる）/ Death |
+| ザクザクムシ 成虫（鎌と羽の魔物） | `assets/models/broad-scythe/broad-scythe.glb` | Fly（移動）/ Hover（待機）/ Attack（鎌の二段斬り・捕食）/ LayEgg（尻尾を地面に振り下ろし、接地した瞬間＝1.0秒目に尻尾の先 `tail_tip` から幼虫が1匹生まれる。サナギから羽化した直後は続けて2回産卵する）/ Death |
 | サナギ → 成虫の進化演出 | `assets/models/broad-scythe/pillbug-to-scythe-evolution.glb` | Evolve（3.5秒：丸まったダンゴムシが割れて成虫が飛び出す） |
 | 掘削カーソル（油圧ブレーカー） | `assets/models/breaker/breaker.glb` | アニメーションなし。本体 `BreakerBody` から金属の先端 `MetalChisel` をローカルY方向に伸ばして、ブロックを3回たたく（`scripts/player/dig_cursor.gd`）。支給モデル（193万三角形・66MB）を Blender で約2.5万三角形・テクスチャ1024pxに軽量化して1.2MB |
 | 進化演出 | `assets/models/grass/evolution.glb` + `evolution-color.json` + `shaders/autumn.gdshader` | モコチュリがツボミになる時に 7 秒再生（秋色への色変化つき） |
@@ -129,17 +129,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 ### 魔物・魔王・掘削カーソル
 [`scripts/sim/monster_catalog.gd`](scripts/sim/monster_catalog.gd) のパスを差し替えます。クリップ名が違う場合は `anims` で対応付けできます（例: `{"move": "walk", "absorb": "gather"}`）。無いクリップは揺れ・ポップ・縮小などで自動的に代用します。
 
-旧来の生成モデルの対応アニメーション:
-
-| モデル | アニメーション |
-| --- | --- |
-| moss（モコチュリ） | idle, move, absorb, attack, hurt, die, spawn |
-| moss_bud（ツボミ） | idle, absorb, hurt, die, spawn |
-| moss_flower（モコバナ） | idle, absorb, spawn_child, hurt, die, spawn |
-| bug_larva（幼虫） | idle, move, attack, eat, hurt, die, spawn |
-| bug_pupa（サナギ） | idle, hatch, hurt, die, spawn |
-| bug_adult（成虫） | idle, move, attack, lay_egg, hurt, die, spawn |
-| maou（魔王） | idle, carried, scared, cheer, land |
+使えるアニメーション名：idle, move, absorb, attack, eat, hurt, die, spawn, spawn_child, hatch, lay_egg（魔王は idle, carried, scared, cheer, land）
 
 モデルは +Z 向き、1ユニット = ブロック1個分、足元を原点にしてください。
 
@@ -159,7 +149,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 
 ## 魔物モデルの生成（tools/modelgen）
 
-魔物・魔王・ツルハシの 3D モデルとアニメーションは、外部依存なしの Node.js スクリプトで **SDF モデリング → メッシュ化 → スキニング → キーフレーム → GLB 出力** しています。
+魔王の 3D モデルとアニメーション（と、支給モデルに置き換える前の仮の魔物・ツルハシ）は、外部依存なしの Node.js スクリプトで **SDF モデリング → メッシュ化 → スキニング → キーフレーム → GLB 出力** しています。
 
 ```bash
 node tools/modelgen/build.mjs            # 全モデルを assets/models/monsters/ に出力
@@ -193,6 +183,22 @@ BGM は支給曲の3曲です（切り替え時は短くフェード）。効果
 
 効果音の名前：`dig`（掘る）、`dig_fail`（掘れない）、`spawn_moss`（モコチュリ誕生）、`spawn_bug`（ザクザクムシ誕生）、`evolve`（進化）、`hit`（攻撃が当たる）、`hero_hurt`（勇者が被弾）、`monster_die`（魔物が倒れる）、`eat`（捕食）、`swing`（勇者の剣）、`heal`（勇者の回復）、`grab`（魔王を担ぐ）、`place`（魔王を置く）、`cutin`（カットイン）、`door`（門の扉）、`click`（ボタン）、`victory`（勝利）、`defeat`（敗北）
 
+## 処理の軽さ（2026-09-26 に全体を見直し）
+
+`--perf` で計測できます（侵攻中・3倍速・魔物約70体、1920×1080）。
+
+| | 見直し前 | 見直し後 |
+| --- | --- | --- |
+| 平均フレームレート | 約37fps | 約60fps（上限） |
+| 50ms を超える引っかかり（15秒間） | 69回 | 0回 |
+| 1フレームの最長時間 | 100〜155ms | 34〜38ms |
+| 描画する三角形 | 約2,900万 | 約900万 |
+
+- **ダンジョンを 10×10 マスの区画に分割**（`DungeonView.CHUNK`）：画面外の区画は描かない。養分が変わったときに草やツタを作り直すのは、その区画だけ（以前は 0.4 秒ごとにダンジョン全体を作り直していた）
+- **魔物のアニメーション**：支給モデルは骨が100〜300本と多いので、画面外の魔物はアニメーションを止め、画面内も2フレームに1回（交互に分散）更新（`MonsterLayer.ANIM_STEP`）
+- **モデルの材質を共有**：同じ元材質のトゥーン材質は1つを使い回す（進化演出モデルの準備が 20ms → 1ms）
+- **最初の1体の読み込みを起動時に済ませる**、**一度に大量に生まれた魔物は1フレーム4体ずつ表示を作る**
+
 ## テスト・デバッグ
 
 push の前に必ず自動テスト一式を実行します（すべて PASS で終了コード 0）。
@@ -208,6 +214,7 @@ GODOT=/path/to/godot tools/run_tests.sh
 | padtest | コントローラー操作（RT+右スティックで町まで移動、右スティックでカーソル中心に回転、R3 でズーム、RB/LB で速度、LT で勇者へ、Y の確認を B で取り消し A で決定、B で一時停止を閉じる、RB 速度、A 長押し連続掘り、Y、魔王配置、一時停止中は掘れない） |
 | herotest | 侵入後に掘った通路へ勇者が入らないか、見回すのが1マス幅の通路の分かれ道で1回だけか、部屋を一度に見渡せるか（半径3マス）、松明の設置・回復（1割）・ブレーカーでの破壊（初期マップと掘ったマップの2通り） |
 | poketest | ブレーカーで突くと最大HPの1/3ずつ減り3回で倒れ、養分の総量が変わらないか。1ブロックだけの行き止まりを分かれ道と見なさないか |
+| birthtest | サナギから羽化したハチがすぐに幼虫を2体生むか、養分の総量が変わらないか |
 | tiptest | 進化前の魔物のポップアップに「進化まで」が出るか、BGM ファイルが再生されるか |
 | retrytest | 一時停止メニューの「このステージをやり直す」で、勇者到着のカットインから始まるか |
 | dragtest | マウスの長押しドラッグで、通ったブロックを順に掘れるか（通路上をなぞっても消費しない） |

@@ -134,30 +134,6 @@ static func grass_texture(neutral: bool = false) -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 
-static func vine_texture() -> ImageTexture:
-	var w := 64
-	var h := 128
-	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0, 0, 0, 0))
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 9
-	for s in 3:
-		var x0 := 10.0 + s * 20.0 + rng.randf_range(-4, 4)
-		var length := rng.randf_range(60, 124)
-		var phase := rng.randf() * TAU
-		var y := 0
-		while y < length:
-			var x := x0 + sin(y * 0.09 + phase) * 5.0
-			for dx in range(-1, 2):
-				_px(img, int(x) + dx, y, Color(0.2, 0.32, 0.1))
-			if y % 9 == 0:
-				var side := 1 if (y / 9) % 2 == 0 else -1
-				_leaf(img, x + side * 5.0, y + 2.0, side, rng)
-			y += 1
-	img.generate_mipmaps()
-	return ImageTexture.create_from_image(img)
-
-
 static func _leaf(img: Image, cx: float, cy: float, side: int, rng: RandomNumberGenerator) -> void:
 	var base := Color.from_hsv(rng.randf_range(0.24, 0.3), 0.7, rng.randf_range(0.45, 0.7))
 	for yy in range(-4, 5):
@@ -200,24 +176,6 @@ static func tuft_mesh(width: float = 0.34, height: float = 0.24) -> ArrayMesh:
 		st.set_uv(Vector2(0, 1)); st.add_vertex(p0)
 		st.set_uv(Vector2(0, 0)); st.add_vertex(p0 + up)
 		st.set_uv(Vector2(1, 0)); st.add_vertex(p1 + up)
-	return st.commit()
-
-
-## Vertical quad hanging down from y = 0, facing +Z.
-static func vine_mesh(width: float = 0.5, height: float = 0.62) -> ArrayMesh:
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	st.set_normal(Vector3(0, 0, 1))
-	var tl := Vector3(-width / 2, 0, 0)
-	var tr := Vector3(width / 2, 0, 0)
-	var bl := Vector3(-width / 2, -height, 0)
-	var br := Vector3(width / 2, -height, 0)
-	st.set_uv(Vector2(0, 0)); st.add_vertex(tl)
-	st.set_uv(Vector2(1, 0)); st.add_vertex(tr)
-	st.set_uv(Vector2(1, 1)); st.add_vertex(br)
-	st.set_uv(Vector2(0, 0)); st.add_vertex(tl)
-	st.set_uv(Vector2(1, 1)); st.add_vertex(br)
-	st.set_uv(Vector2(0, 1)); st.add_vertex(bl)
 	return st.commit()
 
 

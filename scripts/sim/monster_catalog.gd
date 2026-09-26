@@ -25,19 +25,11 @@ const MODELS := {
 		"anims": {"move": "Fly", "idle": "Hover", "attack": "Attack", "eat": "Attack", "lay_egg": "LayEgg", "die": "Death"}},
 	# pupa -> adult: the curled pill bug cracks open and the scythe bug flies out (3.5 s)
 	"bug_evolution": {"path": "res://assets/models/broad-scythe/pillbug-to-scythe-evolution.glb", "scale": 0.38, "fix_colors": false, "anims": {}, "evo_time": 3.5},
-	# 魔王 / cursor: procedurally generated (tools/modelgen)
+	# 魔王: procedurally generated (tools/modelgen)
 	"maou": {"path": "res://assets/models/monsters/maou.glb", "scale": 1.15, "fix_colors": true, "anims": {}},
-	"pickaxe": {"path": "res://assets/models/monsters/pickaxe.glb", "scale": 1.0, "fix_colors": true, "anims": {}},
 	# dig cursor: supplied hydraulic breaker (2026-09-26, reduced for the game). MetalChisel slides
 	# along its local Y out of BreakerBody; the tip is at the model origin, the body is 2.4 tall
 	"breaker": {"path": "res://assets/models/breaker/breaker.glb", "scale": 0.45, "fix_colors": false, "anims": {}},
-	# previous generated moss models (kept as alternatives)
-	"moss_generated": {"path": "res://assets/models/monsters/moss.glb", "scale": 1.0, "fix_colors": true, "anims": {}},
-	"moss_bud_generated": {"path": "res://assets/models/monsters/moss_bud.glb", "scale": 1.0, "fix_colors": true, "anims": {}},
-	"bug_larva_generated": {"path": "res://assets/models/monsters/bug_larva.glb", "scale": 1.05, "fix_colors": true, "anims": {}},
-	"bug_adult_generated": {"path": "res://assets/models/monsters/bug_adult.glb", "scale": 1.15, "fix_colors": true, "anims": {}},
-	"bug_pupa_generated": {"path": "res://assets/models/monsters/bug_pupa.glb", "scale": 1.0, "fix_colors": true, "anims": {}},
-	"moss_flower_generated": {"path": "res://assets/models/monsters/moss_flower.glb", "scale": 1.0, "fix_colors": true, "anims": {}},
 }
 
 ## Autumn tint curve for the evolution effect (one value per frame at 30 fps).

@@ -451,8 +451,12 @@ func _process(delta: float) -> void:
 		Phase.PLACE, Phase.HERO_INTRO:
 			hero.tick(dt)
 		Phase.INVASION:
+			var t0 := Time.get_ticks_usec()
 			eco.tick(dt)
+			var t1 := Time.get_ticks_usec()
 			hero.tick(dt)
+			_prof["eco"] = float(_prof.get("eco", 0.0)) + (t1 - t0) / 1000.0
+			_prof["hero"] = float(_prof.get("hero", 0.0)) + (Time.get_ticks_usec() - t1) / 1000.0
 			invasion_time += dt
 			_update_maou_mood()
 			if cam.user_moved:
@@ -463,7 +467,9 @@ func _process(delta: float) -> void:
 			eco.tick(delta)
 			hero.tick(delta)
 	cam.user_moved = false
+	var t2 := Time.get_ticks_usec()
 	_update_tooltip(delta)
+	_prof["tooltip"] = float(_prof.get("tooltip", 0.0)) + (Time.get_ticks_usec() - t2) / 1000.0
 	_hud_timer -= delta
 	if _hud_timer <= 0.0:
 		_hud_timer = 0.2
@@ -897,7 +903,84 @@ func _debug_bootstrap() -> void:
 		add_child(load("res://scripts/debug/dump.gd").new())
 
 
+var _perf_last := 0
+## per-frame script timings (ms, summed; reported by --perf)
+var _prof := {}
+var _perf_cpu := 0.0
+var _perf_gpu := 0.0
+var _perf_proc := 0.0
+var _perf_spikes: Array[String] = []
+var _perf_ev := {}
+var _perf_dts: Array[float] = []
+var _perf_prims := 0.0
+var _perf_draws := 0.0
+
+
+## --perf: frame-time report over a busy stretch (run with --autostart --digs=45 --simulate=80
+## --invade --speed=3 --perf). Prints average fps, the slowest frames and the draw load.
+func _perf_tick() -> void:
+	var now := Time.get_ticks_usec()
+	if _frames > 60 and _perf_last > 0:
+		_perf_dts.append((now - _perf_last) / 1000.0)
+		if (now - _perf_last) / 1000.0 > 35.0:
+			_perf_spikes.append("%.0fms spawn%d die%d evo%d decor%d" % [(now - _perf_last) / 1000.0, _perf_ev.get("spawn", 0), _perf_ev.get("die", 0), _perf_ev.get("evo", 0), view._dirty.size()])
+		_perf_ev.clear()
+		_perf_prims += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)
+		_perf_draws += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+		var rid := get_viewport().get_viewport_rid()
+		_perf_cpu += RenderingServer.viewport_get_measured_render_time_cpu(rid)
+		_perf_gpu += RenderingServer.viewport_get_measured_render_time_gpu(rid)
+		_perf_proc += Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+	elif _frames == 1:
+		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+		eco.spawned.connect(func(_m, _c) -> void: _perf_ev["spawn"] = int(_perf_ev.get("spawn", 0)) + 1)
+		eco.died.connect(func(_m, _c) -> void: _perf_ev["die"] = int(_perf_ev.get("die", 0)) + 1)
+		eco.evolved.connect(func(_m) -> void: _perf_ev["evo"] = int(_perf_ev.get("evo", 0)) + 1)
+		_prof.clear()
+	if _frames == 60:
+		# experiments: switch parts off to see what they cost
+		if _debug.has("perf_nosync"):
+			layer.process_mode = Node.PROCESS_MODE_DISABLED
+		if _debug.has("perf_noanim"):
+			for ap in layer.find_children("*", "AnimationPlayer", true, false):
+				(ap as AnimationPlayer).active = false
+		if _debug.has("perf_hide"):
+			layer.visible = false
+		if _debug.has("perf_nosurface"):
+			view.surface.visible = false
+	_perf_last = now
+	if _perf_dts.size() >= int(_debug.get("perf_frames", 900)):
+		var n := _perf_dts.size()
+		var total := 0.0
+		for d in _perf_dts:
+			total += d
+		var sorted := _perf_dts.duplicate()
+		sorted.sort()
+		var hitches := 0
+		for d in _perf_dts:
+			if d > 50.0:
+				hitches += 1
+		var t0 := Time.get_ticks_usec()
+		view._rebuild_decor()
+		var decor_ms := (Time.get_ticks_usec() - t0) / 1000.0
+		print("PERF avg_fps %.1f  avg_ms %.1f  p99_ms %.1f  max_ms %.1f  hitches>50ms %d  prims %dk  draws %d  decor_rebuild_ms %.1f  monsters %d" % [
+			n * 1000.0 / total, total / n, sorted[int(n * 0.99)], sorted[n - 1], hitches, int(_perf_prims / n / 1000.0), int(_perf_draws / n), decor_ms, eco.monsters.size()])
+		var parts := []
+		for k in _prof:
+			parts.append("%s %.2f" % [k, float(_prof[k]) / n])
+		var on := 0
+		for v in layer.find_children("*", "AnimationPlayer", true, false):
+			if (v as AnimationPlayer).active:
+				on += 1
+		print("PERF animating %d of %d animation players" % [on, layer.find_children("*", "AnimationPlayer", true, false).size()])
+		print("PERF spikes: ", _perf_spikes)
+		print("PERF ms/frame: process(all scripts) %.2f  render_cpu %.2f  render_gpu %.2f  | %s" % [_perf_proc / n, _perf_cpu / n, _perf_gpu / n, "  ".join(parts)])
+		get_tree().quit()
+
+
 func _debug_tick() -> void:
+	if _debug.has("perf"):
+		_perf_tick()
 	if _debug.has("mouse_hero") and hero.visible:
 		get_viewport().warp_mouse(cam.unproject_position(hero.global_position + Vector3(0, 0.45, 0)))
 	if _debug.has("menutest"):
@@ -913,6 +996,8 @@ func _debug_tick() -> void:
 		_on_call_hero()
 	if _debug.has("poketest") and _frames == 20:
 		_poketest()
+	if _debug.has("birthtest") and _frames == 20:
+		_birthtest()
 	# --tiptest: every monster that can still evolve shows what it needs; BGM files are used
 	if _debug.has("tiptest") and _frames == 20:
 		Sfx.play_bgm("captured")
@@ -1081,6 +1166,25 @@ func _herotest() -> void:
 	var ok := fresh.size() > 0 and entered == 0 and bad_looks == 0 and room_seen >= 18 \
 		and absf(healed - hero.max_hp * Balance.TORCH_HEAL) < 0.01 and broken
 	print("HEROTEST ", "PASS " if ok else "FAIL ", {"fresh_cells": fresh.size(), "ticks_on_fresh_cells": entered, "forks_looked": hero._looked.size(), "non_fork_looks": bad_looks, "time": snappedf(t, 0.1), "torches_planted": planted, "room_cells_seen_at_once": room_seen, "torch_heal": healed, "torch_broken_free": broken})
+	get_tree().quit()
+
+
+## (run with --autostart --digs=45 --simulate=40 --birthtest) a pupa that hatches into the scythe
+## bug lays two larvae straight away; total nutrient stays the same.
+func _birthtest() -> void:
+	var c := Vector2i(grid.entrance.x, 3)
+	var total0 := grid.total_nutrient() + eco.total_nutrient()
+	var pupa := eco.spawn(Monster.Kind.BUG, Monster.PUPA, c, 20, "dig")
+	pupa.timer = Balance.PUPA_TIME
+	var larvae0 := eco.count(Monster.Kind.BUG, Monster.LARVA)
+	var t := 0.0
+	while t < 12.0:
+		eco.tick(0.05)
+		t += 0.05
+	var born := eco.count(Monster.Kind.BUG, Monster.LARVA) - larvae0
+	var total1 := grid.total_nutrient() + eco.total_nutrient() - 20   # the test pupa brought 20
+	var ok := pupa.stage == Monster.ADULT and born >= Balance.ADULT_BIRTH_LARVAE and total1 == total0
+	print("BIRTHTEST ", "PASS " if ok else "FAIL ", {"adult": pupa.stage == Monster.ADULT, "larvae_born": born, "adult_nutrient_left": pupa.nutrient, "nutrient_before": total0, "nutrient_after": total1})
 	get_tree().quit()
 
 

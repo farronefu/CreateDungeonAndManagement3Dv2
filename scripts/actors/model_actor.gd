@@ -66,6 +66,12 @@ func _clip(n: String) -> String:
 ## Unifies imported models with the world: soft toon specular (no plastic highlights) and a
 ## faint warm rim so characters separate from the ground. Diffuse stays smooth so textured
 ## models keep their painted shading; outlines come from the post-process pass.
+## The toon copy of each source material is made once and shared by every instance (the
+## evolution model alone has 246 leaf meshes; per-instance copies cost ~20 ms per spawn).
+static var _toon_cache := {}
+static var _fallback_mat: StandardMaterial3D
+
+
 func _toonify(g: GeometryInstance3D) -> void:
 	if not (g is MeshInstance3D) or (g as MeshInstance3D).mesh == null:
 		return
@@ -74,20 +80,23 @@ func _toonify(g: GeometryInstance3D) -> void:
 		var active := mi.get_active_material(i)
 		if active == null:
 			# some supplied meshes (e.g. hidden effect parts) have no material at all
-			var fallback := StandardMaterial3D.new()
-			fallback.albedo_color = Color(0.5, 0.5, 0.5)
-			mi.set_surface_override_material(i, fallback)
+			if _fallback_mat == null:
+				_fallback_mat = StandardMaterial3D.new()
+				_fallback_mat.albedo_color = Color(0.5, 0.5, 0.5)
+			mi.set_surface_override_material(i, _fallback_mat)
 			continue
 		var src := active as BaseMaterial3D
 		if src == null:
 			continue
-		var m := src.duplicate() as BaseMaterial3D
-		m.specular_mode = BaseMaterial3D.SPECULAR_TOON
-		m.metallic_specular = minf(m.metallic_specular, 0.35)
-		m.rim_enabled = true
-		m.rim = 0.12
-		m.rim_tint = 0.5
-		mi.set_surface_override_material(i, m)
+		if not _toon_cache.has(src):
+			var m := src.duplicate() as BaseMaterial3D
+			m.specular_mode = BaseMaterial3D.SPECULAR_TOON
+			m.metallic_specular = minf(m.metallic_specular, 0.35)
+			m.rim_enabled = true
+			m.rim = 0.12
+			m.rim_tint = 0.5
+			_toon_cache[src] = m
+		mi.set_surface_override_material(i, _toon_cache[src])
 
 
 ## Turns metallic materials into bright glossy plastic (the scene has no reflections, so fully
@@ -98,9 +107,12 @@ func plasticize(tint: Color, roughness: float) -> void:
 			continue
 		var mi := g as MeshInstance3D
 		for i in mi.mesh.get_surface_count():
-			var m := mi.get_active_material(i) as BaseMaterial3D
-			if m == null or m.metallic < 0.5:
+			var shared := mi.get_active_material(i) as BaseMaterial3D
+			if shared == null or shared.metallic < 0.5:
 				continue
+			# the toon materials are shared between instances: re-finish a private copy
+			var m := shared.duplicate() as BaseMaterial3D
+			mi.set_surface_override_material(i, m)
 			m.metallic = 0.0
 			m.metallic_texture = null
 			m.roughness = roughness

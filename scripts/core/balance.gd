@@ -98,6 +98,7 @@ const ADULT_AGGRO_RANGE := 4
 
 # --- population caps (performance) ---
 const MAX_MOSS := 70
+const ADULT_BIRTH_LARVAE := 2    # a freshly emerged adult lays this many larvae right away
 const MAX_BUGS := 30
 
 # --- evolution points (result screen) ---

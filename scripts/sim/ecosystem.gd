@@ -149,6 +149,8 @@ func _evolve(m: Monster, stage: int) -> void:
 		m.hp = minf(maxf(hp, m.hp), m.max_hp)
 	m.move_t = 1.0
 	m.from_cell = m.cell
+	if m.kind == Monster.Kind.BUG and stage == Monster.ADULT:
+		m.birth_lays = Balance.ADULT_BIRTH_LARVAE
 	evolved.emit(m)
 
 
@@ -514,6 +516,17 @@ func _tick_adult(m: Monster, delta: float) -> void:
 			m.timer = 0.0
 			_lay(m)
 		return
+	# right after emerging it lays its first larvae, one after the other
+	if m.birth_lays > 0:
+		if count(Monster.Kind.BUG) >= Balance.MAX_BUGS:
+			m.birth_lays = 0
+		else:
+			m.birth_lays -= 1
+			m._birth_lay = true
+			m.anim_request = "lay_egg"
+			m.busy = Balance.ADULT_LAY_TIME
+			m.timer = -1.0
+			return
 	if not _advance(m, delta):
 		return
 	if _try_attack_hero(m, false):
@@ -543,10 +556,16 @@ func _tick_adult(m: Monster, delta: float) -> void:
 
 
 func _lay(m: Monster) -> void:
-	m.nutrient -= Balance.ADULT_LAY_NUTRIENT
-	m.hp -= Balance.ADULT_LAY_COST_HP
+	var n := Balance.ADULT_LAY_NUTRIENT
+	if m._birth_lay:
+		# the first larvae right after emerging: free of HP, they take what nutrient there is
+		m._birth_lay = false
+		n = mini(n, m.nutrient)
+	else:
+		m.hp -= Balance.ADULT_LAY_COST_HP
+	m.nutrient -= n
 	# born in the parent's cell; MonsterLayer places it exactly at the tail tip
-	_pending_spawns.append([Monster.Kind.BUG, Monster.LARVA, m.cell, Balance.ADULT_LAY_NUTRIENT, "birth", m])
+	_pending_spawns.append([Monster.Kind.BUG, Monster.LARVA, m.cell, n, "birth", m])
 
 
 # ------------------------------------------------------------------ persistence

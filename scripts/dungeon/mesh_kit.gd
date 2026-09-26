@@ -71,28 +71,6 @@ func gable(center_base: Vector3, w: float, d: float, h: float, col: Color, yaw: 
 	tri(p.call(-hw * 0.94, 0, -hd), p.call(-hw * 0.94, 0, hd), p.call(-hw * 0.94, h, 0), wall, mid)
 
 
-func pyramid(center_base: Vector3, w: float, h: float, col: Color) -> void:
-	var hw := w * 0.5
-	var apex := center_base + Vector3(0, h, 0)
-	var c := [Vector3(-hw, 0, hw), Vector3(hw, 0, hw), Vector3(hw, 0, -hw), Vector3(-hw, 0, -hw)]
-	for i in 4:
-		var a: Vector3 = center_base + c[i]
-		var b: Vector3 = center_base + c[(i + 1) % 4]
-		tri(a, b, apex, col if i % 2 == 0 else col.darkened(0.15), center_base + Vector3(0, h * 0.25, 0))
-
-
-func cylinder(base: Vector3, r: float, h: float, col: Color, seg: int = 8, top_col: Variant = null) -> void:
-	var tc: Color = top_col if top_col != null else col
-	var r0 := base + Vector3(0, h * 0.5, 0)
-	for i in seg:
-		var a0 := TAU * i / seg
-		var a1 := TAU * (i + 1) / seg
-		var p0 := Vector3(cos(a0) * r, 0, sin(a0) * r)
-		var p1 := Vector3(cos(a1) * r, 0, sin(a1) * r)
-		quad(base + p1, base + p0, base + p0 + Vector3(0, h, 0), base + p1 + Vector3(0, h, 0), col, r0)
-		tri(base + Vector3(0, h, 0), base + p1 + Vector3(0, h, 0), base + p0 + Vector3(0, h, 0), tc, r0)
-
-
 func cone(base: Vector3, r: float, h: float, col: Color, seg: int = 8, jitter: float = 0.0, rng: RandomNumberGenerator = null) -> void:
 	var apex := base + Vector3(0, h, 0)
 	var pts: Array[Vector3] = []

@@ -9,6 +9,7 @@ var actor: ModelActor
 var _pivot: Node3D
 var _yaw := 0.0
 var _dying := false
+var _anim_acc := 0.0
 var _bar: Node3D
 var _bar_fill: MeshInstance3D
 var _bar_timer := 0.0
@@ -116,6 +117,21 @@ func _target_pos() -> Vector3:
 	if m.kind == Monster.Kind.BUG:
 		t = smoothstep(0.0, 1.0, t) * 0.4 + t * 0.6
 	return a.lerp(b, t) + Vector3(m.jitter.x, 0, m.jitter.y)
+
+
+## Advances the skeletal animation by hand (MonsterLayer decides when): time piles up and is
+## applied in one step; off screen it is dropped, so the pose simply resumes later.
+func step_animation(delta: float, on_screen: bool, now: bool) -> void:
+	if actor == null or actor.anim == null:
+		return
+	if actor.anim.callback_mode_process != AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL:
+		actor.anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+	_anim_acc += delta
+	if not on_screen:
+		_anim_acc = 0.0
+	elif now:
+		actor.anim.advance(_anim_acc)
+		_anim_acc = 0.0
 
 
 func sync(delta: float) -> void:

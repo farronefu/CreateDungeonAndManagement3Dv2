@@ -50,6 +50,10 @@ check "herotest (dug map)" "$OUT/herotest2.txt" "HEROTEST PASS"
 "$GODOT" --resolution 1280x720 -- --autostart --seed=3 --digs=45 --simulate=40 --poketest > "$OUT/poketest.txt" 2>&1
 check "poketest" "$OUT/poketest.txt" "POKETEST PASS"
 
+# a freshly emerged scythe bug lays two larvae at once (nutrient conserved)
+"$GODOT" --resolution 1280x720 -- --autostart --seed=3 --birthtest > "$OUT/birthtest.txt" 2>&1
+check "birthtest" "$OUT/birthtest.txt" "BIRTHTEST PASS"
+
 # monster popups show what the next evolution needs; the BGM files are the ones playing
 "$GODOT" --resolution 1280x720 -- --autostart --seed=3 --digs=45 --simulate=80 --tiptest > "$OUT/tiptest.txt" 2>&1
 check "tiptest" "$OUT/tiptest.txt" "TIPTEST PASS"
