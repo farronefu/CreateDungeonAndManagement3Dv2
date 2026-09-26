@@ -320,7 +320,7 @@ func update_phase(mode: String, caption: String, time_text: String, can_call: bo
 # ------------------------------------------------------------------ top-right: time controls
 func _build_time_controls() -> void:
 	var pc := PanelContainer.new()
-	var sb := UiTheme.chip()
+	var sb := UiTheme.dark_chip()   # same frame as the status window (arrival timer)
 	sb.content_margin_left = 6
 	sb.content_margin_right = 6
 	sb.content_margin_top = 3
@@ -386,7 +386,7 @@ func _build_dig() -> void:
 	vb.add_child(row)
 	_dig_value = UiTheme.heading("100", 30, DIG_YELLOW, 900)
 	row.add_child(_dig_value)
-	_dig_max = UiTheme.label("/ 100", 15, UiTheme.TEXT_DIM)
+	_dig_max = UiTheme.label("/ 100", 15, DIG_YELLOW)
 	_dig_max.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	row.add_child(_dig_max)
 	_dig_fill = PipBar.new(10, 12.0, UiTheme.GOLD)
@@ -400,6 +400,7 @@ func update_dig(left: int, max_dig: int) -> void:
 	_dig_value.text = str(left)
 	_dig_value.add_theme_color_override("font_color", DIG_YELLOW if ratio >= 0.2 else UiTheme.WARN)
 	_dig_max.text = "/ %d" % max_dig
+	_dig_max.add_theme_color_override("font_color", DIG_YELLOW if ratio >= 0.2 else UiTheme.WARN)
 
 
 # ------------------------------------------------------------------ tooltip / prompt / toast / pad guide

@@ -118,6 +118,11 @@ static func dark_panel() -> StyleBoxTexture:
 	return _pixel_box(Color(0, 0, 0, 0.6), Color(0.32, 0.32, 0.32), Color(0.12, 0.12, 0.12), 18, 12)
 
 
+## dark_panel's frame with chip padding (speed controls next to the status window).
+static func dark_chip() -> StyleBoxTexture:
+	return _pixel_box(Color(0, 0, 0, 0.6), Color(0.32, 0.32, 0.32), Color(0.12, 0.12, 0.12), 14, 4)
+
+
 ## Small pill / chip window (same frame, tighter padding).
 static func chip(bg: Color = INK, border: Color = EDGE) -> StyleBoxTexture:
 	return _pixel_box(bg, Color(border, 1.0), Color(border.darkened(0.55), 1.0), 14, 4)
