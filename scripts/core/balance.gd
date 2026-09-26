@@ -3,8 +3,9 @@ extends RefCounted
 ## Gameplay tuning values. Everything numeric that designers may want to tweak lives here.
 
 # --- dungeon ---
-const GRID_W := 36
-const GRID_H := 26
+# the outer ring is bedrock, so the diggable interior is (GRID_W - 2) x (GRID_H - 2) = 68 x 48
+const GRID_W := 70
+const GRID_H := 50
 const BLOCK_H := 0.9
 const MAX_NUTRIENT := 16
 

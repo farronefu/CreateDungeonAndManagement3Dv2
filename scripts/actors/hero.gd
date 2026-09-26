@@ -54,7 +54,6 @@ var entry_path := PackedVector3Array()
 ## the surface world, which owns the gate doors
 var gate: SurfaceWorld
 var _descent_t := 0.0
-var _close_gate_t := -1.0
 var _look_cd := 4.0
 
 
@@ -131,12 +130,14 @@ func tick(dt: float) -> void:
 			actor.play(profile.anim_walk, 0.1, profile.walk_anim_speed)
 			if done:
 				state = State.ACTIVE
-				_close_gate_t = 1.0
 				_mark_visited()
 		State.ACTIVE:
-			if _close_gate_t >= 0.0:
-				_close_gate_t -= dt
-				if _close_gate_t < 0.0 and gate:
+			# the door stands open while the hero is in or right next to the entrance cell
+			if gate:
+				var near := cell.x == grid.entrance.x and cell.y <= grid.entrance.y + 1 and from_cell.y <= grid.entrance.y + 1
+				if near:
+					gate.open_gate()
+				else:
 					gate.close_gate()
 			_logic(dt)
 			_visual(dt)

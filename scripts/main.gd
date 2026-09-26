@@ -629,7 +629,7 @@ func _tooltip_text(mp: Vector2, cell: Vector2i) -> String:
 		return _monster_tip(best as Monster)
 	if best == hero:
 		var st := "[color=#ff8070]魔王を運搬中！[/color]" if hero.carrying else ("戦闘中" if hero.busy > 0.0 else "探索中")
-		return "[img=24x24]%s[/img] [b]勇者 %s[/b]\nHP %s %d/%d\nMP %d/%d\n%s" % [profile.icon_path, profile.display_name, _bar(hero.hp, hero.max_hp, "#ff7060"), int(ceil(hero.hp)), int(hero.max_hp), int(hero.mp), int(hero.max_mp), st]
+		return "[img=24x24]%s[/img] [b]%s[/b]\nHP %s %d/%d\nMP %d/%d\n%s" % [profile.icon_path, profile.display_name, _bar(hero.hp, hero.max_hp, "#ff7060"), int(ceil(hero.hp)), int(hero.max_hp), int(hero.mp), int(hero.max_mp), st]
 	if best == maou:
 		return "[b][color=#d8a0ff]魔王さま[/color][/b]\n" + ("[color=#ff8070]勇者に運ばれている！[/color]" if maou.carrier else "勇者に入口まで運ばれると負け")
 	return _cell_tip(cell)

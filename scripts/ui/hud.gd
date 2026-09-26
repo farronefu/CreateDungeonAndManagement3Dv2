@@ -4,7 +4,7 @@ extends CanvasLayer
 ##   top-left   status window: arrival timer / 魔王 placement / hero HP・MP
 ##   top-right  speed controls (x1, x2, x3); pausing is Start / P and opens the pause screen,
 ##              which lists the dungeon's monsters
-##   bottom-left dig gauge
+##   bottom-left dig gauge (count + pip gauge)
 ## plus mouse/pad tooltip, prompts, toasts and the gamepad guide.
 
 signal call_hero_pressed
@@ -28,10 +28,10 @@ var _call_btn: Button
 var _hero_box: VBoxContainer
 var _hero_portrait: TextureRect
 var _hero_name: Label
-var _hp_fill: ColorRect
+var _hp_fill: PipBar
 var _hp_text: Label
-var _mp_fill: ColorRect
-var _elapsed: Label
+var _mp_fill: PipBar
+var _elapsed: Label   # invasion clock, shown in the pause screen
 # time controls
 var _speed_btns: Array[IconButton] = []
 var _pause_screen: Control
@@ -39,7 +39,7 @@ var _resume_btn: Button
 # dig
 var _dig_value: Label
 var _dig_max: Label
-var _dig_fill: ColorRect
+var _dig_fill: PipBar
 # misc
 var _info: PanelContainer
 var _info_label: RichTextLabel
@@ -90,24 +90,6 @@ func _studio(key: String, px: int, cam_pos: Vector3, look: Vector3, fov: float =
 	return tr
 
 
-func _bar(w: float, h: float, col: Color) -> Array:
-	var back := ColorRect.new()
-	back.color = Color(0, 0, 0, 0.55)
-	back.custom_minimum_size = Vector2(w, h)
-	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var fill := ColorRect.new()
-	fill.color = col
-	fill.size = Vector2(w, h)
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	back.add_child(fill)
-	var shine := ColorRect.new()
-	shine.color = Color(1, 1, 1, 0.16)
-	shine.size = Vector2(w, maxf(1.0, h * 0.35))
-	shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fill.add_child(shine)
-	return [back, fill]
-
-
 # ------------------------------------------------------------------ pause screen (Start / P)
 ## Shown while the game is paused: which monsters live in the dungeon and how many.
 func _build_pause_screen() -> void:
@@ -137,6 +119,10 @@ func _build_pause_screen() -> void:
 	var title := UiTheme.heading("一時停止中", 48, UiTheme.GOLD)  # notice text stays gold
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(title)
+	_elapsed = UiTheme.label("侵攻 00:00", 28, UiTheme.TEXT)
+	_elapsed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_elapsed.visible = false
+	vb.add_child(_elapsed)
 	var sub := UiTheme.label("ダンジョンの生態系", 24, UiTheme.TEXT_DIM)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(sub)
@@ -211,7 +197,7 @@ func update_eco(counts: Dictionary, soil: int) -> void:
 ## One translucent black window in the top-left that changes with the phase:
 ##   build     time until the hero arrives + "call the hero" button
 ##   placement the instruction to place the 魔王
-##   invasion  the hero's portrait, HP and MP (+ elapsed time)
+##   invasion  the hero's portrait, name, HP and MP (elapsed time is in the pause screen)
 func _build_status() -> void:
 	var pc := PanelContainer.new()
 	var sb := UiTheme.dark_panel()
@@ -264,10 +250,8 @@ func _build_status() -> void:
 	nv.alignment = BoxContainer.ALIGNMENT_CENTER
 	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(nv)
-	_hero_name = UiTheme.label("勇者", 32)
+	_hero_name = UiTheme.label("", 32)
 	nv.add_child(_hero_name)
-	_elapsed = UiTheme.label("侵攻 00:00", 16)
-	nv.add_child(_elapsed)
 	var hp_row := _stat_row("HP", UiTheme.HP)
 	_hp_text = hp_row[0]
 	_hp_fill = hp_row[1]
@@ -280,7 +264,8 @@ func _build_status() -> void:
 	_message.visible = false
 
 
-const BAR_W := 200.0
+const HP_CAUTION := Color(1.0, 0.86, 0.25)   # HP below half
+const HP_DANGER := Color(1.0, 0.3, 0.26)     # HP below 30 %
 
 
 func _stat_row(title: String, col: Color) -> Array:
@@ -289,25 +274,31 @@ func _stat_row(title: String, col: Color) -> Array:
 	var t := UiTheme.label(title, 24)
 	t.custom_minimum_size = Vector2(40, 0)
 	hb.add_child(t)
-	var bar := _bar(BAR_W, 12, col)
-	(bar[0] as Control).size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	hb.add_child(bar[0])
+	var bar := PipBar.new(10, 13.0, col)
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hb.add_child(bar)
 	var v := UiTheme.label("0/0", 24)
 	hb.add_child(v)
-	return [v, bar[1], hb]
+	return [v, bar, hb]
 
 
 func set_hero(hname: String, portrait: Texture2D) -> void:
-	_hero_name.text = "勇者 " + hname
+	_hero_name.text = hname
 	_hero_portrait.texture = portrait
 
 
 func update_hero(hp: float, max_hp: float, mp: float, max_mp: float, _show: bool = true) -> void:
 	var r := clampf(hp / maxf(1.0, max_hp), 0.0, 1.0)
-	_hp_fill.size.x = BAR_W * r
-	_hp_fill.color = UiTheme.HP if r > 0.3 else UiTheme.WARN
+	_hp_fill.ratio = r
+	var hp_col := UiTheme.TEXT
+	if r < 0.3:
+		hp_col = HP_DANGER
+	elif r < 0.5:
+		hp_col = HP_CAUTION
+	_hp_text.add_theme_color_override("font_color", hp_col)
+	_hp_fill.set_color(UiTheme.HP if r >= 0.5 else hp_col)
 	_hp_text.text = "%d/%d" % [maxi(0, int(ceil(hp))), int(max_hp)]
-	_mp_fill.size.x = BAR_W * clampf(mp / maxf(1.0, max_mp), 0.0, 1.0)
+	_mp_fill.ratio = clampf(mp / maxf(1.0, max_mp), 0.0, 1.0)
 	_mp_text.text = "%d/%d" % [int(mp), int(max_mp)]
 
 
@@ -319,6 +310,7 @@ func update_phase(mode: String, caption: String, time_text: String, can_call: bo
 	_timer_value.text = time_text
 	_call_btn.visible = can_call
 	_elapsed.text = "侵攻 " + time_text
+	_elapsed.visible = mode == "hero"
 	if mode == "message":
 		_message.text = caption
 	_message.visible = mode == "message"
@@ -386,21 +378,19 @@ func _build_dig() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	vb.add_child(row)
-	row.add_child(UiTheme.label("掘れる回数", 15, UiTheme.TEXT_DIM))
 	_dig_value = UiTheme.heading("100", 30, UiTheme.TEXT, 900)
 	row.add_child(_dig_value)
 	_dig_max = UiTheme.label("/ 100", 15, UiTheme.TEXT_DIM)
 	_dig_max.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	row.add_child(_dig_max)
-	var bar := _bar(220, 8, UiTheme.GOLD)
-	_dig_fill = bar[1]
-	vb.add_child(bar[0])
+	_dig_fill = PipBar.new(10, 12.0, UiTheme.GOLD)
+	vb.add_child(_dig_fill)
 
 
 func update_dig(left: int, max_dig: int) -> void:
 	var ratio := float(left) / maxf(1.0, max_dig)
-	_dig_fill.size.x = 220.0 * ratio
-	_dig_fill.color = UiTheme.GOLD if ratio >= 0.2 else UiTheme.WARN
+	_dig_fill.ratio = ratio
+	_dig_fill.set_color(UiTheme.GOLD if ratio >= 0.2 else UiTheme.WARN)
 	_dig_value.text = str(left)
 	_dig_value.add_theme_color_override("font_color", UiTheme.TEXT if ratio >= 0.2 else UiTheme.WARN)
 	_dig_max.text = "/ %d" % max_dig
@@ -505,7 +495,7 @@ func _build_pad_hint() -> void:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.add_theme_font_override("normal_font", UiTheme.font(true))
 	l.add_theme_font_size_override("normal_font_size", UiTheme.px(16))
-	l.text = "[center][color=#6fd06f]A[/color] 掘る・決定（押しながら十字で連続）　[color=#f0c040]Y[/color] 勇者を呼ぶ　[color=#d8d0c0]RB[/color] 速度　[color=#d8d0c0]Start[/color] 一時停止・生態系　[color=#d8d0c0]LB[/color] 勇者追跡　[color=#d8d0c0]Rスティック[/color] カメラ[/center]"
+	l.text = "[center][color=#6fd06f]A[/color] 掘る・決定（押しながら十字で連続）　[color=#f0c040]Y[/color] 勇者を呼ぶ　[color=#d8d0c0]RB[/color] 速度　[color=#d8d0c0]Start[/color] 一時停止・生態系　[color=#d8d0c0]LB[/color] 勇者追跡　[color=#d8d0c0]Rスティック[/color] カメラ移動（LT+で回転）[/center]"
 	_pad_hint.add_child(l)
 	_pad_hint.visible = false
 	root.add_child(_pad_hint)

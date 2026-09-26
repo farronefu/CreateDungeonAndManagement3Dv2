@@ -3,7 +3,7 @@ extends Resource
 ## Everything that defines one hero. To swap the hero model, point `model_path` at another
 ## GLB (or .tscn) and set the animation names it uses. No code changes needed.
 
-@export var display_name := "アレン"
+@export var display_name := "ゆうた"
 @export_multiline var intro_line := "魔王をさらいに来たぞ！"
 
 ## UI icon used everywhere the hero is shown (status window, tooltip).

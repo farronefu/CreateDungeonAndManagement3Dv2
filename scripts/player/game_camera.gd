@@ -1,8 +1,8 @@
 class_name GameCamera
 extends Camera3D
 ## Angled top-down camera (風来のシレン style) that can orbit freely.
-##   Pan : WASD / arrows / screen edges / right-drag
-##   Orbit: right stick / middle-drag / Q・E (yaw)   Reset: R3 / Home
+##   Pan : right stick / WASD / arrows / screen edges / right-drag (up to the town on the cliff)
+##   Orbit: LT + right stick / middle-drag / Q・E (yaw)   Reset: R3 / Home
 ##   Zoom : mouse wheel
 
 const DEFAULT_PITCH := deg_to_rad(55.0)
@@ -146,11 +146,14 @@ func _process(delta: float) -> void:
 		_target_yaw += ORBIT_YAW_SPEED * 0.6 * delta
 	if Input.is_key_pressed(KEY_E):
 		_target_yaw -= ORBIT_YAW_SPEED * 0.6 * delta
-	# right stick: seamless orbit
+	# right stick pans (like WASD); holding LT turns it into a seamless orbit
 	var rs := Pad.right_stick()
 	if rs != Vector2.ZERO:
-		_target_yaw -= rs.x * ORBIT_YAW_SPEED * delta
-		_target_pitch = clampf(_target_pitch - rs.y * ORBIT_PITCH_SPEED * delta, MIN_PITCH, MAX_PITCH)
+		if Pad.axis(JOY_AXIS_TRIGGER_LEFT) > 0.5:
+			_target_yaw -= rs.x * ORBIT_YAW_SPEED * delta
+			_target_pitch = clampf(_target_pitch - rs.y * ORBIT_PITCH_SPEED * delta, MIN_PITCH, MAX_PITCH)
+		else:
+			move += rs * 1.2
 	if edge_scroll and not Pad.using_pad and DisplayServer.window_is_focused():
 		var vp := get_viewport()
 		var mp := vp.get_mouse_position()

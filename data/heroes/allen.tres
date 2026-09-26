@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1")
-display_name = "アレン"
+display_name = "ゆうた"
 intro_line = "魔王をさらいに来たぞ！"
 icon_path = "res://assets/ui/hero_icon.png"
 model_path = "res://assets/models/hero/hero.glb"

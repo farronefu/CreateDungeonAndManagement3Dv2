@@ -17,6 +17,7 @@ const ROAD_Z := -4.6
 const PIT_DEPTH := 5.0     # the town ground sits this far above the dungeon block tops
 const BACK := 3.5          # ... and this far behind the dungeon edge; the fog fills the gap
 const GROUND_Y := Balance.BLOCK_H + PIT_DEPTH
+const GATE_Z := 3 * TownModels.VOX   # gatehouse shifted forward so its front meets the rampart's
 const STEPS := 12          # steps cut into the cliff (one voxel each) before the fog
 ## fog layers: [height, front edge z, density] - higher layers end further back
 const FOG_LAYERS := [[1.3, -0.3, 1.0], [2.2, -0.95, 0.95], [3.1, -1.6, 0.9], [4.0, -2.3, 0.85]]
@@ -33,7 +34,9 @@ var rng := RandomNumberGenerator.new()
 var _occupied: Array[Rect2] = []
 var _deco: VoxelBuilder
 var _town: Node3D
-var _doors: Array[Node3D] = []
+var _door: Node3D
+var _door_open := false
+var _gate_vx := Vector2i.ZERO    # voxel x range of the gatehouse (the rampart leaves it out)
 var _town_x := Vector2.ZERO    # x extent of the building row
 
 
@@ -52,10 +55,10 @@ func descent_path() -> PackedVector3Array:
 	])
 
 
-## From behind the gate doors to the entrance cell.
+## From inside the gatehouse to the entrance cell (just behind the door).
 func entry_path() -> PackedVector3Array:
 	var x := grid.entrance.x + 0.5
-	return PackedVector3Array([Vector3(x, 0.0, -0.8), Vector3(x, 0.0, 0.5)])
+	return PackedVector3Array([Vector3(x, 0.0, -0.6), Vector3(x, 0.0, 0.5)])
 
 
 func build(g: DungeonGrid, _block_mat: ShaderMaterial) -> void:
@@ -340,8 +343,9 @@ func _add_fog(mesh: Mesh, mat: Material, name_: String, pos: Vector3) -> void:
 
 
 # ------------------------------------------------------------------ gate & top wall
-## Stone gatehouse behind the entrance cell with a two-leaf door. The hero comes out of it
-## (open_gate / close_gate); inside, a stair climbs into darkness.
+## Stone gatehouse over the entrance cell, its front flush with the row-0 rampart, with a
+## single door hinged on the left. The hero comes out of it (open_gate / close_gate);
+## inside, a stair climbs into darkness.
 func _build_gate() -> void:
 	var ex := float(grid.entrance.x)
 	var b := _cliff_builder(555)
@@ -375,51 +379,53 @@ func _build_gate() -> void:
 	b.lantern(ox1 + 1.5, 5.2, 0.5)
 	for vx in [ox0 - 1.5, ox1 + 1.5]:
 		b.det(vx, 5.95, 0.1, 0.12, 0.12, 0.6, "metal")
-	_add_voxel_mesh(self, b, "Gate", RenderLayers.DUNGEON | RenderLayers.SURFACE)
-	# door leaves hinge on the jambs and swing inwards
-	var w := float(ox1 - ox0 + 1)     # opening width in voxels; each leaf covers half
-	for side in [-1, 1]:
-		# leaf centre (voxel units, relative to its hinge): +w/4 for the left, -w/4 for the right
-		var leaf := _cliff_builder(560 + side)
-		var cx: float = w / 4.0 * -side - 0.5
-		for i in 2:
-			var px: float = cx + (i - 0.5) * w / 4.0
-			leaf.det(px, 3.0, 0.0, w / 4.0, 7.0, 0.8, "doorDark" if i == 0 else "door")
-		for y in [1.0, 4.6]:
-			leaf.det(cx, y, 0.45, w / 2.0, 0.2, 0.1, "metal")
-		leaf.det(cx + (w / 4.0 - 0.3) * side, 2.8, 0.5, 0.24, 0.24, 0.14, "metal")
-		var pivot := Node3D.new()
-		pivot.name = "DoorL" if side < 0 else "DoorR"
-		pivot.position = Vector3((ox0 if side < 0 else ox1 + 1) * VOX, 0.0, -0.2)
-		add_child(pivot)
-		_add_voxel_mesh(pivot, leaf, "Leaf", RenderLayers.DUNGEON | RenderLayers.SURFACE)
-		_doors.append(pivot)
+	_gate_vx = Vector2i(gx0 - 1, gx1 + 1)
+	var gate := _add_voxel_mesh(self, b, "Gate", RenderLayers.DUNGEON | RenderLayers.SURFACE)
+	gate.position.z = GATE_Z
+	# one door, hinged on the left jamb, swings inwards
+	var w := float(ox1 - ox0 + 1)     # opening width in voxels
+	var leaf := _cliff_builder(560)
+	for i in 3:
+		leaf.det((i + 0.5) * w / 3.0 - 0.5, 3.0, 0.0, w / 3.0, 7.0, 0.8, "doorDark" if i == 1 else "door")
+	for y in [1.0, 4.6]:
+		leaf.det(w / 2.0 - 0.5, y, 0.45, w, 0.2, 0.1, "metal")
+	leaf.det(w - 0.9, 2.8, 0.5, 0.26, 0.26, 0.14, "metal")
+	leaf.det(w - 0.9, 3.3, 0.55, 0.12, 0.5, 0.12, "metal")
+	_door = Node3D.new()
+	_door.name = "Door"
+	_door.position = Vector3(ox0 * VOX, 0.0, GATE_Z - 0.2)
+	add_child(_door)
+	_add_voxel_mesh(_door, leaf, "Leaf", RenderLayers.DUNGEON | RenderLayers.SURFACE)
 
 
 func open_gate() -> void:
-	_swing_doors(deg_to_rad(105.0))
+	if _door_open:
+		return
+	_door_open = true
+	_swing_door(deg_to_rad(105.0))
 	Sfx.play("door")
 
 
 func close_gate() -> void:
-	_swing_doors(0.0)
+	if not _door_open:
+		return
+	_door_open = false
+	_swing_door(0.0)
 
 
-func _swing_doors(angle: float) -> void:
-	for i in _doors.size():
-		var d: Node3D = _doors[i]
-		var tw := d.create_tween()
-		tw.tween_property(d, "rotation:y", angle * (1.0 if i == 0 else -1.0), 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+func _swing_door(angle: float) -> void:
+	if _door == null:
+		return
+	var tw := _door.create_tween()
+	tw.tween_property(_door, "rotation:y", angle, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
 ## Row 0 of the dungeon (undiggable) as a stone brick rampart with a gap for the entrance.
 func _build_top_wall() -> void:
 	var b := _cliff_builder(556)
-	var ex := float(grid.entrance.x)
 	var BR := ["stone", "stoneLight", "stoneDark", "cobble", "stone"]
 	for vx in range(floori(-DungeonView.OUTER_SIDE / VOX), ceili((grid.w + DungeonView.OUTER_SIDE) / VOX)):
-		var wx := (vx + 0.5) * VOX
-		if wx > ex - 0.02 and wx < ex + 1.02:
+		if vx >= _gate_vx.x and vx <= _gate_vx.y:
 			continue
 		for vy in range(0, 5):
 			# bricks two voxels tall, four long, offset every course
