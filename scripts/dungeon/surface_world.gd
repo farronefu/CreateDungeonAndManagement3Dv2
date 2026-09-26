@@ -227,11 +227,47 @@ func _build_cliff() -> void:
 	for vx in [sx0 - 1, sx1 + 1]:
 		for vy in range(n - 14, n):
 			face.put(vx, vy, 0, ["wood", "plank"])
-		lip.put(vx, n, -1, "wood")
-	lip.lantern(sx0 - 1.5, n + 1.2, -1.0)
-	lip.lantern(sx1 + 2.5, n + 1.2, -1.0)
+	_build_stair_tunnel(lip, n, sx0, sx1)
 	_add_voxel_mesh(_town, face, "CliffFace", RenderLayers.DUNGEON)
 	_add_voxel_mesh(_town, lip, "CliffLip", RenderLayers.SURFACE)
+
+
+## A rocky ridge over the steps, continuing the mound's tunnel to the cliff edge, so the path
+## disappears into a cave instead of running down an open cut between two meadows. The mouth
+## on the cliff face gets a stone lintel and two lanterns.
+func _build_stair_tunnel(b: VoxelBuilder, n: int, sx0: int, sx1: int) -> void:
+	var t_top := int(1.2 / VOX) + 1         # same headroom as the mound's tunnel
+	var cx := (sx0 + sx1) * 0.5
+	var half := (sx1 - sx0) * 0.5 + 7.0
+	for vz in range(-STEPS - 3, 1):
+		# the ridge sags a little towards the cliff edge
+		var sag := 1.0 - 0.25 * float(vz + STEPS + 3) / float(STEPS + 3)
+		for vx in range(floori(cx - half), ceili(cx + half) + 1):
+			var d := absf(vx - cx) / half
+			if d >= 1.0:
+				continue
+			var hr := int((t_top + 4) * sag * sqrt(1.0 - d * d) * (0.85 + b.rnd() * 0.3))
+			for dy in range(0, hr + 1):
+				var vy := n + dy
+				if vx >= sx0 and vx <= sx1 and dy < t_top:
+					continue   # the passage
+				var top := dy >= hr - 1
+				var k: Variant = ["moss", "grassDark", "moss", "leafDark"] if top and b.rnd() < 0.8 else ["stone", "stoneDark", "rock", "stoneLight"]
+				b.put(vx, vy, vz, k)
+	# stone lintel and jambs around the mouth on the cliff face
+	for vx in range(sx0 - 1, sx1 + 2):
+		b.put(vx, n + t_top, 0, "stoneLight")
+	for vy in range(n, n + t_top):
+		b.put(sx0 - 1, vy, 0, ["stoneLight", "stone"])
+		b.put(sx1 + 1, vy, 0, ["stoneLight", "stone"])
+	b.put(int(cx), n + t_top + 1, 0, "stoneLight")
+	b.lantern(sx0 - 1.5, n + t_top - 1.2, 1.0)
+	b.lantern(sx1 + 2.5, n + t_top - 1.2, 1.0)
+	for vx in [sx0 - 1.5, sx1 + 2.5]:
+		b.det(vx, n + t_top - 0.45, 0.6, 0.12, 0.12, 0.7, "metal")
+	# boulders where the ridge meets the meadow
+	for q in [[-half - 1.0, -4.0, 2.2], [half + 1.0, -6.0, 2.0], [-half + 1.5, -STEPS - 2.0, 1.8], [half - 1.0, -STEPS - 1.0, 1.9]]:
+		b.rock(cx + q[0], q[1], q[2], n)
 
 
 func _cliff_builder(seed_value: int) -> VoxelBuilder:

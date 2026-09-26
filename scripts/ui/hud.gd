@@ -137,7 +137,7 @@ func _build_pause_screen() -> void:
 		["moss", "モコチュリ", Vector3(0, 0.55, 0.9), Vector3(0, 0.22, 0), 0.45],
 		["moss_flower", "ツボミ・モコバナ", Vector3(0, 0.62, 1.25), Vector3(0, 0.36, 0), 0.72],
 		["bug_larva", "ザクザクムシ（幼虫）", Vector3(0.55, 0.62, 0.95), Vector3(0, 0.12, 0), 0.4],
-		["bug_pupa", "ザクザクムシ（サナギ）", Vector3(0.35, 0.55, 0.8), Vector3(0, 0.12, 0), 0.4],
+		["bug_pupa", "ザクザクムシ（サナギ）", Vector3(0.55, 0.85, 1.35), Vector3(0, 0.14, 0), 0.4],
 		["bug_adult", "ザクザクムシ（成虫）", Vector3(0.5, 0.62, 0.95), Vector3(0, 0.2, 0), 0.4],
 	]
 	for r in rows:
@@ -219,10 +219,16 @@ func _build_status() -> void:
 	_build_box = VBoxContainer.new()
 	_build_box.add_theme_constant_override("separation", 4)
 	vb.add_child(_build_box)
-	_timer_caption = UiTheme.label("勇者の到着まで", 24)
-	_build_box.add_child(_timer_caption)
-	_timer_value = UiTheme.heading("02:30", 64, UiTheme.TEXT)
-	_build_box.add_child(_timer_value)
+	# "勇者の到着まで 02:30" on one line
+	var timer_row := HBoxContainer.new()
+	timer_row.add_theme_constant_override("separation", 12)
+	_build_box.add_child(timer_row)
+	_timer_caption = UiTheme.label("勇者の到着まで", 22)
+	_timer_caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	timer_row.add_child(_timer_caption)
+	_timer_value = UiTheme.heading("02:30", 36, UiTheme.TEXT)
+	_timer_value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	timer_row.add_child(_timer_value)
 	_call_btn = Button.new()
 	_call_btn.text = "勇者を呼ぶ（Y）"
 	_call_btn.focus_mode = Control.FOCUS_NONE
@@ -502,7 +508,7 @@ func _build_pad_hint() -> void:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.add_theme_font_override("normal_font", UiTheme.font(true))
 	l.add_theme_font_size_override("normal_font_size", UiTheme.px(16))
-	l.text = "[center][color=#6fd06f]A[/color] 掘る・決定（押しながら十字で連続）　[color=#f0c040]Y[/color] 勇者を呼ぶ　[color=#d8d0c0]RB[/color] 速度　[color=#d8d0c0]Start[/color] 一時停止・生態系　[color=#d8d0c0]LB[/color] 勇者追跡　[color=#d8d0c0]Rスティック[/color] カメラ移動（LT+で回転）[/center]"
+	l.text = "[center][color=#6fd06f]A[/color] 掘る・決定（押しながら十字で連続）　[color=#f0c040]Y[/color] 勇者を呼ぶ　[color=#d8d0c0]RB[/color] 速度　[color=#d8d0c0]Start[/color] 一時停止・生態系　[color=#d8d0c0]LB[/color] 勇者追跡　[color=#d8d0c0]Rスティック[/color] カメラ移動（LT+で回転）　[color=#6fa8ff]X[/color] ズーム[/center]"
 	_pad_hint.add_child(l)
 	_pad_hint.visible = false
 	root.add_child(_pad_hint)

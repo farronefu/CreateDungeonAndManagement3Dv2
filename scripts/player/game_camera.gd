@@ -3,7 +3,7 @@ extends Camera3D
 ## Angled top-down camera (風来のシレン style) that can orbit freely.
 ##   Pan : right stick / WASD / arrows / screen edges / right-drag (up to the town on the cliff)
 ##   Orbit: LT + right stick / middle-drag / Q・E (yaw)   Reset: R3 / Home
-##   Zoom : mouse wheel
+##   Zoom : X button cycles ZOOM_STEPS (closest = default) / mouse wheel within the same range
 
 const DEFAULT_PITCH := deg_to_rad(55.0)
 const MIN_PITCH := deg_to_rad(28.0)
@@ -11,9 +11,12 @@ const MAX_PITCH := deg_to_rad(84.0)
 const BASE_DIST := 19.0
 const ORBIT_YAW_SPEED := 1.9    # rad/s at full stick
 const ORBIT_PITCH_SPEED := 1.1
+## zoom levels (distance multipliers): the default is the closest, two steps further out
+const ZOOM_STEPS := [1.0, 1.4, 1.9]
 
 var focus := Vector3(18, 0, 7)
 var zoom := 1.0
+var _zoom_goal := -1.0   # eased towards when a zoom step is picked
 var yaw := 0.0
 var pitch := DEFAULT_PITCH
 var bounds := Rect2(0, -2, 36, 28)
@@ -38,7 +41,9 @@ func _ready() -> void:
 	_target_focus = focus
 	Pad.button_pressed.connect(func(b: int) -> void:
 		if b == JOY_BUTTON_RIGHT_STICK:
-			reset_angle())
+			reset_angle()
+		elif b == JOY_BUTTON_X:
+			cycle_zoom())
 	_apply()
 
 
@@ -71,6 +76,17 @@ func keep_in_view(p: Vector3, frac: float = 0.56) -> bool:
 	var w := Vector2(c * push.x + sn * push.y, -sn * push.x + c * push.y)
 	_target_focus += Vector3(w.x, 0, w.y)
 	return true
+
+
+## Next zoom step (wraps back to the closest).
+func cycle_zoom() -> void:
+	var cur := _zoom_goal if _zoom_goal > 0.0 else zoom
+	var next: float = ZOOM_STEPS[0]
+	for z in ZOOM_STEPS:
+		if z > cur + 0.05:
+			next = z
+			break
+	_zoom_goal = next
 
 
 func reset_angle() -> void:
@@ -111,9 +127,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-			zoom = clampf(zoom * 0.9, 0.45, 1.35)
+			_zoom_goal = -1.0
+			zoom = clampf(zoom * 0.9, ZOOM_STEPS[0], ZOOM_STEPS[-1])
 		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			zoom = clampf(zoom * 1.1, 0.45, 1.35)
+			_zoom_goal = -1.0
+			zoom = clampf(zoom * 1.1, ZOOM_STEPS[0], ZOOM_STEPS[-1])
 		elif mb.button_index == MOUSE_BUTTON_RIGHT:
 			_dragging = mb.pressed
 		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
@@ -175,6 +193,11 @@ func _process(delta: float) -> void:
 	_target_focus.x = clampf(_target_focus.x, bounds.position.x, bounds.end.x)
 	_target_focus.z = clampf(_target_focus.z, bounds.position.y, bounds.end.y)
 	var k := clampf(delta * 10.0, 0.0, 1.0)
+	if _zoom_goal > 0.0:
+		zoom = lerpf(zoom, _zoom_goal, clampf(delta * 6.0, 0.0, 1.0))
+		if absf(zoom - _zoom_goal) < 0.002:
+			zoom = _zoom_goal
+			_zoom_goal = -1.0
 	focus = focus.lerp(_target_focus, k)
 	yaw = lerp_angle(yaw, _target_yaw, k)
 	pitch = lerpf(pitch, _target_pitch, k)

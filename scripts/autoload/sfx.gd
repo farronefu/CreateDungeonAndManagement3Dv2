@@ -1,6 +1,8 @@
 extends Node
 ## Procedurally synthesised sound effects and background music (no audio assets needed).
-## Replace any entry in `_streams` with a loaded AudioStream to use real recordings.
+## Real recordings override them by name when present:
+##   res://assets/audio/se/<sound>.wav|.ogg     e.g. se/dig.wav
+##   res://assets/audio/bgm/<name>.ogg|.wav     build.ogg (building), battle.ogg (invasion); looped
 
 const RATE := 22050
 
@@ -24,6 +26,18 @@ func _ready() -> void:
 	_bgm.volume_db = -15.0
 	add_child(_bgm)
 	_build_sfx()
+	for k in _streams.keys():
+		var s := _load_file("res://assets/audio/se/" + k)
+		if s:
+			_streams[k] = s
+
+
+## A recorded file for `base` (.wav or .ogg), or null.
+func _load_file(base: String) -> AudioStream:
+	for ext in [".wav", ".ogg", ".mp3"]:
+		if ResourceLoader.exists(base + ext):
+			return load(base + ext) as AudioStream
+	return null
 
 
 func play(sound: String, _pos: Vector3 = Vector3.ZERO) -> void:
@@ -50,7 +64,16 @@ func play_bgm(bgm: String) -> void:
 		return
 	var key := "bgm_" + bgm
 	if not _streams.has(key):
-		_streams[key] = _make_bgm(bgm)
+		var rec := _load_file("res://assets/audio/bgm/" + bgm)
+		if rec is AudioStreamOggVorbis:
+			(rec as AudioStreamOggVorbis).loop = true
+		elif rec is AudioStreamMP3:
+			(rec as AudioStreamMP3).loop = true
+		elif rec is AudioStreamWAV and (rec as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_DISABLED:
+			var w := rec as AudioStreamWAV
+			w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+			w.loop_end = int(w.get_length() * w.mix_rate)
+		_streams[key] = rec if rec else _make_bgm(bgm)
 	_bgm.stream = _streams[key]
 	_bgm.play()
 

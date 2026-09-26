@@ -892,7 +892,17 @@ func _padtest() -> void:
 		_pt["pitch1"] = rad_to_deg(cam.pitch)
 		_pad_event(JOY_BUTTON_RIGHT_STICK, true)
 		_pad_event(JOY_BUTTON_RIGHT_STICK, false)
+	elif f == 84:
+		_pad_event(JOY_BUTTON_X, true)
+		_pad_event(JOY_BUTTON_X, false)
+	elif f == 88:
+		# X steps the zoom out; two more presses wrap back to the closest (default) view
+		_pt["zoom_after_X"] = cam._zoom_goal
+		for i in 2:
+			_pad_event(JOY_BUTTON_X, true)
+			_pad_event(JOY_BUTTON_X, false)
 	elif f == 90:
+		_pt["zoom_after_3X"] = cam._zoom_goal
 		_pt["yaw_reset"] = cam.yaw
 		_pad_event(JOY_BUTTON_RIGHT_SHOULDER, true)
 		_pad_event(JOY_BUTTON_RIGHT_SHOULDER, false)
@@ -930,7 +940,10 @@ func _padtest() -> void:
 		_pt["speed_after_unpause"] = speed
 		_pt["maou_placed"] = maou.placed
 		_pt["maou_cell"] = maou.cell
-		var ok: bool = _pt["focus_z_after_pan_up"] < _pt["focus_z0"] - 0.5 and absf(_pt["yaw1"] - _pt["yaw0"]) > 0.1 			and _pt["speed_after_RB"] == 2.0 and _pt["dig1"] < _pt["dig0"] and _pt["phase_after_Y"] == Phase.PLACE 			and _pt["paused_speed"] == 0.0 and _pt["dig_after_paused_dig"] == _pt["dig_before_paused_dig"] and _pt["maou_placed"]
+		var ok: bool = _pt["focus_z_after_pan_up"] < _pt["focus_z0"] - 0.5 and absf(_pt["yaw1"] - _pt["yaw0"]) > 0.1
+		ok = ok and _pt["zoom_after_X"] == GameCamera.ZOOM_STEPS[1] and _pt["zoom_after_3X"] == GameCamera.ZOOM_STEPS[0]
+		ok = ok and _pt["speed_after_RB"] == 2.0 and _pt["dig1"] < _pt["dig0"] and _pt["phase_after_Y"] == Phase.PLACE
+		ok = ok and _pt["paused_speed"] == 0.0 and _pt["dig_after_paused_dig"] == _pt["dig_before_paused_dig"] and _pt["maou_placed"]
 		print("PADTEST ", "PASS " if ok else "FAIL ", _pt)
 		_screenshot("debug_shots/padtest.png")
 		get_tree().quit()
