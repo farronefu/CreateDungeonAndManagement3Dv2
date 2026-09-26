@@ -15,6 +15,9 @@ const TORCH_EVERY := 24        # the hero plants a torch after exploring this ma
 const TORCH_SPACING := 5       # ... if no torch is closer than this (Manhattan)
 const TORCH_HEAL := 0.1        # walking onto a torch restores this share of max HP and MP
 
+# --- breaker ---
+const BREAKER_POKES_TO_KILL := 3   # breaker hits that kill any monster (nutrient scatters as usual)
+
 # --- phases ---
 const BUILD_TIME := 150.0
 const DIG_MAX_BASE := 100

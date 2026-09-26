@@ -90,6 +90,27 @@ func _toonify(g: GeometryInstance3D) -> void:
 		mi.set_surface_override_material(i, m)
 
 
+## Turns metallic materials into bright glossy plastic (the scene has no reflections, so fully
+## metallic surfaces render almost black). Skin / unlit parts are left alone.
+func plasticize(tint: Color, roughness: float) -> void:
+	for g in _meshes:
+		if not (g is MeshInstance3D) or (g as MeshInstance3D).mesh == null:
+			continue
+		var mi := g as MeshInstance3D
+		for i in mi.mesh.get_surface_count():
+			var m := mi.get_active_material(i) as BaseMaterial3D
+			if m == null or m.metallic < 0.5:
+				continue
+			m.metallic = 0.0
+			m.metallic_texture = null
+			m.roughness = roughness
+			m.roughness_texture = null
+			m.albedo_color = Color(m.albedo_color.r * tint.r, m.albedo_color.g * tint.g, m.albedo_color.b * tint.b, m.albedo_color.a)
+			m.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
+			m.metallic_specular = 0.6
+			m.rim = 0.25
+
+
 ## World position of a named bone of the (first) skeleton, e.g. the scythe bug's tail_tip.
 func bone_world_position(bone: String) -> Variant:
 	if model == null:

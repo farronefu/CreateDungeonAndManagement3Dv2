@@ -81,6 +81,8 @@ func setup(p: HeroProfile, g: DungeonGrid, e: Ecosystem, mz: Maou, effects: Effe
 	actor = ModelActor.new()
 	add_child(actor)
 	actor.setup(load(p.model_path), p.model_height, deg_to_rad(p.model_yaw_offset_deg), false, [p.anim_walk, p.anim_idle])
+	if p.plastic_look:
+		actor.plasticize(p.armor_tint, p.armor_roughness)
 	actor.play(p.anim_idle, 0.0)
 	visited.resize(grid.w * grid.h)
 	visible = false
@@ -255,10 +257,15 @@ func _decide() -> void:
 		_step_along(path2)
 
 
-## Three or more ways out, and the cell is part of a one-block-wide corridor (no 2x2 patch of
-## floor around it, so open rooms do not count).
+## Three or more real ways out, and the cell is part of a one-block-wide corridor (no 2x2 patch
+## of floor around it, so open rooms do not count). A branch that is a single dug block (a dead
+## end right next to the corridor) is not a way out.
 func _is_corridor_fork(c: Vector2i) -> bool:
-	if grid.floor_neighbors(c, known).size() < 3:
+	var ways := 0
+	for n in grid.floor_neighbors(c, known):
+		if grid.floor_neighbors(n, known).size() > 1:
+			ways += 1
+	if ways < 3:
 		return false
 	for sx in [-1, 1]:
 		for sy in [-1, 1]:

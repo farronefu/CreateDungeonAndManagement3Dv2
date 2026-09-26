@@ -15,6 +15,11 @@ extends Resource
 @export var model_height := 1.05
 ## Extra yaw if the model does not face +Z.
 @export_range(-180.0, 180.0) var model_yaw_offset_deg := 0.0
+## Re-finish the (Tripo, fully metallic) body material as bright glossy plastic: metallic 0,
+## this roughness, albedo multiplied by `armor_tint`. Leave plastic_look off to keep the GLB's look.
+@export var plastic_look := true
+@export var armor_tint := Color(1.15, 1.15, 1.2)
+@export_range(0.0, 1.0) var armor_roughness := 0.35
 @export var anim_idle := "idle"
 @export var anim_walk := "walk"
 @export var anim_attack := "attack"

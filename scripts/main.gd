@@ -557,8 +557,35 @@ func _on_click(c: Vector2i) -> void:
 
 ## Mouse held and dragged: dig every diggable cell passed over, silently skipping the rest.
 func _on_drag(c: Vector2i) -> void:
-	if (phase == Phase.BUILD or phase == Phase.INVASION) and speed > 0.0 and (torches.has(c) or (dig_left > 0 and grid.can_dig(c))):
+	if (phase == Phase.BUILD or phase == Phase.INVASION) and speed > 0.0 and (torches.has(c) or _monster_at(c) != null or (dig_left > 0 and grid.can_dig(c))):
 		_try_dig(c)
+
+
+## The monster standing on (or walking into) cell `c`, if any.
+func _monster_at(c: Vector2i) -> Monster:
+	if not grid.is_floor(c):
+		return null
+	for m in eco.monsters:
+		if m.alive and m.cell == c:
+			return m
+	return null
+
+
+## Breaker poke: every monster dies on the BREAKER_POKES_TO_KILL-th hit (whatever its HP), and
+## like any death its nutrient scatters into the surrounding soil. Costs no dig.
+func _poke_monster(m: Monster) -> void:
+	cursor.swing()
+	var pokes := int(m.get_meta("pokes", 0)) + 1
+	m.set_meta("pokes", pokes)
+	var v := m.visual as MonsterVisual
+	if v:
+		v.hurt()
+		fx.number(v.position + Vector3(0, 0.6, 0), "%d/%d" % [pokes, Balance.BREAKER_POKES_TO_KILL], Color(1.0, 0.85, 0.3))
+	cam.shake(0.15)
+	Sfx.play("hit")
+	if pokes >= Balance.BREAKER_POKES_TO_KILL:
+		m.hp = 0.0
+		eco.kill(m, "killed")
 
 
 ## The hero plants a torch where it has explored (only the breaker can remove it).
@@ -589,12 +616,16 @@ func _try_dig(c: Vector2i) -> bool:
 		Sfx.play("dig_fail")
 		hud.toast("一時停止中は掘れません", UiTheme.TEXT_DIM)
 		return false
-	if dig_left <= 0 and not torches.has(c):
+	if dig_left <= 0 and not torches.has(c) and _monster_at(c) == null:
 		Sfx.play("dig_fail")
 		hud.toast("採掘可能数が残っていない！", UiTheme.WARN)
 		return false
 	if torches.has(c):
 		_break_torch(c)
+		return true
+	var target := _monster_at(c)
+	if target:
+		_poke_monster(target)
 		return true
 	if not grid.can_dig(c):
 		Sfx.play("dig_fail")
@@ -615,7 +646,7 @@ func _try_dig(c: Vector2i) -> bool:
 func _cursor_color(c: Vector2i) -> Color:
 	if phase == Phase.PLACE:
 		return Color(0.86, 0.6, 1.0, 1.0) if _valid_place(c) else Color(1, 0.4, 0.32, 0.5)
-	if torches.has(c):
+	if torches.has(c) or ((phase == Phase.BUILD or phase == Phase.INVASION) and _monster_at(c) != null):
 		return Color(1.0, 0.55, 0.25, 1.0)
 	if grid.is_floor(c):
 		return Color(0, 0, 0, 0)
@@ -834,6 +865,8 @@ func _debug_tick() -> void:
 		_dragtest()
 	if _debug.has("herotest") and _frames == 20:
 		_herotest()
+	if _debug.has("poketest") and _frames == 20:
+		_poketest()
 	# --tiptest: every monster that can still evolve shows what it needs; BGM files are used
 	if _debug.has("tiptest") and _frames == 20:
 		Sfx.play_bgm("captured")
@@ -1001,6 +1034,46 @@ func _herotest() -> void:
 	get_tree().quit()
 
 
+## (run with --autostart --digs=45 --simulate=40 --poketest)
+##  * three breaker pokes kill a monster whatever its HP, cost no dig, and its nutrient goes
+##    back into the soil (total nutrient unchanged)
+##  * a corridor with a one-block side stub is not a fork; once the stub is two blocks it is
+func _poketest() -> void:
+	speed = 1.0
+	var m: Monster = null
+	for x in eco.monsters:
+		if x.alive and grid.is_floor(x.cell):
+			m = x
+			break
+	var total0 := grid.total_nutrient() + eco.total_nutrient()
+	var dig0 := dig_left
+	m.hp = 999.0
+	var alive_after := []
+	for i in Balance.BREAKER_POKES_TO_KILL:
+		_try_dig(m.cell)
+		alive_after.append(m.alive)
+	var total1 := grid.total_nutrient() + eco.total_nutrient()
+	var poke_ok := alive_after == [true, true, false] and dig_left == dig0 and total1 == total0
+	# fork rule on a small hand-made map
+	var g := DungeonGrid.new(9, 9)
+	g.types.fill(DungeonGrid.BLOCK)
+	for x in range(1, 8):
+		g.types[g.idx(Vector2i(x, 4))] = DungeonGrid.FLOOR
+	g.types[g.idx(Vector2i(4, 3))] = DungeonGrid.FLOOR     # a single dug block off the corridor
+	var saved_grid := hero.grid
+	var saved_known := hero.known
+	hero.grid = g
+	hero.known = PackedByteArray()
+	var stub_is_fork := hero._is_corridor_fork(Vector2i(4, 4))
+	g.types[g.idx(Vector2i(4, 2))] = DungeonGrid.FLOOR     # now the branch is two blocks long
+	var branch_is_fork := hero._is_corridor_fork(Vector2i(4, 4))
+	hero.grid = saved_grid
+	hero.known = saved_known
+	var ok := poke_ok and not stub_is_fork and branch_is_fork
+	print("POKETEST ", "PASS " if ok else "FAIL ", {"alive_after_each_poke": alive_after, "dig_cost": dig0 - dig_left, "nutrient_before": total0, "nutrient_after": total1, "one_block_stub_is_fork": stub_is_fork, "two_block_branch_is_fork": branch_is_fork})
+	get_tree().quit()
+
+
 func _farthest_floor() -> Vector2i:
 	var dist := grid.distance_map(grid.entrance)
 	var best := grid.entrance
@@ -1030,6 +1103,14 @@ func _dragtest() -> void:
 ## town, LT + right stick orbits, RB speed, A-hold tunnel digging, Y call, A placement.
 func _padtest() -> void:
 	var f := _frames
+	# re-send the stick state every frame: a real controller plugged into the machine emits its
+	# own (near-zero) axis events that would otherwise overwrite the scripted ones
+	if f > 10 and f < 40:
+		_pad_axis(JOY_AXIS_RIGHT_Y, -1.0)
+	elif f > 40 and f < 80:
+		_pad_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)
+		_pad_axis(JOY_AXIS_RIGHT_X, 1.0)
+		_pad_axis(JOY_AXIS_RIGHT_Y, -0.6)
 	if f == 10:
 		_pt["focus_z0"] = cam.focus.z
 		_pad_axis(JOY_AXIS_RIGHT_Y, -1.0)
