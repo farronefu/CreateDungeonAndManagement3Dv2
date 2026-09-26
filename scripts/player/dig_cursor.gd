@@ -1,6 +1,6 @@
 class_name DigCursor
 extends Node3D
-## The player's pickaxe cursor: highlights the block under the mouse (or the gamepad cursor)
+## The player's dig cursor (a hydraulic breaker hovering over the cell): highlights the block under the mouse (or the gamepad cursor)
 ## and emits clicks. Gamepad: D-pad / left stick move (hold to repeat, longer = faster),
 ## A digs / places the 魔王, holding A while moving digs a whole tunnel.
 
@@ -27,8 +27,10 @@ var _rep_held := 0.0
 
 var _frame: MeshInstance3D
 var _frame_mat: StandardMaterial3D
-var _pick: Node3D
-var _pick_pivot: Node3D
+var _pick: Node3D          # breaker, bobs and recoils
+var _pick_pivot: Node3D    # follows the hovered cell
+var _chisel: Node3D        # MetalChisel: extends downwards to break the block
+var _chisel_y := 0.0
 var _t := 0.0
 var _swinging := false
 
@@ -52,14 +54,18 @@ func _ready() -> void:
 	add_child(_frame)
 	_pick_pivot = Node3D.new()
 	add_child(_pick_pivot)
-	var pick := MonsterCatalog.make_actor("pickaxe")
+	var pick := MonsterCatalog.make_actor("breaker")
 	pick.set_shadows(true)
 	_pick = Node3D.new()
 	_pick.add_child(pick)
-	# grip at the bottom of the handle: rotate so the head points up-left
-	pick.position = Vector3(0, -0.12, 0)
+	# turn the 魔 emblem side towards the camera and put the chisel axis over the cell centre
+	pick.rotation.y = BREAKER_YAW
+	_chisel = pick.model.find_child("MetalChisel", true, false) as Node3D
+	if _chisel:
+		_chisel_y = _chisel.position.y
+		var off := Basis(Vector3.UP, BREAKER_YAW) * Vector3(_chisel.position.x, 0, _chisel.position.z) * pick.scale.x
+		pick.position = -off
 	_pick_pivot.add_child(_pick)
-	_pick.scale = Vector3.ONE * 0.9
 	Pad.button_pressed.connect(_on_pad_button)
 	Pad.mode_changed.connect(func(on: bool) -> void:
 		if on:
@@ -171,14 +177,24 @@ func _move_pad(s: Vector2) -> void:
 		clicked.emit(pad_cell)
 
 
+const BREAKER_YAW := -PI / 2.0
+const HOVER := 0.06          # gap between the chisel tip and the block top at rest
+const EXTEND := 0.3          # how far the chisel shoots out (model units; 0.3 is hidden inside the body)
+const HITS := 3              # hydraulic hammer blows per dig
+
+
+## Hydraulic hammering: the chisel shoots down into the block a few times, the body recoils.
 func swing() -> void:
-	if _swinging:
+	if _swinging or _chisel == null:
 		return
 	_swinging = true
 	var tw := create_tween()
-	tw.tween_property(_pick, "rotation:z", 0.9, 0.08).set_ease(Tween.EASE_OUT)
-	tw.tween_property(_pick, "rotation:z", -0.9, 0.09).set_ease(Tween.EASE_IN)
-	tw.tween_property(_pick, "rotation:z", 0.0, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	for i in HITS:
+		var ext := EXTEND * (1.0 if i == 0 else 0.8)
+		tw.tween_property(_chisel, "position:y", _chisel_y - ext, 0.035).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(_pick, "position:y", 0.05, 0.035)
+		tw.tween_property(_chisel, "position:y", _chisel_y, 0.07).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(_pick, "position:y", 0.0, 0.07)
 	tw.tween_callback(func() -> void: _swinging = false)
 
 
@@ -221,9 +237,9 @@ func _process(delta: float) -> void:
 	_frame_mat.emission = Color(col.r, col.g, col.b)
 	view.set_hover(c if solid else Vector2i(-999, -999), 0.5 * pulse * col.a)
 	_pick_pivot.visible = mode == Mode.DIG and grid.in_bounds(c)
-	var target := Vector3(c.x + 0.95, y + 0.25 + sin(_t * 3.0) * 0.03, c.y + 0.55)
+	var target := Vector3(c.x + 0.5, y + HOVER + (0.0 if _swinging else (sin(_t * 3.0) * 0.5 + 0.5) * 0.04), c.y + 0.5)
 	_pick_pivot.position = _pick_pivot.position.lerp(target, clampf(delta * 18.0, 0.0, 1.0))
-	_pick_pivot.rotation = Vector3(0.0, 0.0, 0.55)
+	_pick_pivot.rotation = Vector3.ZERO
 
 
 func mouse_cell() -> Vector2i:

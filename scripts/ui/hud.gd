@@ -75,11 +75,12 @@ func _ready() -> void:
 	_build_pause_screen()
 
 
-func _studio(key: String, px: int, cam_pos: Vector3, look: Vector3, fov: float = 30.0, height: float = 0.0) -> TextureRect:
+func _studio(key: String, px: int, cam_pos: Vector3, look: Vector3, fov: float = 30.0, height: float = 0.0, yaw: float = 0.0) -> TextureRect:
 	var s := PortraitStudio.new()
 	add_child(s)
 	var entry: Dictionary = MonsterCatalog.MODELS[key]
 	s.setup(MonsterCatalog.scene(key), Vector2i(px, px), height, cam_pos, look, fov, bool(entry["fix_colors"]), [], (entry["anims"] as Dictionary).duplicate())
+	s.actor.rotation.y = yaw
 	s.freeze_after(4)
 	_studios.append(s)
 	var tr := TextureRect.new()
@@ -366,10 +367,8 @@ func _build_dig() -> void:
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 10)
 	pc.add_child(hb)
-	var icon := _studio("pickaxe", 128, Vector3(0.0, 0.42, 1.25), Vector3(0, 0.38, 0), 34.0)
+	var icon := _studio("breaker", 128, Vector3(0.0, 0.55, 2.1), Vector3(0, 0.5, 0), 34.0, 1.0, DigCursor.BREAKER_YAW)
 	icon.custom_minimum_size = Vector2(64, 64)
-	icon.rotation = -0.5
-	icon.pivot_offset = Vector2(32, 32)
 	hb.add_child(icon)
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 2)

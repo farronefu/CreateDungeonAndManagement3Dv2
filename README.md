@@ -117,9 +117,10 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | ザクザクムシ サナギ | 同上 | Curl（幼虫からサナギになる時に丸まる）→ CurlIdle（丸まったまま呼吸）/ Uncurl（羽化の直前に戻る）/ Death |
 | ザクザクムシ 成虫（鎌と羽の魔物） | `assets/models/broad-scythe/broad-scythe.glb` | Fly（移動）/ Hover（待機）/ Attack（鎌の二段斬り・捕食）/ LayEgg（尻尾を地面に振り下ろし、接地した瞬間＝1.0秒目に尻尾の先 `tail_tip` から幼虫が1匹生まれる）/ Death |
 | サナギ → 成虫の進化演出 | `assets/models/broad-scythe/pillbug-to-scythe-evolution.glb` | Evolve（3.5秒：丸まったダンゴムシが割れて成虫が飛び出す） |
+| 掘削カーソル（油圧ブレーカー） | `assets/models/breaker/breaker.glb` | アニメーションなし。本体 `BreakerBody` から金属の先端 `MetalChisel` をローカルY方向に伸ばして、ブロックを3回たたく（`scripts/player/dig_cursor.gd`）。支給モデル（193万三角形・66MB）を Blender で約2.5万三角形・テクスチャ1024pxに軽量化して1.2MB |
 | 進化演出 | `assets/models/grass/evolution.glb` + `evolution-color.json` + `shaders/autumn.gdshader` | モコチュリがツボミになる時に 7 秒再生（秋色への色変化つき） |
 
-### 魔物・魔王・ツルハシ
+### 魔物・魔王・掘削カーソル
 [`scripts/sim/monster_catalog.gd`](scripts/sim/monster_catalog.gd) のパスを差し替えます。クリップ名が違う場合は `anims` で対応付けできます（例: `{"move": "walk", "absorb": "gather"}`）。無いクリップは揺れ・ポップ・縮小などで自動的に代用します。
 
 旧来の生成モデルの対応アニメーション:
@@ -200,7 +201,7 @@ scripts/dungeon/            グリッド（ロジック）/ 描画 / 地上の�
 scripts/town/               ボクセルモデル生成（VoxelBuilder）/ 町の建物・木・山（TownModels）
 scripts/sim/                生態系シミュレーション / 魔物の表示
 scripts/actors/             勇者 / 魔王 / モデルラッパー / 勇者プロフィール
-scripts/player/             カメラ / ツルハシカーソル
+scripts/player/             カメラ / 掘削カーソル（油圧ブレーカー）
 scripts/ui/                 HUD / カットイン / タイトル・リザルト / テーマ
 scripts/autoload/           GameState（ステージ間の持ち越し）/ Sfx（合成サウンド・BGM）
 shaders/                    ブロック・床・炎

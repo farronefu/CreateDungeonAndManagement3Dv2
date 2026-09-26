@@ -811,6 +811,9 @@ func _debug_tick() -> void:
 		_autoplay()
 	if _debug.has("fps") and _frames % 60 == 0:
 		print("frame %d  fps %d  monsters %d  draw_calls %d  prims %d" % [_frames, Engine.get_frames_per_second(), eco.monsters.size(), RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME), RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)])
+	# --strike: fire the dig cursor's hammer blow so the shot catches the chisel extended
+	if _debug.has("strike") and _frames == int(_debug.get("frames", 90)) - 2:
+		cursor.swing()
 	if _debug.has("shot") and _frames == int(_debug.get("frames", 90)):
 		_screenshot(str(_debug["shot"]))
 		get_tree().quit()
