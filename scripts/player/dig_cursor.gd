@@ -118,6 +118,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			_mouse_held = mb.pressed and mode == Mode.DIG
 			_drag_cell = hover
+			if mb.pressed and mode == Mode.DIG:
+				swing()   # the breaker strikes even where there is nothing to break
 			if mb.pressed and grid.in_bounds(hover):
 				clicked.emit(hover)
 
@@ -139,6 +141,8 @@ func _on_pad_button(b: int) -> void:
 	if not grid.in_bounds(pad_cell):
 		_init_pad_cell()
 	if b == JOY_BUTTON_A:
+		if mode == Mode.DIG:
+			swing()
 		clicked.emit(pad_cell)
 
 
@@ -244,6 +248,9 @@ func _process(delta: float) -> void:
 		_drag_to(c)
 	else:
 		_mouse_held = false
+	# holding the button keeps the breaker hammering
+	if mode == Mode.DIG and (_mouse_held or (Pad.using_pad and Pad.held(JOY_BUTTON_A))):
+		swing()
 	var solid := grid.in_bounds(c) and not grid.is_floor(c)
 	var y := Balance.BLOCK_H + 0.025 if solid else 0.02
 	var col := validator.call(c) as Color if validator.is_valid() else Color(1, 0.7, 0.2)

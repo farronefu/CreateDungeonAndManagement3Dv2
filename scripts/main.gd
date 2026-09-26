@@ -38,6 +38,8 @@ var _hud_timer := 0.0
 var _title_t := 0.0
 var _debug := {}
 var _frames := 0
+## torches the hero planted: cell -> Torch (shared with the hero)
+var torches := {}
 
 
 func _ready() -> void:
@@ -206,6 +208,8 @@ func _setup_stage() -> void:
 	hero.gate = view.surface
 	eco.hero = hero
 	hero.died.connect(_on_hero_died)
+	hero.torches = torches
+	hero.torch_request.connect(_place_torch)
 	hero.escaped_with_maou.connect(_on_defeat)
 	hero.found_maou.connect(func() -> void:
 		hud.toast("勇者が魔王を見つけた！ 今のうちに攻撃だ！", UiTheme.WARN))
@@ -553,8 +557,31 @@ func _on_click(c: Vector2i) -> void:
 
 ## Mouse held and dragged: dig every diggable cell passed over, silently skipping the rest.
 func _on_drag(c: Vector2i) -> void:
-	if (phase == Phase.BUILD or phase == Phase.INVASION) and speed > 0.0 and dig_left > 0 and grid.can_dig(c):
+	if (phase == Phase.BUILD or phase == Phase.INVASION) and speed > 0.0 and (torches.has(c) or (dig_left > 0 and grid.can_dig(c))):
 		_try_dig(c)
+
+
+## The hero plants a torch where it has explored (only the breaker can remove it).
+func _place_torch(c: Vector2i) -> void:
+	if torches.has(c):
+		return
+	var t := Torch.new()
+	t.position = DungeonGrid.cell_center(c)
+	add_child(t)
+	torches[c] = t
+	fx.dust(t.position + Vector3(0, 0.1, 0), Color(0.8, 0.7, 0.55, 0.6), 0.6)
+
+
+## Breaker blow on a torch: it is knocked over and gone (costs no dig).
+func _break_torch(c: Vector2i) -> void:
+	var t: Node3D = torches[c]
+	torches.erase(c)
+	cursor.swing()
+	fx.debris(c, 0.0)
+	fx.dust(t.position + Vector3(0, 0.3, 0), Color(1.0, 0.6, 0.3, 0.7), 0.8)
+	cam.shake(0.2)
+	Sfx.play("hit")
+	t.queue_free()
 
 
 func _try_dig(c: Vector2i) -> bool:
@@ -562,10 +589,13 @@ func _try_dig(c: Vector2i) -> bool:
 		Sfx.play("dig_fail")
 		hud.toast("一時停止中は掘れません", UiTheme.TEXT_DIM)
 		return false
-	if dig_left <= 0:
+	if dig_left <= 0 and not torches.has(c):
 		Sfx.play("dig_fail")
 		hud.toast("採掘可能数が残っていない！", UiTheme.WARN)
 		return false
+	if torches.has(c):
+		_break_torch(c)
+		return true
 	if not grid.can_dig(c):
 		Sfx.play("dig_fail")
 		return false
@@ -585,6 +615,8 @@ func _try_dig(c: Vector2i) -> bool:
 func _cursor_color(c: Vector2i) -> Color:
 	if phase == Phase.PLACE:
 		return Color(0.86, 0.6, 1.0, 1.0) if _valid_place(c) else Color(1, 0.4, 0.32, 0.5)
+	if torches.has(c):
+		return Color(1.0, 0.55, 0.25, 1.0)
 	if grid.is_floor(c):
 		return Color(0, 0, 0, 0)
 	if grid.can_dig(c) and dig_left > 0:
@@ -940,8 +972,32 @@ func _herotest() -> void:
 	for c in hero._looked:
 		if not hero._is_corridor_fork(c):
 			bad_looks += 1
-	var ok := fresh.size() > 0 and entered == 0 and bad_looks == 0
-	print("HEROTEST ", "PASS " if ok else "FAIL ", {"fresh_cells": fresh.size(), "ticks_on_fresh_cells": entered, "forks_looked": hero._looked.size(), "non_fork_looks": bad_looks, "time": snappedf(t, 0.1)})
+	var planted := torches.size()
+	# sight: standing in the starter room (4x5) the hero takes in nearly all of it at once
+	var room_c := Vector2i(grid.entrance.x - 6, 5)
+	hero.visited.fill(0)
+	hero.cell = room_c
+	hero._mark_visited()
+	var room_seen := 0
+	for y in range(3, 8):
+		for x in range(grid.entrance.x - 8, grid.entrance.x - 4):
+			room_seen += hero.visited[grid.idx(Vector2i(x, y))]
+	# a torch heals a tenth of HP / MP when stepped on
+	var tc := Vector2i(grid.entrance.x, 3)
+	_place_torch(tc)
+	hero.hp = hero.max_hp * 0.5
+	hero.cell = tc
+	hero._on_torch = Vector2i(-999, -999)
+	hero._torch_step()
+	var healed := hero.hp - hero.max_hp * 0.5
+	# the breaker knocks it over for free
+	speed = 1.0
+	var dig0 := dig_left
+	_try_dig(tc)
+	var broken := not torches.has(tc) and dig_left == dig0
+	var ok := fresh.size() > 0 and entered == 0 and bad_looks == 0 and room_seen >= 18 \
+		and absf(healed - hero.max_hp * Balance.TORCH_HEAL) < 0.01 and broken
+	print("HEROTEST ", "PASS " if ok else "FAIL ", {"fresh_cells": fresh.size(), "ticks_on_fresh_cells": entered, "forks_looked": hero._looked.size(), "non_fork_looks": bad_looks, "time": snappedf(t, 0.1), "torches_planted": planted, "room_cells_seen_at_once": room_seen, "torch_heal": healed, "torch_broken_free": broken})
 	get_tree().quit()
 
 

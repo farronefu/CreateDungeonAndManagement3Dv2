@@ -10,6 +10,8 @@ signal died
 signal escaped_with_maou
 signal picked_up_maou
 signal found_maou
+## asks the game to plant a torch here (the game owns the torch nodes, see `torches`)
+signal torch_request(cell: Vector2i)
 
 enum State { WAITING, DESCENDING, ENTERING, ACTIVE, DEAD }
 
@@ -58,6 +60,10 @@ var _descent_t := 0.0
 var known := PackedByteArray()
 ## corridor forks where the hero already looked around
 var _looked := {}
+## torches in the dungeon: cell -> node (shared with main, which adds and removes them)
+var torches := {}
+var _seen_since_torch := 0
+var _on_torch := Vector2i(-999, -999)
 
 
 func setup(p: HeroProfile, g: DungeonGrid, e: Ecosystem, mz: Maou, effects: Effects, mult: float) -> void:
@@ -112,6 +118,7 @@ func begin_invasion() -> void:
 		gate.open_gate()
 	visited.fill(0)
 	_looked.clear()
+	_seen_since_torch = 0
 	known.resize(grid.w * grid.h)
 	for i in known.size():
 		known[i] = 1 if grid.types[i] == DungeonGrid.FLOOR else 0
@@ -268,11 +275,63 @@ func _can_see(c: Vector2i) -> bool:
 	return path.size() <= profile.sight + 2 or d == 0
 
 
+## Everything the hero can see from here counts as explored: floor within HERO_SIGHT cells with
+## a clear line of sight (walls and corners block it), so a big room is taken in at a glance
+## while corridors are still walked cell by cell. Also handles torches (heal / plant).
 func _mark_visited() -> void:
-	visited[grid.idx(cell)] = 1
-	for d in DungeonGrid.DIRS:
-		if grid.is_floor(cell + d):
-			visited[grid.idx(cell + d)] = 1
+	var r := Balance.HERO_SIGHT
+	var fresh := 0
+	for dy in range(-r, r + 1):
+		for dx in range(-r, r + 1):
+			if dx * dx + dy * dy > r * r + 1:
+				continue
+			var c := cell + Vector2i(dx, dy)
+			if not grid.in_bounds(c) or visited[grid.idx(c)] == 1:
+				continue
+			if grid.walkable(c, known) and _line_clear(cell, c):
+				visited[grid.idx(c)] = 1
+				fresh += 1
+	_seen_since_torch += fresh
+	_torch_step()
+
+
+## True when every cell on the straight line between the two cell centres is walkable.
+func _line_clear(a: Vector2i, b: Vector2i) -> bool:
+	var n := maxi(absi(b.x - a.x), absi(b.y - a.y)) * 2
+	for i in range(1, n):
+		var t := float(i) / float(n)
+		var p := Vector2(a) + Vector2(b - a) * t
+		if not grid.walkable(Vector2i(roundi(p.x), roundi(p.y)), known):
+			return false
+	return true
+
+
+## Walking onto a torch heals a tenth of HP and MP (once per visit); after exploring enough
+## new ground the hero plants one, so the player can see how far it has searched.
+func _torch_step() -> void:
+	if torches.has(cell):
+		if _on_torch != cell:
+			_on_torch = cell
+			var dh := minf(max_hp - hp, max_hp * Balance.TORCH_HEAL)
+			var dm := minf(max_mp - mp, max_mp * Balance.TORCH_HEAL)
+			hp += dh
+			mp += dm
+			if dh > 0.0 or dm > 0.0:
+				fx.sparkle(position + Vector3(0, 0.5, 0), Color(1.0, 0.8, 0.4), 14)
+				if dh >= 1.0:
+					fx.number(position + Vector3(0, 1.1, 0), "+%d" % int(dh), Color(0.5, 1.0, 0.6))
+				hp_changed.emit()
+		return
+	_on_torch = Vector2i(-999, -999)
+	if carrying or _seen_since_torch < Balance.TORCH_EVERY or cell == grid.entrance:
+		return
+	for t in torches:
+		var tc: Vector2i = t
+		if absi(tc.x - cell.x) + absi(tc.y - cell.y) < Balance.TORCH_SPACING:
+			return
+	_seen_since_torch = 0
+	torch_request.emit(cell)
+	_on_torch = cell   # no heal from the torch just planted
 
 
 func _step_along(path: Array[Vector2i]) -> void:

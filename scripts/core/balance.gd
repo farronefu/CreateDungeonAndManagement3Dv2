@@ -9,6 +9,12 @@ const GRID_H := 50
 const BLOCK_H := 0.9
 const MAX_NUTRIENT := 16
 
+# --- hero exploring ---
+const HERO_SIGHT := 3          # cells: floor in line of sight within this radius counts as explored
+const TORCH_EVERY := 24        # the hero plants a torch after exploring this many new cells ...
+const TORCH_SPACING := 5       # ... if no torch is closer than this (Manhattan)
+const TORCH_HEAL := 0.1        # walking onto a torch restores this share of max HP and MP
+
 # --- phases ---
 const BUILD_TIME := 150.0
 const DIG_MAX_BASE := 100
