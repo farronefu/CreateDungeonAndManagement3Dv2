@@ -1,7 +1,9 @@
 class_name Hero
 extends Node3D
-## The invading hero. Explores the dungeon cell by cell, fights any monster next to it,
-## heals with MP, and when it finds the 魔王 carries him back to the entrance.
+## The invading hero. During the build phase it walks down the cliff steps into the fog and
+## disappears (the countdown is the time it wanders there); when the invasion starts the gate
+## doors open and it walks in. Then it explores the dungeon cell by cell, fights any monster
+## next to it, heals with MP, and when it finds the 魔王 carries him back to the entrance.
 
 signal hp_changed
 signal died
@@ -9,7 +11,10 @@ signal escaped_with_maou
 signal picked_up_maou
 signal found_maou
 
-enum State { WAITING, ENTERING, ACTIVE, DEAD }
+enum State { WAITING, DESCENDING, ENTERING, ACTIVE, DEAD }
+
+const DOOR_DELAY := 0.9     # seconds the doors take to swing open before the hero steps out
+const FADE_DIST := 1.4      # the hero fades out over the last cells of the descent
 
 var profile: HeroProfile
 var grid: DungeonGrid
@@ -43,8 +48,13 @@ var _yaw := 0.0
 var _enter_t := 0.0
 var _dead_t := 0.0
 var _grab_timer := -1.0
-## world-space walk from the town into the dungeon (set by main from SurfaceWorld)
+## world-space walks (set by main from SurfaceWorld): town -> into the fog, gate -> dungeon
+var descent_path := PackedVector3Array()
 var entry_path := PackedVector3Array()
+## the surface world, which owns the gate doors
+var gate: SurfaceWorld
+var _descent_t := 0.0
+var _close_gate_t := -1.0
 var _look_cd := 4.0
 
 
@@ -72,36 +82,77 @@ func is_targetable() -> bool:
 	return state == State.ACTIVE
 
 
+## Build phase: walk from the road down the steps into the fog and vanish there.
+func begin_descent() -> void:
+	if descent_path.size() < 2:
+		return
+	state = State.DESCENDING
+	visible = true
+	actor.set_fade(1.0)
+	_descent_t = 0.0
+	position = descent_path[0]
+
+
+## Invasion: the gate doors open and the hero, waiting behind them, walks in.
 func begin_invasion() -> void:
 	state = State.ENTERING
 	visible = true
+	actor.set_fade(1.0)
 	cell = grid.entrance
 	from_cell = cell
 	dir = Vector2i(0, 1)
 	_yaw = 0.0
-	_enter_t = 0.0
+	rotation.y = 0.0
+	_enter_t = -DOOR_DELAY if gate else 0.0
+	if entry_path.size() > 0:
+		position = entry_path[0]
+	if gate:
+		gate.open_gate()
 	visited.fill(0)
 
 
 func tick(dt: float) -> void:
 	match state:
+		State.DESCENDING:
+			_descent_t += dt
+			var dist := _descent_t / profile.move_time
+			var left := _path_length(descent_path) - dist
+			actor.set_fade(clampf(left / FADE_DIST, 0.0, 1.0))
+			actor.play(profile.anim_walk, 0.1, profile.walk_anim_speed)
+			if _walk(descent_path, dist):
+				visible = false
+				state = State.WAITING
 		State.ENTERING:
 			_enter_t += dt
-			var done := _walk_entry(_enter_t / profile.move_time)
+			if _enter_t < 0.0:
+				actor.play(profile.anim_idle, 0.1)
+				return
+			var done := _walk(entry_path, _enter_t / profile.move_time)
 			actor.play(profile.anim_walk, 0.1, profile.walk_anim_speed)
 			if done:
 				state = State.ACTIVE
+				_close_gate_t = 1.0
 				_mark_visited()
 		State.ACTIVE:
+			if _close_gate_t >= 0.0:
+				_close_gate_t -= dt
+				if _close_gate_t < 0.0 and gate:
+					gate.close_gate()
 			_logic(dt)
 			_visual(dt)
 		State.DEAD:
 			_dead_t += dt
 
 
-## Walks `dist` cells along the entry path; returns true at the end.
-func _walk_entry(dist: float) -> bool:
-	var path := entry_path
+func _path_length(path: PackedVector3Array) -> float:
+	var total := 0.0
+	for i in path.size() - 1:
+		total += path[i].distance_to(path[i + 1])
+	return total
+
+
+## Walks `dist` cells along `path`; returns true at the end.
+func _walk(path: PackedVector3Array, dist: float) -> bool:
 	if path.size() < 2:
 		path = PackedVector3Array([DungeonGrid.cell_center(grid.entrance) + Vector3(0, 0, -1.4), DungeonGrid.cell_center(grid.entrance)])
 	var left := dist
@@ -156,6 +207,8 @@ func _decide() -> void:
 		return
 	if carrying:
 		if cell == grid.entrance:
+			if gate:
+				gate.open_gate()
 			state = State.DEAD
 			escaped_with_maou.emit()
 			return

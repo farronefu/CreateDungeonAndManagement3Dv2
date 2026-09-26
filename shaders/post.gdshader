@@ -21,8 +21,8 @@ uniform float saturation = 1.02;
 // linear multipliers (no source_color: these must not be sRGB-converted)
 uniform vec3 shadow_tint = vec3(0.94, 0.96, 1.0);
 uniform vec3 light_tint = vec3(1.02, 1.0, 0.97);
-uniform float town_blur_start = -13.5;  // world z where the blur begins (behind the town buildings)
-uniform float town_blur_full = -24.0;   // world z where it is strongest
+uniform float town_blur_start = -17.0;  // world z where the blur begins (behind the town buildings)
+uniform float town_blur_full = -28.0;   // world z where it is strongest
 uniform float town_blur_radius = 6.0;   // pixels at 1080p at full strength
 
 void vertex() {

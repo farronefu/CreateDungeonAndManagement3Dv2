@@ -18,6 +18,9 @@ var yaw := 0.0
 var pitch := DEFAULT_PITCH
 var bounds := Rect2(0, -2, 36, 28)
 var edge_scroll := true
+## Looking up past the dungeon edge the focus rises onto the town on the cliff:
+## (z where the rise starts, z where it is complete, height)
+var lift := Vector3(0, 0, 0)
 ## Set when the player moves the camera manually (used to cancel hero-follow).
 var user_moved := false
 var _target_focus := Vector3.ZERO
@@ -180,5 +183,8 @@ func _apply() -> void:
 	var dist := BASE_DIST * zoom
 	var offset := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch)) * dist
 	var jitter := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * _shake * 0.12
-	position = focus + offset + jitter
-	look_at(focus + jitter * 0.5, Vector3.UP)
+	var f := focus
+	if lift.z != 0.0:
+		f.y += lift.z * smoothstep(lift.x, lift.y, focus.z)
+	position = f + offset + jitter
+	look_at(f + jitter * 0.5, Vector3.UP)

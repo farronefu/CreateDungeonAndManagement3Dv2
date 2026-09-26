@@ -201,6 +201,8 @@ func _setup_stage() -> void:
 	add_child(hero)
 	hero.setup(profile, grid, eco, maou, fx, float(stage["hero_mult"]))
 	hero.entry_path = view.surface.entry_path()
+	hero.descent_path = view.surface.descent_path()
+	hero.gate = view.surface
 	eco.hero = hero
 	hero.died.connect(_on_hero_died)
 	hero.escaped_with_maou.connect(_on_defeat)
@@ -212,7 +214,9 @@ func _setup_stage() -> void:
 		Sfx.play("dig_fail"))
 	cam = GameCamera.new()
 	add_child(cam)
-	cam.set_bounds(Rect2(4, -1.5, grid.w - 8, grid.h - 3.5))
+	# up to the town on the cliff (the focus rises onto it), down to the bottom rows
+	cam.set_bounds(Rect2(4, -9.5, grid.w - 8, grid.h + 4.5))
+	cam.lift = Vector3(-1.0, -8.5, SurfaceWorld.GROUND_Y)
 	cam.focus_on(DungeonGrid.cell_center(grid.entrance) + Vector3(-1, 0, 4.5), true)
 	cam.current = true
 	_attach_post(cam)
@@ -278,6 +282,7 @@ func _begin_intro() -> void:
 
 func _begin_build() -> void:
 	phase = Phase.BUILD
+	hero.begin_descent()
 	cursor.mode = DigCursor.Mode.DIG
 	hud.toast("通路につながったブロックをクリックして掘ろう", UiTheme.TEXT)
 
@@ -413,10 +418,13 @@ func _process(delta: float) -> void:
 			eco.tick(delta)
 		Phase.BUILD:
 			eco.tick(dt)
+			hero.tick(dt)
 			build_left -= dt
 			if build_left <= 0.0:
 				build_left = 0.0
 				_begin_place()
+		Phase.PLACE, Phase.HERO_INTRO:
+			hero.tick(dt)
 		Phase.INVASION:
 			eco.tick(dt)
 			hero.tick(dt)
@@ -716,6 +724,7 @@ func _debug_bootstrap() -> void:
 	screens.hide_all()
 	hud.set_visible_all(true)
 	phase = Phase.BUILD
+	hero.begin_descent()
 	cursor.mode = DigCursor.Mode.DIG
 	if _debug.has("speed"):
 		_set_speed(float(_debug["speed"]))

@@ -34,6 +34,7 @@ const PAL := {
 	"flowerW": [0xf6f2e6, .03], "flowerY": [0xf2d04a, .04], "flowerP": [0xe58fb0, .04], "flowerB": [0x8fa6ee, .04],
 	"rock": [0x7d8590, .07], "rockDark": [0x646b76, .07], "snow": [0xeef2f6, .03],
 	"shadow": [0x1c1612, .02],
+	"clay": [0x8c5a3c, .07], "clayDark": [0x6e4430, .07], "root": [0x5a3a22, .06],
 	"glass": [0xf2a24a, .08, 0.9], "lamp": [0xffc15e, .03, 2.2], "fire": [0xff7a1e, .06, 2.6],
 	"stainB": [0x3e6ee8, .06, 0.9], "stainR": [0xe0403a, .06, 0.9], "stainY": [0xf2c440, .06, 0.9], "stainG": [0x52c060, .06, 0.9],
 }

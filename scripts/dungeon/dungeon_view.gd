@@ -25,7 +25,6 @@ var _decor_timer := 0.0
 var _clumps: Array[MultiMeshInstance3D] = []
 var _vines: MultiMeshInstance3D
 var _tufts: MultiMeshInstance3D
-var _tufts_top: MultiMeshInstance3D   # grass on the sunlit ground-level row
 var _pebbles: MultiMeshInstance3D
 var _floor_rocks: MultiMeshInstance3D
 var _floor_shrooms: MultiMeshInstance3D
@@ -72,8 +71,8 @@ func _variant_of(c: Vector2i) -> int:
 
 
 func _build_blocks() -> void:
-	# 3 shape variants x (detailed inner grid, cheap outer rock ring) + the ground-level row 0,
-	# which belongs to the sunlit surface world (RenderLayers.SURFACE)
+	# 3 shape variants x (detailed inner grid, cheap outer rock ring) + row 0, which is not
+	# drawn as blocks: SurfaceWorld builds it as a stone rampart with the gate
 	var lists: Array = [[], [], [], [], [], [], []]
 	for y in range(0, grid.h + OUTER_BOTTOM):
 		for x in range(-OUTER_SIDE, grid.w + OUTER_SIDE):
@@ -82,8 +81,8 @@ func _build_blocks() -> void:
 				lists[6].append(c)
 			else:
 				lists[_variant_of(c) + (0 if grid.in_bounds(c) else 3)].append(c)
-	for i in 7:
-		var outer := i >= 3 and i < 6
+	for i in 6:
+		var outer := i >= 3
 		var mesh := ProcGen.rounded_box(HALF, 0.085, 200 + (i % 3) * 31, 0.012, 0.03, 0 if outer else 1)
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -101,13 +100,13 @@ func _build_blocks() -> void:
 		mmi.multimesh = mm
 		mmi.material_override = block_mat
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if outer else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-		mmi.layers = RenderLayers.SURFACE if i == 6 else RenderLayers.DUNGEON
+		mmi.layers = RenderLayers.DUNGEON
 		add_child(mmi)
 
 
 func _kind_of(c: Vector2i) -> float:
 	if not grid.in_bounds(c) or grid.get_type(c) == DungeonGrid.BEDROCK:
-		return 0.5 if c.y == 0 else 1.0
+		return 1.0
 	return 0.0
 
 
@@ -202,8 +201,6 @@ func _build_decor_layers() -> void:
 	grass_mat.roughness = 1.0
 	grass_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_tufts = _mmi(ProcGen.tuft_mesh(0.26, 0.22), grass_mat, true)
-	_tufts_top = _mmi(ProcGen.tuft_mesh(0.26, 0.22), grass_mat, true)
-	_tufts_top.layers = RenderLayers.SURFACE
 	var stone := StandardMaterial3D.new()
 	stone.vertex_color_use_as_albedo = true
 	stone.vertex_color_is_srgb = true
@@ -280,8 +277,6 @@ func _rebuild_decor() -> void:
 	var vine_c: Array = []
 	var tuft_x: Array = []
 	var tuft_c: Array = []
-	var top_x: Array = []
-	var top_c: Array = []
 	var peb_x: Array = []
 	var peb_c: Array = []
 	for y in grid.h:
@@ -292,10 +287,6 @@ func _rebuild_decor() -> void:
 			var r := RandomNumberGenerator.new()
 			r.seed = hash(c) * 31 + 7
 			if grid.get_type(c) == DungeonGrid.BEDROCK:
-				if y == 0:
-					for i in 2:
-						top_x.append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * r.randf_range(0.8, 1.2)), _top_point(c, r)))
-						top_c.append(_pick(GREEN, r))
 				continue
 			var stage := Balance.soil_stage(grid.get_nutrient(c))
 			# leaves and grass on top
@@ -340,7 +331,6 @@ func _rebuild_decor() -> void:
 		_fill(_clumps[v].multimesh, clump_x[v], clump_c[v])
 	_fill(_vines.multimesh, vine_x, vine_c)
 	_fill(_tufts.multimesh, tuft_x, tuft_c)
-	_fill(_tufts_top.multimesh, top_x, top_c)
 	_fill(_pebbles.multimesh, peb_x, peb_c)
 	var rock_x: Array = []
 	var rock_c: Array = []
