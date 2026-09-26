@@ -12,7 +12,7 @@ extends Resource
 @export_group("Model")
 @export_file("*.glb", "*.gltf", "*.tscn") var model_path := "res://assets/models/hero/hero.glb"
 ## Height of the model on screen in tiles (1 tile = 1 block).
-@export var model_height := 0.85
+@export var model_height := 1.05
 ## Extra yaw if the model does not face +Z.
 @export_range(-180.0, 180.0) var model_yaw_offset_deg := 0.0
 @export var anim_idle := "idle"

@@ -4,9 +4,9 @@ render_mode diffuse_toon, specular_toon;
 // Dug passages: dark packed earth in a few flat tones, so blocks and monsters stand out.
 uniform sampler2D noise_a : filter_linear_mipmap, repeat_enable;
 uniform sampler2D noise_b : filter_linear_mipmap, repeat_enable;
-uniform vec3 dirt_a : source_color = vec3(0.17, 0.125, 0.09);
-uniform vec3 dirt_b : source_color = vec3(0.23, 0.165, 0.12);
-uniform vec3 pebble : source_color = vec3(0.32, 0.27, 0.22);
+uniform vec3 dirt_a : source_color = vec3(0.27, 0.2, 0.14);
+uniform vec3 dirt_b : source_color = vec3(0.36, 0.265, 0.19);
+uniform vec3 pebble : source_color = vec3(0.46, 0.39, 0.31);
 uniform float depth_rows = 26.0;
 uniform float tone_steps = 3.0;
 

@@ -9,6 +9,8 @@ extends CanvasLayer
 
 signal call_hero_pressed
 signal resume_pressed
+signal retry_pressed
+signal title_pressed
 ## 0.0 = paused
 signal speed_changed(speed: float)
 
@@ -166,6 +168,16 @@ func _build_pause_screen() -> void:
 		Sfx.play("click")
 		resume_pressed.emit())
 	vb.add_child(_resume_btn)
+	for entry in [["このステージをやり直す", retry_pressed], ["タイトルに戻る", title_pressed]]:
+		var b := Button.new()
+		b.text = entry[0]
+		b.custom_minimum_size = Vector2(280, 46)
+		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		var sig: Signal = entry[1]
+		b.pressed.connect(func() -> void:
+			Sfx.play("click")
+			sig.emit())
+		vb.add_child(b)
 	var hint := UiTheme.label("Start ボタン / P キーでも再開", 16, UiTheme.TEXT_DIM)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(hint)

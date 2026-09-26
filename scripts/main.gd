@@ -227,6 +227,7 @@ func _setup_stage() -> void:
 	cursor.camera = cam
 	cursor.validator = _cursor_color
 	cursor.clicked.connect(_on_click)
+	cursor.dragged.connect(_on_drag)
 	dig_max = GameState.dig_capacity()
 	dig_left = dig_max
 	build_left = float(stage["build_time"])
@@ -237,6 +238,8 @@ func _build_ui() -> void:
 	add_child(hud)
 	hud.call_hero_pressed.connect(_on_call_hero)
 	hud.speed_changed.connect(_set_speed)
+	hud.retry_pressed.connect(_on_retry)
+	hud.title_pressed.connect(_on_title)
 	hud.resume_pressed.connect(func() -> void:
 		if speed == 0.0:
 			_toggle_pause())
@@ -545,6 +548,12 @@ func _on_click(c: Vector2i) -> void:
 			_try_place(c)
 
 
+## Mouse held and dragged: dig every diggable cell passed over, silently skipping the rest.
+func _on_drag(c: Vector2i) -> void:
+	if (phase == Phase.BUILD or phase == Phase.INVASION) and speed > 0.0 and dig_left > 0 and grid.can_dig(c):
+		_try_dig(c)
+
+
 func _try_dig(c: Vector2i) -> bool:
 	if speed == 0.0:
 		Sfx.play("dig_fail")
@@ -798,6 +807,8 @@ func _debug_tick() -> void:
 		_menutest()
 	if _debug.has("padtest"):
 		_padtest()
+	if _debug.has("dragtest") and _frames == 20:
+		_dragtest()
 	if _debug.has("camtest"):
 		_camtest()
 	if _debug.has("mouse_monster") and not eco.monsters.is_empty():
@@ -851,7 +862,19 @@ func _menutest() -> void:
 		_pad_event(JOY_BUTTON_A, false)
 	elif f == 76:
 		_mt["speed_after_A_on_resume"] = speed
-		print("MENUTEST ", _mt)
+		# pause again and move down to the new "retry" button (not pressed: it reloads the scene)
+		_pad_event(JOY_BUTTON_START, true)
+		_pad_event(JOY_BUTTON_START, false)
+	elif f == 82:
+		_pad_event(JOY_BUTTON_DPAD_DOWN, true)
+		_pad_event(JOY_BUTTON_DPAD_DOWN, false)
+	elif f == 86:
+		var fo := get_viewport().gui_get_focus_owner()
+		_mt["focus_after_down"] = (fo as Button).text if fo is Button else ""
+		var ok: bool = _mt.get("phase_after_A_on_title") == Phase.INTRO and _mt.get("paused_speed") == 0.0 \
+			and _mt.get("phase_after_Y_while_paused") == Phase.BUILD and _mt.get("speed_after_RB_while_paused") == 0.0 \
+			and _mt.get("speed_after_A_on_resume") == 1.0 and _mt["focus_after_down"] == "このステージをやり直す"
+		print("MENUTEST ", "PASS " if ok else "FAIL ", _mt)
 		get_tree().quit()
 var _pt := {}
 
@@ -868,6 +891,22 @@ func _pad_axis(axis: int, v: float) -> void:
 	e.axis = axis
 	e.axis_value = v
 	Input.parse_input_event(e)
+
+
+## Mouse drag digging (run with --autostart --dragtest): a fast drag from the end of the starter
+## corridor six cells east must dig all six (the cursor fills in the skipped cells in order),
+## and dragging back over floor must not dig or cost anything.
+func _dragtest() -> void:
+	var start := Vector2i(grid.entrance.x + 3, 5)
+	var dig0 := dig_left
+	cursor._drag_cell = start
+	cursor._drag_to(start + Vector2i(6, 0))
+	var dug := dig0 - dig_left
+	cursor._drag_to(start)
+	var back := dig0 - dig_left - dug
+	var ok := dug == 6 and back == 0 and grid.is_floor(start + Vector2i(6, 0))
+	print("DRAGTEST ", "PASS " if ok else "FAIL ", {"dug": dug, "dug_on_way_back": back})
+	get_tree().quit()
 
 
 ## Scripted Xbox-controller session (run with --autostart --padtest): right stick pans up to the

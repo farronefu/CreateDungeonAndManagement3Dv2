@@ -5,6 +5,8 @@ extends Node3D
 ## A digs / places the 魔王, holding A while moving digs a whole tunnel.
 
 signal clicked(cell: Vector2i)
+## left button held and dragged: every cell the cursor passes over (4-connected, in order)
+signal dragged(cell: Vector2i)
 signal hovered(cell: Vector2i)
 
 enum Mode { NONE, DIG, PLACE }
@@ -33,6 +35,8 @@ var _chisel: Node3D        # MetalChisel: extends downwards to break the block
 var _chisel_y := 0.0
 var _t := 0.0
 var _swinging := false
+var _mouse_held := false
+var _drag_cell := Vector2i(-999, -999)
 
 
 func _ready() -> void:
@@ -111,8 +115,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
-		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT and grid.in_bounds(hover):
-			clicked.emit(hover)
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			_mouse_held = mb.pressed and mode == Mode.DIG
+			_drag_cell = hover
+			if mb.pressed and grid.in_bounds(hover):
+				clicked.emit(hover)
 
 
 func _init_pad_cell() -> void:
@@ -184,6 +191,24 @@ const EXTEND := 0.3          # how far the chisel shoots out (model units; 0.3 i
 const HITS := 3              # hydraulic hammer blows per dig
 
 
+## Walks from the last dragged cell to `c` one grid step at a time (so a fast flick still
+## digs a connected tunnel) and reports each cell.
+func _drag_to(c: Vector2i) -> void:
+	if not grid.in_bounds(c) or c == _drag_cell:
+		return
+	if not grid.in_bounds(_drag_cell) or (c - _drag_cell).length() > 12.0:
+		_drag_cell = c
+		dragged.emit(c)
+		return
+	while _drag_cell != c:
+		var d := c - _drag_cell
+		if absi(d.x) >= absi(d.y):
+			_drag_cell.x += signi(d.x)
+		else:
+			_drag_cell.y += signi(d.y)
+		dragged.emit(_drag_cell)
+
+
 ## Hydraulic hammering: the chisel shoots down into the block a few times, the body recoils.
 func swing() -> void:
 	if _swinging or _chisel == null:
@@ -215,6 +240,10 @@ func _process(delta: float) -> void:
 	if c != hover:
 		hover = c
 		hovered.emit(c)
+	if _mouse_held and not Pad.using_pad and mode == Mode.DIG and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		_drag_to(c)
+	else:
+		_mouse_held = false
 	var solid := grid.in_bounds(c) and not grid.is_floor(c)
 	var y := Balance.BLOCK_H + 0.025 if solid else 0.02
 	var col := validator.call(c) as Color if validator.is_valid() else Color(1, 0.7, 0.2)

@@ -36,9 +36,13 @@ check "autoplay" "$OUT/autoplay.txt" "AUTOPLAY RESULT victory"
 "$GODOT" --resolution 1280x720 -- --autostart --padtest > "$OUT/padtest.txt" 2>&1
 check "padtest" "$OUT/padtest.txt" "PADTEST PASS"
 
+# mouse drag digs every cell passed over, in order
+"$GODOT" --resolution 1280x720 -- --autostart --dragtest > "$OUT/dragtest.txt" 2>&1
+check "dragtest" "$OUT/dragtest.txt" "DRAGTEST PASS"
+
 # title / pause menu driven by the pad
 "$GODOT" --resolution 1280x720 -- --menutest > "$OUT/menutest.txt" 2>&1
-check "menutest" "$OUT/menutest.txt" '"speed_after_A_on_resume": 1'
+check "menutest" "$OUT/menutest.txt" "MENUTEST PASS"
 
 echo "----"
 if [ "$fails" -eq 0 ]; then echo "ALL PASS"; else echo "$fails FAILED"; fi
