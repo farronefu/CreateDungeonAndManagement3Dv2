@@ -44,6 +44,8 @@ const BUG_ATTACK_BUSY := 0.6
 ## the blow lands this far into an attack (supplied grass clip: 0.667 s of 1.5 s)
 const ATTACK_HIT_FRACTION := 0.44
 const BUD_HP := 12
+const MOSS_BUD_NUTRIENT := 2   # モコチュリ → ツボミ: carrying this much nutrient ...
+const MOSS_BUD_HP := 2         # ... when its HP has run down to this
 const BUD_TARGET := 8          # nutrient needed for ツボミ → モコバナ
 const BUD_ABSORB_INTERVAL := 1.4
 const FLOWER_HP := 20

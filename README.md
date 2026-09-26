@@ -35,7 +35,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | 中ドラッグ / Q・E / Home | カメラ回転 / リセット |
 | F | （侵攻中）勇者をカメラで追う / 解除 |
 | F12 | スクリーンショット（`user://`） |
-| マウスを合わせる | 魔物は HP と養分、土は養分と「養分があと○で次の段階へ」だけをポップアップ表示 |
+| マウスを合わせる | 魔物は HP・養分・「進化まで」（必要な養分／HP／残り秒数）、土は養分と「養分があと○で次の段階へ」をポップアップ表示 |
 
 ### コントローラー（Xbox配置）
 
@@ -167,12 +167,18 @@ node tools/modelgen/preview/serve.mjs    # http://localhost:5178 でブラウザ
 
 ## 効果音・BGM の差し替え
 
-平常時の BGM は支給曲「ちいさな地下のくらし」（`assets/audio/bgm/build.wav`、80BPM・96秒ループ）です。それ以外の音はプログラムで合成しています（`scripts/autoload/sfx.gd`）。同じ名前の音声ファイルを置くと、起動時に自動でそちらが使われます（置いていない音は合成のまま）。
+BGM は支給曲の3曲です（切り替え時は短くフェード）。効果音はプログラムで合成しています（`scripts/autoload/sfx.gd`）。
+
+| 場面 | ファイル | 曲名 |
+| --- | --- | --- |
+| 平常時（タイトル・建設中） | `assets/audio/bgm/build.wav` | 土の下の小さな暮らし（80BPM・96秒ループ） |
+| 勇者がダンジョンにいる時 | `assets/audio/bgm/battle.wav` | 足音が階段をおりてくる（112BPM・約69秒ループ） |
+| 魔王が捕まった時 | `assets/audio/bgm/captured.wav` | 魔王、絶体絶命（156BPM・約49秒ループ） |同じ名前の音声ファイルを置くと、起動時に自動でそちらが使われます（置いていない音は合成のまま）。
 
 | 種類 | 置き場所 | 形式 |
 | --- | --- | --- |
 | 効果音 | `assets/audio/se/<名前>.wav` | WAV（16bit、44.1kHz または 48kHz、モノラル推奨）。OGG も可 |
-| BGM | `assets/audio/bgm/build.*`（平常時：タイトル・建設中）、`battle.*`（侵攻中） | OGG Vorbis（ステレオ、128〜192kbps 程度）。自動でループ再生 |
+| BGM | `assets/audio/bgm/build.*`（平常時）、`battle.*`（勇者がいる時）、`captured.*`（魔王が捕まった時） | OGG Vorbis（ステレオ、128〜192kbps 程度）。自動でループ再生 |
 
 効果音の名前：`dig`（掘る）、`dig_fail`（掘れない）、`spawn_moss`（モコチュリ誕生）、`spawn_bug`（ザクザクムシ誕生）、`evolve`（進化）、`hit`（攻撃が当たる）、`hero_hurt`（勇者が被弾）、`monster_die`（魔物が倒れる）、`eat`（捕食）、`swing`（勇者の剣）、`heal`（勇者の回復）、`grab`（魔王を担ぐ）、`place`（魔王を置く）、`cutin`（カットイン）、`door`（門の扉）、`click`（ボタン）、`victory`（勝利）、`defeat`（敗北）
 
@@ -190,6 +196,7 @@ GODOT=/path/to/godot tools/run_tests.sh
 | autoplay | 1ステージを自動プレイして勝利で終わるか |
 | padtest | コントローラー操作（右スティックで町までパン、LT+右スティックで回転、X でズーム切り替え、RB 速度、A 長押し連続掘り、Y、魔王配置、一時停止中は掘れない） |
 | herotest | 侵入後に掘った通路へ勇者が入らないか、見回すのが1マス幅の通路の分かれ道で1回だけか（初期マップと掘ったマップの2通り） |
+| tiptest | 進化前の魔物のポップアップに「進化まで」が出るか、BGM ファイルが再生されるか |
 | retrytest | 一時停止メニューの「このステージをやり直す」で、勇者到着のカットインから始まるか |
 | dragtest | マウスの長押しドラッグで、通ったブロックを順に掘れるか（通路上をなぞっても消費しない） |
 | menutest | タイトル・一時停止メニューをコントローラーで操作できるか（「このステージをやり直す」へのフォーカス移動を含む） |

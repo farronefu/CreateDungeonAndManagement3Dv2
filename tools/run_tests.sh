@@ -46,6 +46,10 @@ check "herotest (starter map)" "$OUT/herotest.txt" "HEROTEST PASS"
 "$GODOT" --resolution 1280x720 -- --autostart --seed=3 --digs=45 --simulate=40 --herotest > "$OUT/herotest2.txt" 2>&1
 check "herotest (dug map)" "$OUT/herotest2.txt" "HEROTEST PASS"
 
+# monster popups show what the next evolution needs; the BGM files are the ones playing
+"$GODOT" --resolution 1280x720 -- --autostart --seed=3 --digs=45 --simulate=80 --tiptest > "$OUT/tiptest.txt" 2>&1
+check "tiptest" "$OUT/tiptest.txt" "TIPTEST PASS"
+
 # pause menu "retry" restarts the stage at the arrival cut-in
 "$GODOT" --resolution 1280x720 -- --retrytest > "$OUT/retrytest.txt" 2>&1
 check "retrytest" "$OUT/retrytest.txt" "RETRYTEST PASS"

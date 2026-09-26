@@ -212,7 +212,8 @@ func _setup_stage() -> void:
 	hero.picked_up_maou.connect(func() -> void:
 		hud.toast("魔王が捕まった！入口に連れて行かれる前に勇者を倒せ！", UiTheme.WARN)
 		follow_hero = true
-		Sfx.play("dig_fail"))
+		Sfx.play("dig_fail")
+		Sfx.play_bgm("captured"))
 	cam = GameCamera.new()
 	add_child(cam)
 	# up to the town on the cliff (the focus rises onto it), down to the bottom rows
@@ -651,12 +652,32 @@ func _bar(v: float, max_v: float, col: String) -> String:
 	return "[color=%s]%s[/color][color=#3a4150]%s[/color]" % [col, "■".repeat(n), "■".repeat(10 - n)]
 
 
-## Popup for a monster: HP and nutrient only (a ツボミ also shows how much it needs to bloom).
+## Popup for a monster: HP, nutrient and what it still needs to evolve.
 func _monster_tip(m: Monster) -> String:
 	var txt := "HP %s %d/%d\n養分 %d" % [_bar(m.hp, m.max_hp, "#70e060"), int(ceil(m.hp)), int(m.max_hp), m.nutrient]
-	if m.kind == Monster.Kind.MOSS and m.stage == Monster.BUD:
-		txt += "\n[color=#b0a898]養分があと %d で次の段階へ[/color]" % maxi(0, Balance.BUD_TARGET - m.nutrient)
+	var evo := _evolution_need(m)
+	if evo != "":
+		txt += "\n[color=#f0e070]進化まで %s[/color]" % evo
 	return txt
+
+
+## The values the next evolution waits for, as shown in the popup ("" for final forms).
+func _evolution_need(m: Monster) -> String:
+	if m.kind == Monster.Kind.MOSS:
+		match m.stage:
+			Monster.MOSS:
+				# roots into a ツボミ when its HP runs down while it carries enough nutrient
+				return "養分 %d/%d ・ HP %d→%d" % [mini(m.nutrient, Balance.MOSS_BUD_NUTRIENT), Balance.MOSS_BUD_NUTRIENT, int(ceil(m.hp)), Balance.MOSS_BUD_HP]
+			Monster.BUD:
+				return "養分 %d/%d" % [m.nutrient, Balance.BUD_TARGET]
+	else:
+		var mult := 1.0 + 0.25 * eco.bug_level
+		match m.stage:
+			Monster.LARVA:
+				return "HP %d/%d" % [int(ceil(m.hp)), int(Balance.LARVA_PUPATE * mult)]
+			Monster.PUPA:
+				return "あと %d秒" % maxi(0, int(ceil((Balance.PUPA_TIME - maxf(0.0, m.timer)) / (1.0 + 0.15 * eco.bug_level))))
+	return ""
 
 
 ## Popup for a soil block: nutrient and how much more reaches the next stage.
@@ -781,6 +802,21 @@ func _debug_tick() -> void:
 		_dragtest()
 	if _debug.has("herotest") and _frames == 20:
 		_herotest()
+	# --tiptest: every monster that can still evolve shows what it needs; BGM files are used
+	if _debug.has("tiptest") and _frames == 20:
+		Sfx.play_bgm("captured")
+	if _debug.has("tiptest") and _frames == 80:
+		var path: String = Sfx._bgm.stream.resource_path if Sfx._bgm.stream else ""
+		var ok_bgm := path.ends_with("captured.wav") and Sfx._bgm.playing
+		var bad := 0
+		var shown := {}
+		for m in eco.monsters:
+			var final_form := (m.kind == Monster.Kind.MOSS and m.stage == Monster.FLOWER) or (m.kind == Monster.Kind.BUG and m.stage == Monster.ADULT)
+			if _monster_tip(m).contains("進化まで") == final_form:
+				bad += 1
+			shown[m.display_name()] = _evolution_need(m)
+		print("TIPTEST ", "PASS " if bad == 0 and ok_bgm and eco.monsters.size() > 0 else "FAIL ", {"monsters": eco.monsters.size(), "wrong_popups": bad, "bgm": path, "examples": shown})
+		get_tree().quit()
 	# --retrytest: "retry" from the pause menu must reload the stage at the arrival cut-in
 	if _debug.has("retrytest") and _frames == 30:
 		if not GameState.has_meta("retried"):

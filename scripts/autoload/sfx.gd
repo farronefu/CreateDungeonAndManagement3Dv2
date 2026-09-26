@@ -2,7 +2,8 @@ extends Node
 ## Procedurally synthesised sound effects and background music (no audio assets needed).
 ## Real recordings override them by name when present:
 ##   res://assets/audio/se/<sound>.wav|.ogg     e.g. se/dig.wav
-##   res://assets/audio/bgm/<name>.ogg|.wav     build.ogg (building), battle.ogg (invasion); looped
+##   res://assets/audio/bgm/<name>.ogg|.wav     build (normal), battle (hero in the dungeon),
+##                                              captured (the 魔王 has been grabbed); looped
 
 const RATE := 22050
 
@@ -11,6 +12,8 @@ var _players: Array[AudioStreamPlayer] = []
 var _next := 0
 var _bgm: AudioStreamPlayer
 var _bgm_name := ""
+var _bgm_tween: Tween
+const BGM_DB := -15.0
 var _last_play := {}
 var muted := false
 
@@ -23,7 +26,7 @@ func _ready() -> void:
 		add_child(p)
 		_players.append(p)
 	_bgm = AudioStreamPlayer.new()
-	_bgm.volume_db = -15.0
+	_bgm.volume_db = BGM_DB
 	add_child(_bgm)
 	_build_sfx()
 	for k in _streams.keys():
@@ -59,8 +62,14 @@ func play_bgm(bgm: String) -> void:
 	if bgm == _bgm_name:
 		return
 	_bgm_name = bgm
+	if _bgm_tween:
+		_bgm_tween.kill()
+	_bgm_tween = create_tween()
+	# fade the current track out quickly, then the new one in (tracks differ in tempo, so no sync)
+	if _bgm.playing:
+		_bgm_tween.tween_property(_bgm, "volume_db", -40.0, 0.35)
 	if bgm == "":
-		_bgm.stop()
+		_bgm_tween.tween_callback(_bgm.stop)
 		return
 	var key := "bgm_" + bgm
 	if not _streams.has(key):
@@ -74,8 +83,12 @@ func play_bgm(bgm: String) -> void:
 			w.loop_mode = AudioStreamWAV.LOOP_FORWARD
 			w.loop_end = int(w.get_length() * w.mix_rate)
 		_streams[key] = rec if rec else _make_bgm(bgm)
-	_bgm.stream = _streams[key]
-	_bgm.play()
+	var stream: AudioStream = _streams[key]
+	_bgm_tween.tween_callback(func() -> void:
+		_bgm.volume_db = -40.0
+		_bgm.stream = stream
+		_bgm.play())
+	_bgm_tween.tween_property(_bgm, "volume_db", BGM_DB, 0.6)
 
 
 # ------------------------------------------------------------------ synthesis helpers

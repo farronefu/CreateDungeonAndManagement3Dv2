@@ -346,7 +346,7 @@ func _moss_arrive(m: Monster) -> void:
 
 
 func _moss_check_life(m: Monster) -> void:
-	if m.nutrient >= 2 and m.hp <= 2:
+	if m.nutrient >= Balance.MOSS_BUD_NUTRIENT and m.hp <= Balance.MOSS_BUD_HP:
 		_evolve(m, Monster.BUD)
 	elif m.hp <= 0:
 		kill(m, "starve")
