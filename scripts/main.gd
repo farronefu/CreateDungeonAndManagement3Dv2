@@ -262,7 +262,7 @@ func _build_ui() -> void:
 	_hero_cutin.actor.rotation.y = 0.35
 	_maou_cutin = PortraitStudio.new()
 	add_child(_maou_cutin)
-	_maou_cutin.setup(MonsterCatalog.scene("maou"), Vector2i(560, 560), 0.0, Vector3(0.0, 0.62, 1.55), Vector3(0, 0.45, 0), 30.0, true)
+	_maou_cutin.setup(MonsterCatalog.scene("maou"), Vector2i(560, 560), 1.1, Vector3(0.0, 0.8, 1.7), Vector3(0, 0.6, 0), 30.0, false)
 	var ui := CanvasLayer.new()
 	ui.layer = 10
 	add_child(ui)
@@ -359,7 +359,7 @@ func _on_hero_died() -> void:
 	Sfx.play_bgm("")
 	Sfx.play("victory")
 	maou.set_mood("cheer")
-	_maou_cutin.actor.play("cheer", 0.0)
+	_maou_cutin.actor.play("look_around", 0.0)
 	await get_tree().create_timer(1.6 if not _debug.has("autostart") else 0.01).timeout
 	await _cutin("勇者を撃退した！", "魔物たちの勝利だ！", _maou_cutin.get_texture(), Color(0.55, 0.25, 0.8))
 	_show_result()
@@ -374,7 +374,7 @@ func _on_defeat() -> void:
 	maou.visible = false
 	Sfx.play_bgm("")
 	Sfx.play("defeat")
-	_maou_cutin.actor.play("carried", 0.0)
+	_maou_cutin.actor.play("idle", 0.0)
 	await _cutin("魔王が連れ去られた…", "ゲームオーバー", _maou_cutin.get_texture(), Color(0.25, 0.1, 0.35))
 	phase = Phase.DEFEAT
 	screens.show_game_over()
@@ -882,6 +882,17 @@ func _debug_bootstrap() -> void:
 			tt += 0.05
 		if _debug.has("report"):
 			print("hero hp %d/%d  mp %d  cell %s carrying %s  time %.1f  monsters %d  phase %d" % [hero.hp, hero.max_hp, hero.mp, hero.cell, hero.carrying, invasion_time, eco.monsters.size(), phase])
+	# --cam_maou: look at the placed 魔王 (screenshots); --carry: the hero grabs him first
+	if _debug.has("carry") and maou.placed:
+		hero.cell = maou.cell
+		hero.from_cell = maou.cell
+		hero.position = maou.position
+		hero._pick_up()
+	if _debug.has("cam_maou") and maou.placed:
+		cam.edge_scroll = false
+		cam.set_bounds(Rect2(-60, -40, 160, 80))
+		cam.zoom = 0.45
+		cam.focus_on(maou.position + Vector3(0, 0, 0.6), true)
 	if _debug.has("cam"):
 		var p: PackedStringArray = str(_debug["cam"]).split(",")
 		cam.edge_scroll = false   # a fixed debug view must not drift with the real cursor
@@ -895,6 +906,8 @@ func _debug_bootstrap() -> void:
 		_show_result()
 	if _debug.has("title"):
 		screens.show_title()
+	if _debug.has("maoucutin"):
+		cutin.play("勇者を撃退した！", "魔物たちの勝利だ！", _maou_cutin.get_texture(), Color(0.55, 0.25, 0.8), 60.0)
 	if _debug.has("cutin"):
 		cutin.play("勇者%sが現れた！" % profile.display_name, profile.intro_line, _hero_cutin.get_texture(), Color(0.8, 0.12, 0.1), 60.0)
 	if _debug.has("angle"):

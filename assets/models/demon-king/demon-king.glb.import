@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://b56aunlbeta23"
-path="res://.godot/imported/maou.glb-e460fa617e4964084632b4de95213ed6.scn"
+uid="uid://bhh3hpeptiq50"
+path="res://.godot/imported/demon-king.glb-93295a220124791c7132a878f327ae5d.scn"
 
 [deps]
 
-source_file="res://assets/models/monsters/maou.glb"
-dest_files=["res://.godot/imported/maou.glb-e460fa617e4964084632b4de95213ed6.scn"]
+source_file="res://assets/models/demon-king/demon-king.glb"
+dest_files=["res://.godot/imported/demon-king.glb-93295a220124791c7132a878f327ae5d.scn"]
 
 [params]
 

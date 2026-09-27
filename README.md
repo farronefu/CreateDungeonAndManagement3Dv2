@@ -123,13 +123,14 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 | ザクザクムシ サナギ | 同上 | Curl（幼虫からサナギになる時に丸まる）→ CurlIdle（丸まったまま呼吸）/ Uncurl（羽化の直前に戻る）/ Death |
 | ザクザクムシ 成虫（鎌と羽の魔物） | `assets/models/broad-scythe/broad-scythe.glb` | Fly（移動）/ Hover（待機）/ Attack（鎌の二段斬り・捕食）/ LayEgg（尻尾を地面に振り下ろし、接地した瞬間＝1.0秒目に尻尾の先 `tail_tip` から幼虫が1匹生まれる。サナギから羽化した直後は続けて2回産卵する）/ Death |
 | サナギ → 成虫の進化演出 | `assets/models/broad-scythe/pillbug-to-scythe-evolution.glb` | Evolve（3.5秒：丸まったダンゴムシが割れて成虫が飛び出す） |
+| 魔王（マントの魔王） | `assets/models/demon-king/demon-king.glb` | idle（立っている）/ look_around（見渡す。眼球 `eye.L` / `eye.R` も動く）。待機中は7〜12秒ごとに見渡し、勇者が近いとそわそわ見渡し続ける。勝利時は跳ねる、着地は軽くつぶれる、運ばれる時は勇者の肩に横向きに担がれる（`scripts/actors/maou.gd`） |
 | 掘削カーソル（油圧ブレーカー） | `assets/models/breaker/breaker.glb` | アニメーションなし。本体 `BreakerBody` から金属の先端 `MetalChisel` をローカルY方向に伸ばして、ブロックを3回たたく（`scripts/player/dig_cursor.gd`）。支給モデル（193万三角形・66MB）を Blender で約2.5万三角形・テクスチャ1024pxに軽量化して1.2MB |
 | 進化演出 | `assets/models/grass/evolution.glb` + `evolution-color.json` + `shaders/autumn.gdshader` | モコチュリがツボミになる時に 7 秒再生（秋色への色変化つき） |
 
 ### 魔物・魔王・掘削カーソル
 [`scripts/sim/monster_catalog.gd`](scripts/sim/monster_catalog.gd) のパスを差し替えます。クリップ名が違う場合は `anims` で対応付けできます（例: `{"move": "walk", "absorb": "gather"}`）。無いクリップは揺れ・ポップ・縮小などで自動的に代用します。
 
-使えるアニメーション名：idle, move, absorb, attack, eat, hurt, die, spawn, spawn_child, hatch, lay_egg（魔王は idle, carried, scared, cheer, land）
+使えるアニメーション名：idle, move, absorb, attack, eat, hurt, die, spawn, spawn_child, hatch, lay_egg
 
 モデルは +Z 向き、1ユニット = ブロック1個分、足元を原点にしてください。
 
@@ -149,7 +150,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.
 
 ## 魔物モデルの生成（tools/modelgen）
 
-魔王の 3D モデルとアニメーション（と、支給モデルに置き換える前の仮の魔物・ツルハシ）は、外部依存なしの Node.js スクリプトで **SDF モデリング → メッシュ化 → スキニング → キーフレーム → GLB 出力** しています。
+支給モデルに置き換える前の仮の魔物・魔王・ツルハシの 3D モデルとアニメーションは、外部依存なしの Node.js スクリプトで **SDF モデリング → メッシュ化 → スキニング → キーフレーム → GLB 出力** しています。
 
 ```bash
 node tools/modelgen/build.mjs            # 全モデルを assets/models/monsters/ に出力

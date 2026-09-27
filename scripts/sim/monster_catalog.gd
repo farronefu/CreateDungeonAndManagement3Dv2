@@ -25,8 +25,8 @@ const MODELS := {
 		"anims": {"move": "Fly", "idle": "Hover", "attack": "Attack", "eat": "Attack", "lay_egg": "LayEgg", "die": "Death"}},
 	# pupa -> adult: the curled pill bug cracks open and the scythe bug flies out (3.5 s)
 	"bug_evolution": {"path": "res://assets/models/broad-scythe/pillbug-to-scythe-evolution.glb", "scale": 0.38, "fix_colors": false, "anims": {}, "evo_time": 3.5},
-	# 魔王: procedurally generated (tools/modelgen)
-	"maou": {"path": "res://assets/models/monsters/maou.glb", "scale": 1.15, "fix_colors": true, "anims": {}},
+	# 魔王: supplied caped demon king (2026-09-27): idle / look_around, moving eyes (eye.L / eye.R)
+	"maou": {"path": "res://assets/models/demon-king/demon-king.glb", "scale": 0.47, "fix_colors": false, "anims": {}},
 	# dig cursor: supplied hydraulic breaker (2026-09-26, reduced for the game). MetalChisel slides
 	# along its local Y out of BreakerBody; the tip is at the model origin, the body is 2.4 tall
 	"breaker": {"path": "res://assets/models/breaker/breaker.glb", "scale": 0.45, "fix_colors": false, "anims": {}},
