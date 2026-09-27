@@ -185,6 +185,32 @@ static func label(text: String, size: int = 24, color: Color = TEXT, _bold: bool
 	return l
 
 
+## Big dot-lettered logo: the pixel font is drawn at its native 16px (every dot crisp, no smoothing)
+## and the whole label is scaled up `dot` times with nearest filtering, so each font pixel becomes a
+## `dot` x `dot` block. A dark outline and a drop shadow are drawn in the same blocky pixels.
+static func pixel_logo(text: String, dot: int = 7, color: Color = TEXT, outline: Color = OUTLINE) -> Control:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_override("font", _pixel_font())
+	l.add_theme_font_size_override("font_size", 16)
+	l.add_theme_color_override("font_color", color)
+	l.add_theme_constant_override("outline_size", 2)
+	l.add_theme_color_override("font_outline_color", outline)
+	l.add_theme_constant_override("shadow_offset_x", 1)
+	l.add_theme_constant_override("shadow_offset_y", 1)
+	l.add_theme_constant_override("shadow_outline_size", 2)
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
+	l.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	l.scale = Vector2(dot, dot)
+	var box := Control.new()
+	box.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	box.add_child(l)
+	var sz := l.get_combined_minimum_size() + Vector2(2, 2)
+	l.position = Vector2(dot, dot)
+	box.custom_minimum_size = (sz + Vector2(2, 2)) * dot
+	return box
+
+
 ## Heading / number label (pixel font, bigger sizes).
 static func heading(text: String, size: int = 24, color: Color = TEXT, _weight: int = 800) -> Label:
 	return label(text, size, color)

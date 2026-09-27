@@ -1,4 +1,4 @@
-# CreateDungeonAndManagement3D（仮題：ダンジョン生態系）
+# MonsterChain
 
 「勇者のくせになまいきだ」（初代）× 「風来のシレン6」風の見下ろし3Dで、
 **ダンジョンを掘って魔物の生態系を育て、攻めてくる勇者を魔物で撃退する** ゲームです。
@@ -16,10 +16,10 @@
 ## exe のビルド（Windows）
 
 ```bash
-godot --headless --export-pack "Windows Desktop" build/windows/DungeonEcosystem.pck
+godot --headless --export-pack "Windows Desktop" build/windows/MonsterChain.pck
 ```
 
-`build/windows/` に Godot 実行ファイルを `DungeonEcosystem.exe` として置くと、同名の `.pck` を読み込んで起動します。
+`build/windows/` に Godot 実行ファイルを `MonsterChain.exe` として置くと、同名の `.pck` を読み込んで起動します。
 公式エクスポートテンプレートを入れた場合は `godot --headless --export-release "Windows Desktop"` で単体の exe を出力できます（Steam 配布向け）。
 
 ## 操作

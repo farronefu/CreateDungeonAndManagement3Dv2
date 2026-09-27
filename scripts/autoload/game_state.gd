@@ -2,6 +2,9 @@ extends Node
 ## Persistent run state (survives scene reloads between stages).
 ## The dungeon (grid + monsters) carries over from stage to stage.
 
+## The game's name (window title, title screen, exe name all use "MonsterChain").
+const GAME_TITLE := "MonsterChain"
+
 var in_run := false
 var stage_index := 0
 var seed_value := 0
