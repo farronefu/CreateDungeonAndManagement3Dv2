@@ -8,7 +8,7 @@ extends Node3D
 ## count towards the model size: supplied grass / tree / pillbug death & attack FX.
 const AABB_IGNORE := ["Withered", "Thorned", "Shard", "fx_", "Nutrient", "SwirlLeaf"]
 
-const LOOPING := ["idle", "move", "walk", "absorb", "eat", "carried", "scared", "cheer"]
+const LOOPING := ["idle", "move", "walk", "absorb", "eat", "carried", "scared", "cheer", "cower"]
 
 var model: Node3D
 var anim: AnimationPlayer

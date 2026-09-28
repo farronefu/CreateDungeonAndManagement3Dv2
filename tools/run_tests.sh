@@ -54,6 +54,10 @@ check "poketest" "$OUT/poketest.txt" "POKETEST PASS"
 "$GODOT" --resolution 1280x720 -- --autostart --seed=3 --capturetest > "$OUT/capturetest.txt" 2>&1
 check "capturetest" "$OUT/capturetest.txt" "CAPTURETEST PASS"
 
+# the 魔王 starts near the entrance; cowers while the hero is close, stands again once it has gone
+"$GODOT" --resolution 1280x720 --fixed-fps 30 -- --autostart --cowertest > "$OUT/cowertest.txt" 2>&1
+check "cowertest" "$OUT/cowertest.txt" "COWERTEST PASS"
+
 # a freshly emerged scythe bug lays two larvae at once (nutrient conserved)
 "$GODOT" --resolution 1280x720 -- --autostart --seed=3 --birthtest > "$OUT/birthtest.txt" 2>&1
 check "birthtest" "$OUT/birthtest.txt" "BIRTHTEST PASS"

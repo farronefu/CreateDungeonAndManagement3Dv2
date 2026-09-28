@@ -1,12 +1,13 @@
 class_name Maou
 extends Node3D
-## The demon lord. Placed by the player before the invasion; if the hero drags him out through
-## the entrance, the stage is lost.
+## The demon lord. Stands near the entrance from the start of each stage; if the hero drags him
+## out through the entrance, the stage is lost.
 ##
-## Models: assets/models/demon-king/demon-king.glb (idle, look_around) while free, and
-## demon-king-wrapped.glb (struggle) once captured. The moods the game asks for:
+## Models: assets/models/demon-king/demon-king.glb (idle, look_around, cower_in, cower, cower_out)
+## while free, and demon-king-wrapped.glb (struggle) once captured. The moods the game asks for:
 ##   idle     stands; every LOOK_EVERY seconds he looks around once
-##   scared   (hero close by) keeps looking around, a bit faster
+##   scared   (hero close by) crouches on the floor hiding his face and trembles (cower_in, then
+##            cower on a loop); once the hero is gone he gets back up (cower_out)
 ##   cheer    hops on the spot
 ##   land     (placed / dropped) a small squash on touching down
 ##   captured the hero grabs him from the next cell: wrapped in bandages he lies on the floor
@@ -26,6 +27,8 @@ var _t := 0.0
 var _squash: Tween
 var _base_scale := Vector3.ONE
 var _drag_from := Vector2i(-1, -1)   # cell he is being dragged out of (lerps with the hero's step)
+enum Cower { STANDING, GOING_DOWN, DOWN, GETTING_UP }
+var _cower := Cower.STANDING
 
 
 func _ready() -> void:
@@ -62,12 +65,17 @@ func _ready() -> void:
 	visible = false
 
 
-func place(c: Vector2i) -> void:
+## Puts him on `c`. `quiet`: no landing squash / sound (set up at the start of the stage).
+func place(c: Vector2i, quiet: bool = false) -> void:
 	cell = c
 	placed = true
 	visible = true
 	position = DungeonGrid.cell_center(c)
 	rotation.y = 0.0
+	_cower = Cower.STANDING
+	if quiet:
+		actor.play("idle", 0.0, 1.0, true)
+		return
 	_land()
 	Sfx.play("place", position)
 
@@ -97,6 +105,8 @@ func drop(c: Vector2i) -> void:
 	actor.visible = true
 	_wrapped.get_parent().visible = false
 	_ring.visible = true
+	_cower = Cower.STANDING
+	actor.play("idle", 0.0, 1.0, true)
 	_land()
 
 
@@ -108,6 +118,39 @@ func _face(p: Vector3, k: float) -> void:
 	var d := p - position
 	if Vector2(d.x, d.z).length() > 0.05:
 		rotation.y = lerp_angle(rotation.y, atan2(d.x, d.z), k)
+
+
+## Crouching while the hero is close: cower_in -> cower (loop) -> cower_out when it has gone.
+## Returns true while the cower animations are in charge.
+func _update_cower() -> bool:
+	var scared := mood == "scared"
+	match _cower:
+		Cower.STANDING:
+			if not scared:
+				return false
+			actor.play_once("cower_in", 1.0, 0.2)
+			_cower = Cower.GOING_DOWN
+		Cower.GOING_DOWN:
+			if not scared:
+				actor.play_once("cower_out", 1.0, 0.15)
+				_cower = Cower.GETTING_UP
+			elif not actor.is_busy():
+				actor.play("cower", 0.1, 1.0, true)
+				_cower = Cower.DOWN
+		Cower.DOWN:
+			if not scared:
+				actor.play_once("cower_out", 1.0, 0.1)
+				_cower = Cower.GETTING_UP
+		Cower.GETTING_UP:
+			if scared:
+				actor.play_once("cower_in", 1.0, 0.2)
+				_cower = Cower.GOING_DOWN
+			elif not actor.is_busy():
+				actor.play("idle", 0.2, 1.0, true)
+				_look_in = randf_range(LOOK_EVERY.x, LOOK_EVERY.y)
+				_cower = Cower.STANDING
+				return false
+	return true
 
 
 ## Touch-down squash (the model has no landing clip).
@@ -133,9 +176,7 @@ func _process(delta: float) -> void:
 		return
 	# cheering: hop on the spot
 	actor.position.y = absf(sin(_t * 7.0)) * 0.14 if mood == "cheer" else 0.0
-	if mood == "scared":
-		actor.play("look_around", 0.25, 1.35)
-		_look_in = randf_range(LOOK_EVERY.x, LOOK_EVERY.y)
+	if _update_cower():
 		return
 	if actor.is_busy():
 		return

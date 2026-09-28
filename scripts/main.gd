@@ -202,6 +202,8 @@ func _setup_stage() -> void:
 	add_child(maou)
 	hero = Hero.new()
 	add_child(hero)
+	# the 魔王 stands near the entrance from the start (the player moves him when the hero is called)
+	maou.place(_maou_start_cell(), true)
 	hero.setup(profile, grid, eco, maou, fx, float(stage["hero_mult"]))
 	hero.entry_path = view.surface.entry_path()
 	hero.descent_path = view.surface.descent_path()
@@ -311,6 +313,26 @@ func _on_call_hero() -> void:
 			_begin_place()
 		else:
 			cursor.mode = DigCursor.Mode.DIG)
+
+
+## Where the 魔王 stands at the start of a stage: a corridor cell MAOU_START_STEPS steps from the
+## entrance (closest available), preferring the deepest one, then the one straight below it.
+const MAOU_START_STEPS := 3
+func _maou_start_cell() -> Vector2i:
+	var d := grid.distance_map(grid.entrance)
+	var best := Vector2i(-1, -1)
+	var best_score := INF
+	for y in grid.h:
+		for x in grid.w:
+			var c := Vector2i(x, y)
+			var dc: int = d[grid.idx(c)]
+			if c == grid.entrance or not grid.is_floor(c) or dc < 1:
+				continue
+			var score := absf(dc - MAOU_START_STEPS) * 100.0 - y * 2.0 + absi(x - grid.entrance.x)
+			if score < best_score:
+				best_score = score
+				best = c
+	return best if best.x >= 0 else grid.entrance
 
 
 func _begin_place() -> void:
@@ -477,11 +499,16 @@ func _process(delta: float) -> void:
 	_debug_tick()
 
 
+## The 魔王 cowers while the hero is within MAOU_SCARED_ENTER cells and gets back up once it is
+## MAOU_SCARED_LEAVE cells away (the gap stops him bobbing up and down at the edge).
+const MAOU_SCARED_ENTER := 4
+const MAOU_SCARED_LEAVE := 6
 func _update_maou_mood() -> void:
 	if maou.carrier != null or not maou.placed:
 		return
 	var d := absi(hero.cell.x - maou.cell.x) + absi(hero.cell.y - maou.cell.y)
-	maou.set_mood("scared" if hero.is_targetable() and d <= 4 else "idle")
+	var near := hero.is_targetable() and d <= (MAOU_SCARED_LEAVE - 1 if maou.mood == "scared" else MAOU_SCARED_ENTER)
+	maou.set_mood("scared" if near else "idle")
 
 
 func _fmt_time(t: float) -> String:
@@ -991,6 +1018,43 @@ func _perf_tick() -> void:
 		get_tree().quit()
 
 
+## (run with --autostart --cowertest) the 魔王 already stands near the entrance; when the hero comes
+## within MAOU_SCARED_ENTER cells he crouches (cower_in) and trembles (cower loop), and once it is
+## MAOU_SCARED_LEAVE cells away he gets back up (cower_out) and stands (idle) again.
+var _cw := {}
+func _cowertest() -> void:
+	var f := _frames
+	if f == 10:
+		_cw["start_cell"] = maou.cell
+		_cw["start_steps"] = grid.distance_map(grid.entrance)[grid.idx(maou.cell)]
+		_cw["placed_at_start"] = maou.placed and maou.visible
+		cam.edge_scroll = false
+		cam.zoom = 0.45
+		cam.focus_on(maou.position + Vector3(0, 0, 0.6), true)
+	elif f == 20:
+		hero.state = Hero.State.ACTIVE
+		phase = Phase.RESULT   # nothing ticks the hero or the ecosystem: the test drives the mood itself
+		hero.visible = true
+	elif f > 20 and f < 150:
+		hero.cell = maou.cell + Vector2i(0, 2) if f < 90 else maou.cell + Vector2i(0, 12)
+		hero.from_cell = hero.cell
+		hero.position = DungeonGrid.cell_center(hero.cell)
+		_update_maou_mood()
+		if f == 60:
+			_cw["mood_near"] = maou.mood
+			_cw["clip_near"] = maou.actor.current
+			_screenshot("debug_shots/cowertest_down.png")
+		elif f == 140:
+			_cw["mood_far"] = maou.mood
+			_cw["clip_far"] = maou.actor.current
+	elif f == 150:
+		var ok: bool = _cw["placed_at_start"] and _cw["start_steps"] >= 1 and _cw["start_steps"] <= 4
+		ok = ok and _cw["mood_near"] == "scared" and _cw["clip_near"] == "cower"
+		ok = ok and _cw["mood_far"] == "idle" and _cw["clip_far"] in ["idle", "look_around"]
+		print("COWERTEST ", "PASS " if ok else "FAIL ", _cw)
+		get_tree().quit()
+
+
 func _debug_tick() -> void:
 	if _debug.has("perf"):
 		_perf_tick()
@@ -1000,6 +1064,8 @@ func _debug_tick() -> void:
 		_menutest()
 	if _debug.has("padtest"):
 		_padtest()
+	if _debug.has("cowertest"):
+		_cowertest()
 	if _debug.has("dragtest") and _frames == 20:
 		_dragtest()
 	if _debug.has("herotest") and _frames == 20:
