@@ -1,29 +1,31 @@
 class_name Maou
 extends Node3D
-## The demon lord. Placed by the player before the invasion; if the hero carries him
-## out through the entrance, the stage is lost.
+## The demon lord. Placed by the player before the invasion; if the hero drags him out through
+## the entrance, the stage is lost.
 ##
-## Model: assets/models/demon-king/demon-king.glb (clips: idle, look_around). The moods the game
-## asks for are built from those plus a little procedural motion:
+## Models: assets/models/demon-king/demon-king.glb (idle, look_around) while free, and
+## demon-king-wrapped.glb (struggle) once captured. The moods the game asks for:
 ##   idle     stands; every LOOK_EVERY seconds he looks around once
 ##   scared   (hero close by) keeps looking around, a bit faster
 ##   cheer    hops on the spot
-##   carried  lies across the hero's shoulders
 ##   land     (placed / dropped) a small squash on touching down
+##   captured the hero grabs him from the next cell: wrapped in bandages he lies on the floor
+##            kicking, and is dragged one cell behind the hero, head towards it
 
 const LOOK_EVERY := Vector2(7.0, 12.0)
-const CARRY_HEIGHT := 0.78
 
 var cell := Vector2i(-1, -1)
 var placed := false
 var carrier: Node3D
 var actor: ModelActor
 var mood := "idle"
+var _wrapped: ModelActor
 var _ring: MeshInstance3D
 var _look_in := 5.0
 var _t := 0.0
 var _squash: Tween
 var _base_scale := Vector3.ONE
+var _drag_from := Vector2i(-1, -1)   # cell he is being dragged out of (lerps with the hero's step)
 
 
 func _ready() -> void:
@@ -31,6 +33,15 @@ func _ready() -> void:
 	add_child(actor)
 	_base_scale = actor.scale
 	actor.play("idle", 0.0)
+	# the wrapped model's origin is at the legs: centre the body on the cell
+	_wrapped = MonsterCatalog.make_actor("maou_wrapped")
+	var holder := Node3D.new()
+	add_child(holder)
+	holder.add_child(_wrapped)
+	var box := _wrapped.local_aabb()
+	_wrapped.position = -Vector3(box.get_center().x, 0, box.get_center().z)
+	_wrapped.play("idle", 0.0)
+	holder.visible = false
 	# soft purple aura ring on the floor so the player can always spot him
 	_ring = MeshInstance3D.new()
 	var tm := TorusMesh.new()
@@ -61,13 +72,21 @@ func place(c: Vector2i) -> void:
 	Sfx.play("place", position)
 
 
+## Captured by the hero standing in the next cell: he stays in his cell, now wrapped up.
 func pick_up(hero: Node3D) -> void:
 	carrier = hero
+	_drag_from = cell
 	_ring.visible = false
-	# lying across the hero's shoulders: body along the hero's left-right axis
-	actor.rotation = Vector3(0, 0, PI * 0.5)
-	actor.position = Vector3(0.56, 0, 0)
-	actor.play("idle", 0.1, 1.0, true)
+	actor.visible = false
+	_wrapped.get_parent().visible = true
+	_wrapped.play("idle", 0.0)
+	_face(hero.position, 1.0)
+
+
+## The hero stepped out of \`hero_cell\`: he is dragged into it.
+func follow_step(hero_cell: Vector2i) -> void:
+	_drag_from = cell
+	cell = hero_cell
 
 
 func drop(c: Vector2i) -> void:
@@ -75,14 +94,20 @@ func drop(c: Vector2i) -> void:
 	cell = c
 	position = DungeonGrid.cell_center(c)
 	rotation = Vector3.ZERO
-	actor.rotation = Vector3.ZERO
-	actor.position = Vector3.ZERO
+	actor.visible = true
+	_wrapped.get_parent().visible = false
 	_ring.visible = true
 	_land()
 
 
 func set_mood(m: String) -> void:
 	mood = m
+
+
+func _face(p: Vector3, k: float) -> void:
+	var d := p - position
+	if Vector2(d.x, d.z).length() > 0.05:
+		rotation.y = lerp_angle(rotation.y, atan2(d.x, d.z), k)
 
 
 ## Touch-down squash (the model has no landing clip).
@@ -101,10 +126,10 @@ func _process(delta: float) -> void:
 	_t += delta
 	_ring.rotation.y += delta * 0.8
 	if carrier:
-		position = carrier.position + Vector3(0, CARRY_HEIGHT, 0) + carrier.basis.z * -0.05
-		rotation.y = carrier.rotation.y
-		cell = carrier.get("cell")
-		actor.play("idle")
+		# one cell behind the hero, sliding in step with it, head towards it
+		var t: float = carrier.get("move_t")
+		position = DungeonGrid.cell_center(_drag_from).lerp(DungeonGrid.cell_center(cell), clampf(t, 0.0, 1.0))
+		_face(carrier.position, clampf(delta * 8.0, 0.0, 1.0))
 		return
 	# cheering: hop on the spot
 	actor.position.y = absf(sin(_t * 7.0)) * 0.14 if mood == "cheer" else 0.0

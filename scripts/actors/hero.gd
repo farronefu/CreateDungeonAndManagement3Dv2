@@ -193,7 +193,7 @@ func _logic(dt: float) -> void:
 	attack_cd = maxf(0.0, attack_cd - dt)
 	if _grab_timer >= 0.0:
 		_grab_timer -= dt
-		if _grab_timer < 0.0 and cell == maou.cell and maou.carrier == null:
+		if _grab_timer < 0.0 and _next_to(maou.cell) and maou.carrier == null:
 			_pick_up()
 	if _hit_timer >= 0.0:
 		_hit_timer -= dt
@@ -233,7 +233,10 @@ func _decide() -> void:
 	if not knows_maou and maou.placed and _can_see(maou.cell):
 		knows_maou = true
 	if knows_maou and maou.placed and maou.carrier == null:
-		if cell == maou.cell:
+		# stop in front of him (the next cell), face him, then grab
+		if _next_to(maou.cell):
+			if maou.cell != cell:
+				dir = maou.cell - cell
 			_celebrate_then_grab()
 			return
 		var path := grid.find_path(cell, maou.cell, known)
@@ -348,7 +351,13 @@ func _step_along(path: Array[Vector2i]) -> void:
 	_step(path[0])
 
 
+func _next_to(c: Vector2i) -> bool:
+	return absi(c.x - cell.x) + absi(c.y - cell.y) <= 1
+
+
 func _step(to: Vector2i) -> void:
+	if carrying:
+		maou.follow_step(cell)   # the 魔王 is dragged into the cell the hero leaves
 	from_cell = cell
 	dir = to - cell
 	cell = to
@@ -446,7 +455,7 @@ func _die() -> void:
 	hp = 0
 	if carrying:
 		carrying = false
-		maou.drop(cell)
+		maou.drop(maou.cell)
 	died.emit()
 	# death clip (or a fall-over fallback), hold the pose, then fade out
 	var tw := create_tween()

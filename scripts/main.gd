@@ -1012,6 +1012,8 @@ func _debug_tick() -> void:
 	if _debug.has("birthtest") and _frames == 20:
 		_birthtest()
 	# --tiptest: every monster that can still evolve shows what it needs; BGM files are used
+	if (_debug.has("capturetest") or _debug.has("capturedemo")) and _frames == 20:
+		_capturetest()
 	if _debug.has("tiptest") and _frames == 20:
 		Sfx.play_bgm("captured")
 	if _debug.has("tiptest") and _frames == 80:
@@ -1179,6 +1181,36 @@ func _herotest() -> void:
 	var ok := fresh.size() > 0 and entered == 0 and bad_looks == 0 and room_seen >= 18 \
 		and absf(healed - hero.max_hp * Balance.TORCH_HEAL) < 0.01 and broken
 	print("HEROTEST ", "PASS " if ok else "FAIL ", {"fresh_cells": fresh.size(), "ticks_on_fresh_cells": entered, "forks_looked": hero._looked.size(), "non_fork_looks": bad_looks, "time": snappedf(t, 0.1), "torches_planted": planted, "room_cells_seen_at_once": room_seen, "torch_heal": healed, "torch_broken_free": broken})
+	get_tree().quit()
+
+
+## (run with --autostart --seed=3 --capturetest) with the 魔王 at the end of the starter corridor
+## and no monsters around: the hero grabs him from the next cell, he turns into the wrapped
+## model, is dragged exactly one cell behind the hero and out through the entrance.
+func _capturetest() -> void:
+	for m in eco.monsters.duplicate():
+		eco.kill(m, "eaten")
+	maou.place(Vector2i(grid.entrance.x + 3, 5))
+	_begin_invasion()
+	if _debug.has("capturedemo"):
+		return   # same setup, but play it out in real time (screenshots)
+	var escaped := {"v": false}
+	hero.escaped_with_maou.connect(func() -> void: escaped["v"] = true)
+	var grab_dist := -1
+	var wrapped := false
+	var max_dist := 0
+	var t := 0.0
+	while t < 150.0 and hero.state != Hero.State.DEAD:
+		hero.tick(0.05)
+		t += 0.05
+		var d := absi(hero.cell.x - maou.cell.x) + absi(hero.cell.y - maou.cell.y)
+		if hero.carrying:
+			if grab_dist < 0:
+				grab_dist = d
+				wrapped = maou._wrapped.get_parent().visible and not maou.actor.visible
+			max_dist = maxi(max_dist, d)
+	var ok: bool = grab_dist == 1 and wrapped and max_dist <= 1 and escaped["v"]
+	print("CAPTURETEST ", "PASS " if ok else "FAIL ", {"grab_distance": grab_dist, "wrapped_model": wrapped, "max_distance_while_dragged": max_dist, "escaped": escaped["v"], "time": snappedf(t, 0.1)})
 	get_tree().quit()
 
 

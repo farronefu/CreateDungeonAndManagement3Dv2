@@ -123,7 +123,8 @@ godot --headless --export-pack "Windows Desktop" build/windows/MonsterChain.pck
 | ザクザクムシ サナギ | 同上 | Curl（幼虫からサナギになる時に丸まる）→ CurlIdle（丸まったまま呼吸）/ Uncurl（羽化の直前に戻る）/ Death |
 | ザクザクムシ 成虫（鎌と羽の魔物） | `assets/models/broad-scythe/broad-scythe.glb` | Fly（移動）/ Hover（待機）/ Attack（鎌の二段斬り・捕食）/ LayEgg（尻尾を地面に振り下ろし、接地した瞬間＝1.0秒目に尻尾の先 `tail_tip` から幼虫が1匹生まれる。サナギから羽化した直後は続けて2回産卵する）/ Death |
 | サナギ → 成虫の進化演出 | `assets/models/broad-scythe/pillbug-to-scythe-evolution.glb` | Evolve（3.5秒：丸まったダンゴムシが割れて成虫が飛び出す） |
-| 魔王（マントの魔王） | `assets/models/demon-king/demon-king.glb` | idle（立っている）/ look_around（見渡す。眼球 `eye.L` / `eye.R` も動く）。待機中は7〜12秒ごとに見渡し、勇者が近いとそわそわ見渡し続ける。勝利時は跳ねる、着地は軽くつぶれる、運ばれる時は勇者の肩に横向きに担がれる（`scripts/actors/maou.gd`） |
+| 魔王（マントの魔王） | `assets/models/demon-king/demon-king.glb` | idle（立っている）/ look_around（見渡す。眼球 `eye.L` / `eye.R` も動く）。待機中は7〜12秒ごとに見渡し、勇者が近いとそわそわ見渡し続ける。勝利時は跳ねる、着地は軽くつぶれる（`scripts/actors/maou.gd`） |
+| 捕まった魔王（包帯で簀巻き） | `assets/models/demon-king/demon-king-wrapped.glb` | struggle（仰向けで足をバタつかせる、ループ）。勇者が魔王の隣のマスに立って捕まえるとこのモデルに切り替わり、勇者の1マス後ろを頭を勇者に向けて引きずられる。勇者が倒れるとその場で元の姿に戻る |
 | 掘削カーソル（油圧ブレーカー） | `assets/models/breaker/breaker.glb` | アニメーションなし。本体 `BreakerBody` から金属の先端 `MetalChisel` をローカルY方向に伸ばして、ブロックを3回たたく（`scripts/player/dig_cursor.gd`）。支給モデル（193万三角形・66MB）を Blender で約2.5万三角形・テクスチャ1024pxに軽量化して1.2MB |
 | 進化演出 | `assets/models/grass/evolution.glb` + `evolution-color.json` + `shaders/autumn.gdshader` | モコチュリがツボミになる時に 7 秒再生（秋色への色変化つき） |
 
@@ -215,6 +216,7 @@ GODOT=/path/to/godot tools/run_tests.sh
 | padtest | コントローラー操作（RT+右スティックで町まで移動、右スティックでカーソル中心に回転、R3 でズーム、RB/LB で速度、LT で勇者へ、Y の確認を B で取り消し A で決定、B で一時停止を閉じる、RB 速度、A 長押し連続掘り、Y、魔王配置、一時停止中は掘れない） |
 | herotest | 侵入後に掘った通路へ勇者が入らないか、見回すのが1マス幅の通路の分かれ道で1回だけか、部屋を一度に見渡せるか（半径3マス）、松明の設置・回復（1割）・ブレーカーでの破壊（初期マップと掘ったマップの2通り） |
 | poketest | ブレーカーで突くと最大HPの1/3ずつ減り3回で倒れ、養分の総量が変わらないか。1ブロックだけの行き止まりを分かれ道と見なさないか |
+| capturetest | 勇者が隣のマスから魔王を捕まえ、簀巻きの姿で1マス後ろを引きずられ、入口から連れ出されるか |
 | birthtest | サナギから羽化したハチがすぐに幼虫を2体生むか、養分の総量が変わらないか |
 | tiptest | 進化前の魔物のポップアップに「進化まで」が出るか、BGM ファイルが再生されるか |
 | retrytest | 一時停止メニューの「このステージをやり直す」で、勇者到着のカットインから始まるか |

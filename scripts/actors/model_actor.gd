@@ -238,6 +238,11 @@ func _find_player(n: Node) -> AnimationPlayer:
 	return null
 
 
+## Bounds of the model in the parent's space (this node's scale applied).
+func local_aabb() -> AABB:
+	return Transform3D(Basis.from_scale(scale), Vector3.ZERO) * _model_aabb()
+
+
 func _model_aabb() -> AABB:
 	var box := AABB()
 	var first := true
