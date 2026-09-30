@@ -58,6 +58,8 @@ var gate: SurfaceWorld
 var _descent_t := 0.0
 ## the dungeon as it was when the hero came in (1 = floor then); tunnels dug later are ignored
 var known := PackedByteArray()
+## swings so far (for recording tools that look for the busiest fighting)
+var attacks := 0
 ## corridor forks where the hero already looked around
 var _looked := {}
 ## torches in the dungeon: cell -> node (shared with main, which adds and removes them)
@@ -374,6 +376,7 @@ func _pick_target() -> Monster:
 
 
 func _attack(m: Monster) -> void:
+	attacks += 1
 	var d := m.cell - cell
 	if d != Vector2i.ZERO:
 		dir = d

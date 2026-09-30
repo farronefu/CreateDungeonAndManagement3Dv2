@@ -742,6 +742,9 @@ var _tip_text := ""
 
 
 func _update_tooltip(delta: float) -> void:
+	if _debug.has("trailer"):
+		hud.show_tooltip("", Vector2.ZERO)
+		return
 	var active := (phase == Phase.BUILD or phase == Phase.PLACE or phase == Phase.INVASION or phase == Phase.ENDING) and speed != 0.0
 	hud.set_pad_hint(Pad.using_pad and active)
 	if not active or hud.is_confirming() or (not Pad.using_pad and get_viewport().gui_get_hovered_control() != null):
@@ -1055,9 +1058,36 @@ func _cowertest() -> void:
 		get_tree().quit()
 
 
+## --trailer: real play recorded for a clip (use with --write-movie): the camera follows the
+## hero at the middle zoom from above, no cursor / popups / hints; logs the hero's swings so
+## the busiest stretch can be cut out.
+func _trailer_tick() -> void:
+	if _frames == 1:
+		# the recording is 16:9: keep the UI canvas 16:9 too (a wider screen would push the HUD past the edges)
+		get_tree().root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+	if _frames == 2:
+		cursor.mode = DigCursor.Mode.NONE
+		cam.edge_scroll = false
+		cam.zoom = GameCamera.ZOOM_STEPS[1]
+		cam.set_angle(0.0, deg_to_rad(62.0))
+		follow_hero = true
+		for t in hud._toasts.get_children():
+			t.queue_free()
+	if phase == Phase.INVASION and hero.is_targetable():
+		cam.focus_on(hero.position + Vector3(0, 0, 0.6))
+	if _frames % 10 == 0:
+		var near := 0
+		for m in eco.monsters:
+			if m.alive and absi(m.cell.x - hero.cell.x) + absi(m.cell.y - hero.cell.y) <= 4:
+				near += 1
+		print("TRAILER f=%d attacks=%d near=%d hp=%d" % [_frames, hero.attacks, near, int(hero.hp)])
+
+
 func _debug_tick() -> void:
 	if _debug.has("perf"):
 		_perf_tick()
+	if _debug.has("trailer"):
+		_trailer_tick()
 	if _debug.has("mouse_hero") and hero.visible:
 		get_viewport().warp_mouse(cam.unproject_position(hero.global_position + Vector3(0, 0.45, 0)))
 	if _debug.has("menutest"):
