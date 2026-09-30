@@ -1073,14 +1073,34 @@ func _trailer_tick() -> void:
 		follow_hero = true
 		for t in hud._toasts.get_children():
 			t.queue_free()
+		# --trailer_bugs: put some pill bugs and scythe bugs near the hero's way in, so the clip
+		# shows every kind of monster (from then on they act on their own)
+		if _debug.has("trailer_bugs"):
+			var dist := grid.distance_map(grid.entrance)
+			var spots: Array[Vector2i] = []
+			for i in dist.size():
+				if dist[i] >= 3 and dist[i] <= 9:
+					spots.append(Vector2i(i % grid.w, i / grid.w))
+			var r := RandomNumberGenerator.new()
+			r.seed = int(_debug.get("seed", 1))
+			var kinds := [Monster.LARVA, Monster.LARVA, Monster.LARVA, Monster.ADULT, Monster.ADULT, Monster.PUPA]
+			for st in kinds.slice(0, int(_debug["trailer_bugs"])):
+				if spots.is_empty():
+					break
+				var c: Vector2i = spots.pop_at(r.randi() % spots.size())
+				var m := eco.spawn(Monster.Kind.BUG, st, c, 6, "load")
+				m.hp = m.max_hp
 	if phase == Phase.INVASION and hero.is_targetable():
 		cam.focus_on(hero.position + Vector3(0, 0, 0.6))
 	if _frames % 10 == 0:
 		var near := 0
+		var bugs := 0
 		for m in eco.monsters:
 			if m.alive and absi(m.cell.x - hero.cell.x) + absi(m.cell.y - hero.cell.y) <= 4:
 				near += 1
-		print("TRAILER f=%d attacks=%d near=%d hp=%d" % [_frames, hero.attacks, near, int(hero.hp)])
+				if m.kind == Monster.Kind.BUG:
+					bugs += 1
+		print("TRAILER f=%d attacks=%d near=%d bugs=%d hp=%d" % [_frames, hero.attacks, near, bugs, int(hero.hp)])
 
 
 func _debug_tick() -> void:

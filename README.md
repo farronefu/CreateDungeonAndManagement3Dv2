@@ -207,9 +207,9 @@ BGM は支給曲の3曲です（切り替え時は短くフェード）。効果
 
 ```bash
 # 1) 録画（22秒ほど。ログの TRAILER 行で勇者の攻撃回数と周りの魔物の数が分かる）
-godot --resolution 1920x1080 --write-movie play.avi --fixed-fps 60 -- --autostart --seed=3 --digs=60 --simulate=90 --invade --hero_time=4 --trailer --quit_after=1330
-# 2) 900フレーム目から300フレーム（5秒）を切り出す
-blender -b -P tools/make_clip.py -- play.avi clip.mp4 900 300
+godot --resolution 1920x1080 --write-movie play.avi --fixed-fps 60 -- --autostart --seed=3 --digs=60 --simulate=90 --invade --hero_time=4 --trailer --trailer_bugs=6 --quit_after=760
+# 2) 150フレーム目から300フレーム（5秒）を切り出す（--trailer_bugs=N でダンゴムシ・ハチを勇者の進路の近くに N 体置く）
+blender -b -P tools/make_clip.py -- play.avi clip.mp4 150 300
 ```
 
 ## テスト・デバッグ
