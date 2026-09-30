@@ -1078,6 +1078,9 @@ func _debug_tick() -> void:
 	if _debug.has("birthtest") and _frames == 20:
 		_birthtest()
 	# --tiptest: every monster that can still evolve shows what it needs; BGM files are used
+	# --dietest: monsters that die play their death clip to the end (not frozen on the first frame)
+	if _debug.has("dietest"):
+		_dietest()
 	if (_debug.has("capturetest") or _debug.has("capturedemo")) and _frames == 20:
 		_capturetest()
 	if _debug.has("tiptest") and _frames == 20:
@@ -1248,6 +1251,41 @@ func _herotest() -> void:
 		and absf(healed - hero.max_hp * Balance.TORCH_HEAL) < 0.01 and broken
 	print("HEROTEST ", "PASS " if ok else "FAIL ", {"fresh_cells": fresh.size(), "ticks_on_fresh_cells": entered, "forks_looked": hero._looked.size(), "non_fork_looks": bad_looks, "time": snappedf(t, 0.1), "torches_planted": planted, "room_cells_seen_at_once": room_seen, "torch_heal": healed, "torch_broken_free": broken})
 	get_tree().quit()
+
+
+var _dt := {}
+
+
+func _dietest() -> void:
+	if _frames == 10:
+		var cells := [Vector2i(grid.entrance.x, 2), Vector2i(grid.entrance.x, 3), Vector2i(grid.entrance.x, 4), Vector2i(grid.entrance.x + 1, 5)]
+		_dt["mons"] = [
+			eco.spawn(Monster.Kind.BUG, Monster.LARVA, cells[0], 0, "load"),
+			eco.spawn(Monster.Kind.BUG, Monster.PUPA, cells[1], 0, "load"),
+			eco.spawn(Monster.Kind.BUG, Monster.ADULT, cells[2], 0, "load"),
+			eco.spawn(Monster.Kind.MOSS, Monster.MOSS, cells[3], 0, "load")]
+	elif _frames == 30:
+		_dt["vis"] = []
+		for m in _dt["mons"]:
+			_dt["vis"].append(m.visual)
+			eco.kill(m, "killed")
+	elif _frames == 50 and _debug.has("shot"):
+		return   # --shot takes the picture instead
+	elif _frames == 50:
+		var res := {}
+		var ok := true
+		for v in _dt["vis"]:
+			var mv := v as MonsterVisual
+			if not is_instance_valid(mv):
+				continue
+			var a := mv.actor
+			if a == null or not a.has_anim("die"):
+				continue
+			var pos := a.anim.current_animation_position
+			res[mv.m.display_name()] = "%s %.2f" % [a.anim.current_animation, pos]
+			ok = ok and a.anim.current_animation == a._clip("die") and pos > 0.15
+		print("DIETEST ", "PASS " if ok and res.size() >= 3 else "FAIL ", res)
+		get_tree().quit()
 
 
 ## (run with --autostart --seed=3 --capturetest) with the 魔王 at the end of the starter corridor

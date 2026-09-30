@@ -12,6 +12,8 @@ const ANIM_STEP := 2
 var _frame := 0
 ## monsters born this frame whose visuals are still to be built ([Monster, cause])
 var _pending: Array = []
+## visuals playing their death (no longer in _visuals): stepped until they free themselves
+var _dying: Array[MonsterVisual] = []
 const SPAWNS_PER_FRAME := 4
 
 
@@ -65,6 +67,7 @@ func _on_died(m: Monster, cause: String) -> void:
 		return
 	_visuals.erase(m.id)
 	v.die(cause)
+	_dying.append(v)
 	if cause == "killed":
 		Sfx.play("monster_die", v.position)
 	if cause != "eaten":
@@ -125,6 +128,13 @@ func _process(delta: float) -> void:
 		mv.sync(delta)
 		var on := planes.is_empty() or _in_view(planes, mv.global_position)
 		mv.step_animation(delta, on, (_frame + mv.m.id) % ANIM_STEP == 0)
+	# death clips (the pill bug / scythe bug shattering, the grass withering) keep playing
+	for i in range(_dying.size() - 1, -1, -1):
+		var dv := _dying[i]
+		if not is_instance_valid(dv) or dv.is_queued_for_deletion():
+			_dying.remove_at(i)
+			continue
+		dv.step_animation(delta, planes.is_empty() or _in_view(planes, dv.global_position), true)
 
 
 static func _in_view(planes: Array[Plane], p: Vector3) -> bool:

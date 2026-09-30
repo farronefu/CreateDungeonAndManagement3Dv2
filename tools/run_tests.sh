@@ -50,6 +50,10 @@ check "herotest (dug map)" "$OUT/herotest2.txt" "HEROTEST PASS"
 "$GODOT" --resolution 1280x720 -- --autostart --seed=3 --digs=45 --simulate=40 --poketest > "$OUT/poketest.txt" 2>&1
 check "poketest" "$OUT/poketest.txt" "POKETEST PASS"
 
+# death clips play to the end after a monster dies
+"$GODOT" --resolution 1280x720 -- --autostart --seed=3 --dietest > "$OUT/dietest.txt" 2>&1
+check "dietest" "$OUT/dietest.txt" "DIETEST PASS"
+
 # the hero grabs the 魔王 from the next cell and drags him one cell behind, out of the dungeon
 "$GODOT" --resolution 1280x720 -- --autostart --seed=3 --capturetest > "$OUT/capturetest.txt" 2>&1
 check "capturetest" "$OUT/capturetest.txt" "CAPTURETEST PASS"
