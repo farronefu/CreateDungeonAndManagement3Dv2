@@ -7,7 +7,7 @@ extends Node
 
 const RATE := 22050
 ## Keep authored timing and pitch for the adopted cues.
-const FIXED_PITCH := ["dig", "spawn_bug", "grab", "door", "victory", "defeat", "click", "hero_attack", "pillbug_die", "pillbug_evolve", "spawn_moss", "miss", "grass_evolve", "upgrade", "bee_attack"]
+const FIXED_PITCH := ["dig", "spawn_bug", "grab", "door", "victory", "defeat", "click", "hero_hit", "pillbug_die", "pillbug_evolve", "spawn_moss", "miss", "grass_evolve", "upgrade", "bee_attack"]
 
 var _streams := {}
 var _players: Array[AudioStreamPlayer] = []
@@ -244,7 +244,7 @@ func _build_sfx() -> void:
 		_tone(b, k * 0.3, 0.6 if k < 3 else 1.1, dn[k], dn[k], 2, 0.3, 2.5)
 	_streams["defeat"] = _wav(b)
 	# Distinct event keys; temporary synthesized fallbacks are replaced by named files.
-	for pair in [["hero_attack", "hit"], ["pillbug_die", "monster_die"], ["pillbug_evolve", "evolve"], ["miss", "dig_fail"], ["grass_evolve", "evolve"], ["upgrade", "evolve"], ["bee_attack", "eat"]]:
+	for pair in [["hero_hit", "hit"], ["pillbug_die", "monster_die"], ["pillbug_evolve", "evolve"], ["miss", "dig_fail"], ["grass_evolve", "evolve"], ["upgrade", "evolve"], ["bee_attack", "eat"]]:
 		_streams[pair[0]] = _streams[pair[1]]
 
 

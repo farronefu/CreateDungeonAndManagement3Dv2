@@ -22,6 +22,8 @@ godot --headless --export-pack "Windows Desktop" build/windows/MonsterChain.pck
 `build/windows/` に Godot 実行ファイルを `MonsterChain.exe` として置くと、同名の `.pck` を読み込んで起動します。
 公式エクスポートテンプレートを入れた場合は `godot --headless --export-release "Windows Desktop"` で単体の exe を出力できます（Steam 配布向け）。
 
+開発時は、pushするたびに同じコミットのWindows実行内容も更新し、`build/windows/MonsterChain.exe` から起動確認します。現在のexeはGodot本体で、同名の `MonsterChain.pck` がゲーム内容です。既存PCKを安全にバックアップしてから上記の `--export-pack` で再出力します。起動中のユーザーゲームは勝手に終了せず、ビルド成果物は別途依頼がない限りGitへ追加しません。
+
 ## 操作
 
 | 操作 | 内容 |
@@ -184,13 +186,15 @@ node tools/modelgen/preview/serve.mjs    # http://localhost:5178 でブラウザ
 
 曲はループ再生し、場面の切替時には短くフェードします。勝利リザルト曲は勝利SEの終了を待ち、通常曲より6dB控えめに再生します。敗北SE後は無音です。ポーズには別曲を追加しません。
 
+草誕生と草進化は短く小さい採用音源の音量をそのまま使い、音量正規化・頻度制限の追加はしません。
+
 SEの差替え先は `assets/audio/se/<キー>.wav`（OGGも使用可能）。採用音源のピッチは固定です。
 
 | キー | 用途 |
 | --- | --- |
 | `dig` / `miss` | 掘削成功 / 掘れない・対象なし・魔物へのツルハシ攻撃 |
 | `spawn_moss` / `spawn_bug` | コケ / ダンゴムシ誕生 |
-| `hero_attack` | 勇者の攻撃開始（命中時の重複音なし） |
+| `hero_hit` | 勇者の剣が魔物へ命中しダメージを与えた瞬間のみ。開始・空振りでは鳴らさず、汎用hitとの重複なし |
 | `pillbug_die` | 幼虫・サナギの死亡 |
 | `pillbug_evolve` / `grass_evolve` | 虫の成虫化 / 草魔物の進化 |
 | `bee_attack` | 虫の成虫の攻撃開始。旧eat素材を流用し、捕食では鳴らさない |

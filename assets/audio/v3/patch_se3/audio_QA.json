@@ -1,0 +1,83 @@
+[
+  {
+    "key": "hero_hit",
+    "sample_rate": 32000,
+    "channels": 1,
+    "seconds": 0.11,
+    "peak_dbfs": -8.000117030469568,
+    "rms_dbfs": -27.67957038759007,
+    "integrated_energy": 0.00018768762829131448,
+    "energy_99pct_span_seconds": 0.033,
+    "true_peak_4x_dbtp": -7.99447262496893,
+    "clipped_samples": 0,
+    "first_sample": 0,
+    "last_sample": 0,
+    "sha256": "7f4fe93d84451b168f32273ffb0cac8bef563707930f10da4e458c377b331241",
+    "comparison_to_v3": {
+      "baseline_key": "hero_attack",
+      "seconds": 0.185,
+      "peak_dbfs": -9.000392326786972,
+      "rms_dbfs": -23.848186551332567,
+      "integrated_energy": 0.0007626988178817555,
+      "energy_99pct_span_seconds": 0.0950625,
+      "duration_reduction_percent": 40.54054054054054,
+      "peak_change_db": 1.0002752963174046,
+      "rms_change_db": -3.8313838362575012,
+      "per_event_energy_change_db": -6.089174268705388
+    }
+  },
+  {
+    "key": "spawn_moss",
+    "sample_rate": 32000,
+    "channels": 1,
+    "seconds": 0.052,
+    "peak_dbfs": -22.999239001376367,
+    "rms_dbfs": -37.65086856546551,
+    "integrated_energy": 8.931337215472012e-06,
+    "energy_99pct_span_seconds": 0.02771875,
+    "true_peak_4x_dbtp": -22.994472624968928,
+    "clipped_samples": 0,
+    "first_sample": 0,
+    "last_sample": 0,
+    "sha256": "bed1f09f1cd4bb7ed853d48eac2d42a64c1287136c64ede7bb920a9f34356b9b",
+    "comparison_to_v3": {
+      "baseline_key": "spawn_moss",
+      "seconds": 0.175,
+      "peak_dbfs": -10.000126940172311,
+      "rms_dbfs": -24.205558072459795,
+      "integrated_energy": 0.0006644805013493169,
+      "energy_99pct_span_seconds": 0.08875,
+      "duration_reduction_percent": 70.28571428571428,
+      "peak_change_db": -12.999112061204055,
+      "rms_change_db": -13.445310493005714,
+      "per_event_energy_change_db": -18.715657543520663
+    }
+  },
+  {
+    "key": "grass_evolve",
+    "sample_rate": 32000,
+    "channels": 1,
+    "seconds": 0.082,
+    "peak_dbfs": -21.001341670225994,
+    "rms_dbfs": -38.460043911813344,
+    "integrated_energy": 1.1689864069921895e-05,
+    "energy_99pct_span_seconds": 0.0425625,
+    "true_peak_4x_dbtp": -20.96706748480908,
+    "clipped_samples": 0,
+    "first_sample": 0,
+    "last_sample": 0,
+    "sha256": "47320246d22b8bcfcb3ba8f819cbf3cb0a612894caf6059947c95ee0b6b81b53",
+    "comparison_to_v3": {
+      "baseline_key": "grass_evolve",
+      "seconds": 0.58,
+      "peak_dbfs": -9.000392326786972,
+      "rms_dbfs": -21.015805906054965,
+      "integrated_energy": 0.004590366938413353,
+      "energy_99pct_span_seconds": 0.42128125,
+      "duration_reduction_percent": 85.86206896551725,
+      "peak_change_db": -12.000949343439022,
+      "rms_change_db": -17.44423800575838,
+      "per_event_energy_change_db": -25.940379417550588
+    }
+  }
+]

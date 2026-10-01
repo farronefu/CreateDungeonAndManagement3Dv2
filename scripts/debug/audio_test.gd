@@ -62,10 +62,27 @@ func _run() -> void:
 	game.hero.attack_cd = 0.0
 	_reset()
 	game.hero._attack(bug)
-	_check(_heard("hero_attack") and not _heard("swing"), "hero attack")
+	_check(not _heard("hero_hit") and not _heard("hero_attack") and not _heard("swing"), "attack start is silent")
+	_reset()
+	var before_hit: float = bug.hp
+	game.hero._apply_hit()
+	_check(bug.hp < before_hit and _heard("hero_hit") and not _heard("hit"), "contact plays one hero hit cue with damage")
 	_reset()
 	game.hero._apply_hit()
-	_check(not _heard("hit"), "hero attack has no duplicate generic hit cue")
+	_check(not _heard("hero_hit"), "consumed hit cannot play twice")
+	game.hero._pending_hit = bug
+	bug.cell = c + Vector2i(3, 0)
+	before_hit = bug.hp
+	_reset()
+	game.hero._apply_hit()
+	_check(bug.hp == before_hit and not _heard("hero_hit"), "out-of-range swing is silent")
+	bug.cell = c
+	bug.alive = false
+	game.hero._pending_hit = bug
+	_reset()
+	game.hero._apply_hit()
+	_check(not _heard("hero_hit"), "dead target is silent")
+	bug.alive = true
 	bug.hp = bug.max_hp
 	_reset()
 	game._poke_monster(bug)
@@ -98,7 +115,7 @@ func _run() -> void:
 	_reset()
 	game.screens._buy("dig")
 	_check(_heard("upgrade") and not _heard("grass_evolve"), "purchase cue")
-	for key in ["hero_attack", "pillbug_die", "pillbug_evolve", "grass_evolve", "miss", "upgrade", "bee_attack"]:
+	for key in ["hero_hit", "pillbug_die", "pillbug_evolve", "grass_evolve", "miss", "upgrade", "bee_attack"]:
 		_reset()
 		sfx.play(key)
 		_check(sfx._players[(sfx._next - 1 + sfx._players.size()) % sfx._players.size()].pitch_scale == 1.0, "authored pitch: " + key)

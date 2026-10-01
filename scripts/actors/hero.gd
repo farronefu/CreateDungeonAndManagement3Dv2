@@ -399,7 +399,6 @@ func _attack(m: Monster) -> void:
 	busy = minf(dur, profile.attack_interval) if dur > 0.0 else 0.6
 	_pending_hit = m
 	_hit_timer = profile.attack_hit_time / profile.attack_anim_speed
-	Sfx.play("hero_attack", position)
 
 
 func _apply_hit() -> void:
@@ -411,6 +410,7 @@ func _apply_hit() -> void:
 		return
 	var dmg := int(round(atk * rng.randf_range(0.85, 1.2)))
 	m.hp -= dmg
+	Sfx.play("hero_hit", position)
 	var v := m.visual as MonsterVisual
 	if v:
 		fx.number(v.position + Vector3(0, 0.6, 0), str(dmg), Color(1, 1, 1))

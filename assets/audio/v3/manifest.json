@@ -2,15 +2,15 @@
   "version": 3,
   "se": [
     {
-      "key": "hero_attack",
-      "title": "勇者攻撃・棒の振り音",
-      "usage": "勇者の攻撃が魔物に命中する瞬間。攻撃の開始音やブレーカー攻撃と区別し、1ヒットにつき1回。",
-      "design": "ユーザー確認後の2SE修正版。詳細はpatch_se2/patch_manifest.jsonを参照。",
-      "status": "revised_se2",
-      "file": "assets/audio/se/hero_attack.wav",
-      "seconds": 0.185,
-      "source": null,
-      "sha256": "c23ae352ac2785a26038c96d10e203479fe87302cd14da112246ebcc0a295d12"
+      "key": "hero_hit",
+      "title": "剣の命中・ペチン",
+      "usage": "勇者の剣が魔物の体へ当たり、ダメージが成立した瞬間に1回。剣を振り始める時には鳴らさない想定。",
+      "design": "110msの乾いた柔らかい接触音。風切りや太鼓の音程共鳴を使わない。",
+      "status": "revised_se3",
+      "file": "assets/audio/se/hero_hit.wav",
+      "seconds": 0.11,
+      "source": "MonsterChain_SE3_試聴のみ.zip",
+      "sha256": "7f4fe93d84451b168f32273ffb0cac8bef563707930f10da4e458c377b331241"
     },
     {
       "key": "pillbug_die",
@@ -36,14 +36,14 @@
     },
     {
       "key": "spawn_moss",
-      "title": "草／コケ誕生・ポトッ",
-      "usage": "採掘や繁殖によって草／コケ系が新しく生まれた瞬間。セーブ読込による復元では鳴らさない。",
-      "design": "175msの小さな落下音。旋律や後続音を付けない。",
-      "status": "new",
+      "title": "草の誕生・小さなポト",
+      "usage": "採掘／繁殖で草・コケ系が新しく生まれた瞬間の候補。読込による復元では鳴らさない想定。",
+      "design": "52msの素朴な1打。旋律なし、短い減衰。打撃SEより15dB低いピークを保持。",
+      "status": "revised_se3",
       "file": "assets/audio/se/spawn_moss.wav",
-      "seconds": 0.175,
-      "source": null,
-      "sha256": "d8db70b1cb831321250878b79033a0d39e683415c395eb6cc5d45ff923c8dd77"
+      "seconds": 0.052,
+      "source": "MonsterChain_SE3_試聴のみ.zip",
+      "sha256": "bed1f09f1cd4bb7ed853d48eac2d42a64c1287136c64ede7bb920a9f34356b9b"
     },
     {
       "key": "miss",
@@ -58,14 +58,14 @@
     },
     {
       "key": "grass_evolve",
-      "title": "草系進化・ふわっ、ぽわん",
-      "usage": "草／コケ系（MOSS）がBUDまたはFLOWERへ進化し、形態が切り替わった瞬間に1回。虫の進化や強化購入とは別。",
-      "design": "低めの葉擦れのふくらみと木質共鳴。蜂のブンッと異なる580msの広がり。",
-      "status": "new",
+      "title": "草の進化・控えめなコト",
+      "usage": "草・コケ系がBUD／FLOWERへ進化して姿が切り替わった瞬間の候補。強化購入や虫の進化には使わない想定。",
+      "design": "82msのごく小さな2接触音。旋律と長い膨らみを除去。打撃SEより13dB低いピークを保持。",
+      "status": "revised_se3",
       "file": "assets/audio/se/grass_evolve.wav",
-      "seconds": 0.58,
-      "source": null,
-      "sha256": "04aeef710980d71053335ceaab0203b0a9d3d4bc95541ed8cf311891f0dcaddd"
+      "seconds": 0.082,
+      "source": "MonsterChain_SE3_試聴のみ.zip",
+      "sha256": "47320246d22b8bcfcb3ba8f819cbf3cb0a612894caf6059947c95ee0b6b81b53"
     },
     {
       "key": "upgrade",
@@ -241,5 +241,6 @@
     "These are event mapping requirements; no repository files were changed by this audio task."
   ],
   "bgm_additions": "Phase audit: title uses dedicated title; win results use result_victory after victory sting. Defeat stays silent after defeat sting; no new placement/cutin BGM.",
-  "patch": "patch_se2/patch_manifest.json"
+  "patch": "patch_se2/patch_manifest.json",
+  "patch_se3": "patch_se3/manifest.json"
 }

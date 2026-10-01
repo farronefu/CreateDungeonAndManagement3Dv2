@@ -1,0 +1,44 @@
+{
+  "scope": "preview_only",
+  "no_implementation": true,
+  "existing_audio_and_integration_zip_unchanged": true,
+  "normalization": "Individual design levels: hero hit -8 dBFS; birth -23; evolution -21. Do not auto-normalize previews.",
+  "audio": [
+    {
+      "key": "hero_hit",
+      "file": "01_hero_hit_pechin_preview.wav",
+      "title": "剣の命中・ペチン",
+      "usage": "勇者の剣が魔物の体へ当たり、ダメージが成立した瞬間に1回。剣を振り始める時には鳴らさない想定。",
+      "design": "110msの乾いた柔らかい接触音。風切りや太鼓の音程共鳴を使わない。",
+      "peak": -8.0,
+      "layers": "1つの接触イベント。短いノイズの重なりだけ",
+      "seconds": 0.11,
+      "sha256": "7f4fe93d84451b168f32273ffb0cac8bef563707930f10da4e458c377b331241",
+      "status": "preview_only_not_implemented"
+    },
+    {
+      "key": "spawn_moss",
+      "file": "02_spawn_moss_simple_preview.wav",
+      "title": "草の誕生・小さなポト",
+      "usage": "採掘／繁殖で草・コケ系が新しく生まれた瞬間の候補。読込による復元では鳴らさない想定。",
+      "design": "52msの素朴な1打。旋律なし、短い減衰。打撃SEより15dB低いピークを保持。",
+      "peak": -23.0,
+      "layers": "1打のみ。旋律・持続音なし",
+      "seconds": 0.052,
+      "sha256": "bed1f09f1cd4bb7ed853d48eac2d42a64c1287136c64ede7bb920a9f34356b9b",
+      "status": "preview_only_not_implemented"
+    },
+    {
+      "key": "grass_evolve",
+      "file": "03_grass_evolve_simple_preview.wav",
+      "title": "草の進化・控えめなコト",
+      "usage": "草・コケ系がBUD／FLOWERへ進化して姿が切り替わった瞬間の候補。強化購入や虫の進化には使わない想定。",
+      "design": "82msのごく小さな2接触音。旋律と長い膨らみを除去。打撃SEより13dB低いピークを保持。",
+      "peak": -21.0,
+      "layers": "短い2接触のみ。旋律・和音・持続音なし",
+      "seconds": 0.082,
+      "sha256": "47320246d22b8bcfcb3ba8f819cbf3cb0a612894caf6059947c95ee0b6b81b53",
+      "status": "preview_only_not_implemented"
+    }
+  ]
+}
