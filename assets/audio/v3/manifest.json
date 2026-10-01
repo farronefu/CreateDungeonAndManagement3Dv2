@@ -1,0 +1,245 @@
+{
+  "version": 3,
+  "se": [
+    {
+      "key": "hero_attack",
+      "title": "勇者攻撃・棒の振り音",
+      "usage": "勇者の攻撃が魔物に命中する瞬間。攻撃の開始音やブレーカー攻撃と区別し、1ヒットにつき1回。",
+      "design": "ユーザー確認後の2SE修正版。詳細はpatch_se2/patch_manifest.jsonを参照。",
+      "status": "revised_se2",
+      "file": "assets/audio/se/hero_attack.wav",
+      "seconds": 0.185,
+      "source": null,
+      "sha256": "c23ae352ac2785a26038c96d10e203479fe87302cd14da112246ebcc0a295d12"
+    },
+    {
+      "key": "pillbug_die",
+      "title": "ダンゴムシ死亡・乾いたせんべい砕き",
+      "usage": "ダンゴムシ通常形態（BUG LARVA）と進化途中の丸まった形態（BUG PUPA）が死亡した瞬間。",
+      "design": "ユーザー確認後の2SE修正版。詳細はpatch_se2/patch_manifest.jsonを参照。",
+      "status": "revised_se2",
+      "file": "assets/audio/se/pillbug_die.wav",
+      "seconds": 0.205,
+      "source": null,
+      "sha256": "658a5dfba8cece847e0cd288fe069c34b7c7170fc933b6f346b00d199c86423d"
+    },
+    {
+      "key": "pillbug_evolve",
+      "title": "ダンゴムシ→蜂・ブンッ",
+      "usage": "ダンゴムシが蜂（BUG ADULT）へ進化し、姿が切り替わる瞬間に1回。PUPAへ丸まる段階には鳴らさない。",
+      "design": "160〜200Hz帯の羽ばたきの芯と柔らかな倍音。350msの単発。",
+      "status": "new",
+      "file": "assets/audio/se/pillbug_evolve.wav",
+      "seconds": 0.35,
+      "source": null,
+      "sha256": "48d97d3049acb973daa2e3a001afb5ae908fadf5aea6ebb6306e0c1c969fa81d"
+    },
+    {
+      "key": "spawn_moss",
+      "title": "草／コケ誕生・ポトッ",
+      "usage": "採掘や繁殖によって草／コケ系が新しく生まれた瞬間。セーブ読込による復元では鳴らさない。",
+      "design": "175msの小さな落下音。旋律や後続音を付けない。",
+      "status": "new",
+      "file": "assets/audio/se/spawn_moss.wav",
+      "seconds": 0.175,
+      "source": null,
+      "sha256": "d8db70b1cb831321250878b79033a0d39e683415c395eb6cc5d45ff923c8dd77"
+    },
+    {
+      "key": "miss",
+      "title": "空振り・スカッッ",
+      "usage": "掘れない場所／対象なしへ操作した時と、ツルハシ／ブレーカーで魔物を攻撃した時。これらすべてに同じmiss音を使う。",
+      "design": "打撃の低音と音程を持たない空気音。215msの鋭い通過音。",
+      "status": "new",
+      "file": "assets/audio/se/miss.wav",
+      "seconds": 0.215,
+      "source": null,
+      "sha256": "b234887e6f8f864376b6ef1aed15d58f6a5fc9de2ddcaf28abdb0768e2c3a80e"
+    },
+    {
+      "key": "grass_evolve",
+      "title": "草系進化・ふわっ、ぽわん",
+      "usage": "草／コケ系（MOSS）がBUDまたはFLOWERへ進化し、形態が切り替わった瞬間に1回。虫の進化や強化購入とは別。",
+      "design": "低めの葉擦れのふくらみと木質共鳴。蜂のブンッと異なる580msの広がり。",
+      "status": "new",
+      "file": "assets/audio/se/grass_evolve.wav",
+      "seconds": 0.58,
+      "source": null,
+      "sha256": "04aeef710980d71053335ceaab0203b0a9d3d4bc95541ed8cf311891f0dcaddd"
+    },
+    {
+      "key": "upgrade",
+      "title": "リザルト強化購入・テレテレ",
+      "usage": "リザルトの強化購入が成功して能力が上がった時だけ。購入失敗、画面表示、通常のUI決定では鳴らさない。",
+      "design": "D4–F#4／E4–A4の2組4音。短い木質音で購入成功を明示。",
+      "status": "new",
+      "file": "assets/audio/se/upgrade.wav",
+      "seconds": 0.525,
+      "source": null,
+      "sha256": "e1255510c070f189729b7c115729aecc0170dc4e428c9bd5bacf2e155a00160e"
+    },
+    {
+      "key": "spawn_bug",
+      "title": "ダンゴムシ誕生・ポポッ（冒頭のみ）",
+      "usage": "採掘または繁殖でダンゴムシ系が新しく生まれた瞬間。v2 SE04の冒頭2打だけを再生。",
+      "design": "元SE04の先頭110ms。末尾6msだけクリック防止フェード。後半の音程変化は除去。",
+      "status": "cropped",
+      "file": "assets/audio/se/spawn_bug.wav",
+      "seconds": 0.11,
+      "source": "04_spawn_bug.wav",
+      "source_sha256": "377ea84fa44a9ecc2b124099d3b65cd2d1d60fc6887b57e1d23a128a9dd446c0",
+      "unchanged_prefix_frames": 3328,
+      "sha256": "b1553f863dc683a87419c0c093490f8d0f125b3bc1333650cf68b6d28571d6f8"
+    },
+    {
+      "key": "dig",
+      "title": "掘削成功・土と石の崩れ",
+      "usage": "掘れる土／岩ブロックを1マス壊した直後。空振り時や魔物へのツルハシ攻撃ではmissを使う。",
+      "design": "採用されたv2の音声を再合成せず、そのままコピー。",
+      "status": "preserved",
+      "file": "assets/audio/se/dig.wav",
+      "seconds": 0.32,
+      "source": "01_dig.wav",
+      "source_sha256": "eaba6ed8c7134665a9bebafd2ad38d138682e2d26142888d700aba89784e7762",
+      "sha256": "eaba6ed8c7134665a9bebafd2ad38d138682e2d26142888d700aba89784e7762"
+    },
+    {
+      "key": "bee_attack",
+      "title": "蜂の攻撃（v2 SE09を転用）",
+      "usage": "ダンゴムシから進化した蜂の攻撃が対象へ命中する瞬間。捕食イベントには使わない。",
+      "design": "採用されたv2の音声を再合成せず、そのままコピー。",
+      "status": "preserved",
+      "file": "assets/audio/se/bee_attack.wav",
+      "seconds": 0.28,
+      "source": "09_eat.wav",
+      "source_sha256": "97ad5bdb26beb46d80b1388c0e04bbd942e1b5a2aad2e26fa418611a8b31de8c",
+      "sha256": "97ad5bdb26beb46d80b1388c0e04bbd942e1b5a2aad2e26fa418611a8b31de8c"
+    },
+    {
+      "key": "grab",
+      "title": "魔王捕獲",
+      "usage": "勇者が魔王を捕まえ、連れ出しを開始した瞬間。",
+      "design": "採用されたv2の音声を再合成せず、そのままコピー。",
+      "status": "preserved",
+      "file": "assets/audio/se/grab.wav",
+      "seconds": 0.85,
+      "source": "12_grab.wav",
+      "source_sha256": "7cd0b5816665a1a9817554fa14db69ef7dbc546d4240f346aaac6568775afa84",
+      "sha256": "7cd0b5816665a1a9817554fa14db69ef7dbc546d4240f346aaac6568775afa84"
+    },
+    {
+      "key": "door",
+      "title": "地上の門が開く",
+      "usage": "勇者が侵入する地上の門を開く瞬間。",
+      "design": "採用されたv2の音声を再合成せず、そのままコピー。",
+      "status": "preserved",
+      "file": "assets/audio/se/door.wav",
+      "seconds": 1.1,
+      "source": "15_door.wav",
+      "source_sha256": "0eb16e3055b1e346cb61749f86a231ad98f50b1829878b76c3af9e3e0f7e06e4",
+      "sha256": "0eb16e3055b1e346cb61749f86a231ad98f50b1829878b76c3af9e3e0f7e06e4"
+    },
+    {
+      "key": "click",
+      "title": "UI決定のみ",
+      "usage": "ボタンの決定／確定操作の成立時だけ。カーソル移動・ホバー・キャンセルには使わない。",
+      "design": "採用されたv2の音声を再合成せず、そのままコピー。",
+      "status": "preserved",
+      "file": "assets/audio/se/click.wav",
+      "seconds": 0.105,
+      "source": "16_click.wav",
+      "source_sha256": "7487c70ce169d48406e7d323b0d00ac9f4f64b99f4c6e5fb00f7b1741696f60f",
+      "sha256": "7487c70ce169d48406e7d323b0d00ac9f4f64b99f4c6e5fb00f7b1741696f60f"
+    },
+    {
+      "key": "victory",
+      "title": "勇者撃退・勝利",
+      "usage": "勇者を倒して勝利結果へ移る瞬間に1回。",
+      "design": "採用されたv2の音声を再合成せず、そのままコピー。",
+      "status": "preserved",
+      "file": "assets/audio/se/victory.wav",
+      "seconds": 1.65,
+      "source": "17_victory.wav",
+      "source_sha256": "02c0af8fb799c6a8d3dbeb43ad1f8bb649eb6b7d39d90d1a168bd6b679215ece",
+      "sha256": "02c0af8fb799c6a8d3dbeb43ad1f8bb649eb6b7d39d90d1a168bd6b679215ece"
+    },
+    {
+      "key": "defeat",
+      "title": "魔王搬出・敗北",
+      "usage": "勇者が魔王を連れたまま入口から脱出し、敗北となった瞬間に1回。",
+      "design": "採用されたv2の音声を再合成せず、そのままコピー。",
+      "status": "preserved",
+      "file": "assets/audio/se/defeat.wav",
+      "seconds": 1.85,
+      "source": "18_defeat.wav",
+      "source_sha256": "a72b0dd4ce6ba387059188f419b8b12972ea420f54424bbdf842dc88160dd8c5",
+      "sha256": "a72b0dd4ce6ba387059188f419b8b12972ea420f54424bbdf842dc88160dd8c5"
+    }
+  ],
+  "bgm": [
+    {
+      "key": "build",
+      "title": "採掘／建設：もぐらの歩幅",
+      "status": "preserved",
+      "file": "assets/audio/bgm/build.ogg",
+      "source": "02_mining_もぐらの歩幅.ogg",
+      "sha256": "c21f9c15aa8fb67023358ba6909d2f075cb85f576e7f05621b018ef25ccfe0dd"
+    },
+    {
+      "key": "battle",
+      "title": "侵攻：地下の迎撃隊",
+      "status": "preserved",
+      "file": "assets/audio/bgm/battle.ogg",
+      "source": "03_battle_地下の迎撃隊.ogg",
+      "sha256": "eff07c0e6fb008d56d8b86327820ac82c44d8a063f96dbe9859d4a7c2637aa58"
+    },
+    {
+      "key": "captured",
+      "title": "魔王捕獲：あと一歩で連れ去られる",
+      "status": "preserved",
+      "file": "assets/audio/bgm/captured.ogg",
+      "source": "04_captured_あと一歩で連れ去られる.ogg",
+      "sha256": "d6225f2b180b779eb5509629e0979e4f6ecae82f0472e653cc6b021e33836fb6"
+    },
+    {
+      "key": "title",
+      "title": "地底の看板",
+      "description": "タイトル画面の待機中。建設曲とは分け、低い主題と余白でゲームの入口を作る。",
+      "bpm": 92,
+      "bars": 16,
+      "seconds": 41.739125,
+      "samples": 1335652,
+      "file": "assets/audio/bgm/title.ogg",
+      "melody_max_midi": 64,
+      "master_file": "bgm/title.wav",
+      "preview": "preview/v3_title.mp3",
+      "status": "new",
+      "sha256": "9ccb820b649036f35706b7d2cbea8adf3b38084397ff7af4a88d5e2711599fe5"
+    },
+    {
+      "key": "result_victory",
+      "title": "地下のひとやすみ",
+      "description": "勝利SEの後、勝利リザルト画面で成績確認・強化購入中に流す。敗北画面では使わない。",
+      "bpm": 80,
+      "bars": 16,
+      "seconds": 48.0,
+      "samples": 1536000,
+      "file": "assets/audio/bgm/result_victory.ogg",
+      "melody_max_midi": 67,
+      "master_file": "bgm/result_victory.wav",
+      "preview": "preview/v3_result_victory.mp3",
+      "status": "new",
+      "sha256": "9aa8b857bef4b41d58ca2f97449e1431a59911b2d52267a3b795858588067869"
+    }
+  ],
+  "integration_notes": [
+    "Register all semantic keys in Sfx streams; current play() ignores unregistered keys.",
+    "Current file search prioritizes .wav over .ogg. Do not leave an older same-key WAV masking the selected OGG.",
+    "Use click only for UI confirmation; separate cancellation/navigation without the same click.",
+    "Repurpose eat to bee_attack. Do not continue playing it for predation.",
+    "Use the exact same miss file for invalid/no-target actions and pickaxe attacks on monsters.",
+    "These are event mapping requirements; no repository files were changed by this audio task."
+  ],
+  "bgm_additions": "Phase audit: title uses dedicated title; win results use result_victory after victory sting. Defeat stays silent after defeat sting; no new placement/cutin BGM.",
+  "patch": "patch_se2/patch_manifest.json"
+}

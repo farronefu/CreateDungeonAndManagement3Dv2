@@ -427,7 +427,6 @@ func _build_time_controls() -> void:
 
 func _on_speed(s: float) -> void:
 	set_speed(s)
-	Sfx.play("click")
 	speed_changed.emit(s)
 
 

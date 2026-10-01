@@ -6,6 +6,8 @@ extends Node
 ##                                              captured (the 魔王 has been grabbed); looped
 
 const RATE := 22050
+## Keep authored timing and pitch for the adopted cues.
+const FIXED_PITCH := ["dig", "spawn_bug", "grab", "door", "victory", "defeat", "click", "hero_attack", "pillbug_die", "pillbug_evolve", "spawn_moss", "miss", "grass_evolve", "upgrade", "bee_attack"]
 
 var _streams := {}
 var _players: Array[AudioStreamPlayer] = []
@@ -54,11 +56,21 @@ func play(sound: String, _pos: Vector3 = Vector3.ZERO) -> void:
 	var p := _players[_next]
 	_next = (_next + 1) % _players.size()
 	p.stream = _streams[sound]
-	p.pitch_scale = randf_range(0.94, 1.06)
+	p.pitch_scale = 1.0 if sound in FIXED_PITCH else randf_range(0.94, 1.06)
 	p.play()
 
 
+func duration(sound: String) -> float:
+	var stream: AudioStream = _streams.get(sound)
+	return stream.get_length() if stream else 0.0
+
+
 func play_bgm(bgm: String) -> void:
+	# New screen music is optional until its authored recording is installed.
+	if bgm == "title" and not _load_file("res://assets/audio/bgm/title"):
+		bgm = "build"
+	elif bgm == "result_victory" and not _load_file("res://assets/audio/bgm/result_victory"):
+		bgm = ""
 	if bgm == _bgm_name:
 		return
 	_bgm_name = bgm
@@ -88,7 +100,7 @@ func play_bgm(bgm: String) -> void:
 		_bgm.volume_db = -40.0
 		_bgm.stream = stream
 		_bgm.play())
-	_bgm_tween.tween_property(_bgm, "volume_db", BGM_DB, 0.6)
+	_bgm_tween.tween_property(_bgm, "volume_db", BGM_DB - 6.0 if bgm == "result_victory" else BGM_DB, 0.6)
 
 
 # ------------------------------------------------------------------ synthesis helpers
@@ -231,6 +243,9 @@ func _build_sfx() -> void:
 	for k in 4:
 		_tone(b, k * 0.3, 0.6 if k < 3 else 1.1, dn[k], dn[k], 2, 0.3, 2.5)
 	_streams["defeat"] = _wav(b)
+	# Distinct event keys; temporary synthesized fallbacks are replaced by named files.
+	for pair in [["hero_attack", "hit"], ["pillbug_die", "monster_die"], ["pillbug_evolve", "evolve"], ["miss", "dig_fail"], ["grass_evolve", "evolve"], ["upgrade", "evolve"], ["bee_attack", "eat"]]:
+		_streams[pair[0]] = _streams[pair[1]]
 
 
 # ------------------------------------------------------------------ music

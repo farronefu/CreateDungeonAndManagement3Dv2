@@ -25,6 +25,7 @@ func setup(e: Ecosystem, effects: Effects) -> void:
 	eco.evolved.connect(_on_evolved)
 	eco.nutrient_flow.connect(_on_flow)
 	eco.ate.connect(_on_ate)
+	eco.attack_started.connect(_on_attack_started)
 	# build every model once up front: the first instance of each pays for loading and for
 	# generating its idle clip, which would otherwise hitch the frame the monster first appears
 	for key in ["moss", "moss_bud", "moss_flower", "evolution", "bug_larva", "bug_pupa", "bug_adult", "bug_evolution"]:
@@ -68,7 +69,9 @@ func _on_died(m: Monster, cause: String) -> void:
 	_visuals.erase(m.id)
 	v.die(cause)
 	_dying.append(v)
-	if cause == "killed":
+	if m.kind == Monster.Kind.BUG and (m.stage != Monster.ADULT or v._evolving) and cause != "eaten":
+		Sfx.play("pillbug_die", v.position)
+	elif cause == "killed":
 		Sfx.play("monster_die", v.position)
 	if cause != "eaten":
 		fx.dust(v.position + Vector3(0, 0.15, 0), Color(0.55, 0.75, 0.35, 0.6) if m.kind == Monster.Kind.MOSS else Color(0.6, 0.45, 0.3, 0.6), 0.7)
@@ -83,7 +86,10 @@ func _on_evolved(m: Monster) -> void:
 			v.swap_model()
 		fx.ring(v.position, Color(1.0, 0.9, 0.4))
 		fx.sparkle(v.position + Vector3(0, 0.3, 0), Color(1.0, 0.9, 0.4), 16)
-		Sfx.play("evolve", v.position)
+		if m.kind == Monster.Kind.MOSS:
+			Sfx.play("grass_evolve", v.position)
+		elif m.stage == Monster.ADULT:
+			Sfx.play("pillbug_evolve", v.position)
 
 
 func _on_flow(block: Vector2i, m: Monster, into_monster: bool) -> void:
@@ -102,7 +108,11 @@ func _on_ate(pred: Monster, prey: Monster) -> void:
 	var v: MonsterVisual = _visuals.get(prey.id)
 	if v:
 		fx.sparkle(v.position + Vector3(0, 0.2, 0), Color(0.6, 0.9, 0.3), 10)
-	Sfx.play("eat", v.position if v else Vector3.ZERO)
+
+
+func _on_attack_started(m: Monster) -> void:
+	if m.kind == Monster.Kind.BUG and m.stage == Monster.ADULT:
+		Sfx.play("bee_attack", DungeonGrid.cell_center(m.cell))
 
 
 func visual_of(m: Monster) -> MonsterVisual:
@@ -122,7 +132,9 @@ func _process(delta: float) -> void:
 			_create_visual(pm, p[1])
 			built += 1
 	var cam := get_viewport().get_camera_3d()
-	var planes: Array[Plane] = cam.get_frustum() if cam else []
+	var planes: Array[Plane] = []
+	if cam:
+		planes.assign(cam.get_frustum())
 	for v in _visuals.values():
 		var mv := v as MonsterVisual
 		mv.sync(delta)

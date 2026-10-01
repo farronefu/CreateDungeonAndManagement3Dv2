@@ -20,6 +20,10 @@ check() {   # name, log, pass-condition (grep -E pattern that must appear)
 	fi
 }
 
+# audio event routing and authored pitch
+"$GODOT" --headless -- --autostart --seed=3 --audiotest > "$OUT/audio.txt" 2>&1
+check "audiotest" "$OUT/audio.txt" "AUDIOTEST PASS"
+
 # ecosystem: nutrient conservation over a long headless simulation
 "$GODOT" --headless -s res://scripts/debug/sim_test.gd -- 450 90 > "$OUT/sim.txt" 2>&1
 if grep -qE "(!= [0-9]+)" "$OUT/sim.txt"; then

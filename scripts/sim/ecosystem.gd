@@ -16,6 +16,7 @@ signal died(m: Monster, cause: String)
 signal evolved(m: Monster)
 signal nutrient_flow(block: Vector2i, m: Monster, into_monster: bool)
 signal hero_hit(m: Monster, damage: int)
+signal attack_started(m: Monster)
 signal ate(predator: Monster, prey: Monster)
 
 var grid: DungeonGrid
@@ -274,6 +275,7 @@ func _try_attack_hero(m: Monster, front_only: bool) -> bool:
 		m.cooldown = Balance.BUG_ATTACK_CD
 	m.hit_dmg = int(round(m.atk * rng.randf_range(0.85, 1.15)))
 	m.hit_timer = m.busy * Balance.ATTACK_HIT_FRACTION
+	attack_started.emit(m)
 	return true
 
 

@@ -38,6 +38,7 @@ var _hud_timer := 0.0
 var _title_t := 0.0
 var _debug := {}
 var _frames := 0
+var _victory_audio_end := 0
 ## torches the hero planted: cell -> Torch (shared with the hero)
 var torches := {}
 
@@ -61,7 +62,10 @@ func _ready() -> void:
 		phase = Phase.TITLE
 		hud.set_visible_all(false)
 		screens.show_title()
-		Sfx.play_bgm("build")
+		Sfx.play_bgm("title")
+
+	if _debug.has("audiotest"):
+		add_child(load("res://scripts/debug/audio_test.gd").new())
 
 
 # ------------------------------------------------------------------ setup
@@ -218,7 +222,6 @@ func _setup_stage() -> void:
 	hero.picked_up_maou.connect(func() -> void:
 		hud.toast("魔王が捕まった！入口に連れて行かれる前に勇者を倒せ！", UiTheme.WARN)
 		follow_hero = true
-		Sfx.play("dig_fail")
 		Sfx.play_bgm("captured"))
 	cam = GameCamera.new()
 	add_child(cam)
@@ -350,7 +353,7 @@ func _valid_place(c: Vector2i) -> bool:
 
 func _try_place(c: Vector2i) -> void:
 	if not _valid_place(c):
-		Sfx.play("dig_fail")
+		Sfx.play("miss")
 		return
 	maou.place(c)
 	cursor.mode = DigCursor.Mode.NONE
@@ -380,6 +383,7 @@ func _on_hero_died() -> void:
 	cursor.mode = DigCursor.Mode.NONE
 	Sfx.play_bgm("")
 	Sfx.play("victory")
+	_victory_audio_end = Time.get_ticks_msec() + int(Sfx.duration("victory") * 1000.0)
 	maou.set_mood("cheer")
 	_maou_cutin.actor.play("look_around", 0.0)
 	await get_tree().create_timer(1.6 if not _debug.has("autostart") else 0.01).timeout
@@ -404,6 +408,7 @@ func _on_defeat() -> void:
 
 func _show_result() -> void:
 	phase = Phase.RESULT
+	_play_result_music()
 	_freeze_world()
 	var time_bonus := maxi(0, Balance.EP_TIME_BONUS_MAX - int(invasion_time / Balance.EP_TIME_STEP))
 	var dig_bonus := dig_left * Balance.EP_PER_DIG_LEFT
@@ -414,6 +419,14 @@ func _show_result() -> void:
 		["撃退タイム", _fmt_time(invasion_time), time_bonus],
 		["残り採掘可能数", "%d / %d" % [dig_left, dig_max], dig_bonus],
 	]})
+
+
+func _play_result_music() -> void:
+	var remaining := maxf(0.0, (_victory_audio_end - Time.get_ticks_msec()) / 1000.0)
+	if remaining > 0.0:
+		await get_tree().create_timer(remaining).timeout
+	if phase == Phase.RESULT:
+		Sfx.play_bgm("result_victory")
 
 
 ## Stops everything in the dungeon (simulation, animation, camera) while the upgrade screen is open.
@@ -573,7 +586,6 @@ func _on_pad_trigger(axis: int) -> void:
 ## RB / LB: one speed step up or down (x1 .. x3).
 func _step_speed(d: int) -> void:
 	_set_speed(clampf(_run_speed + d, 1.0, 3.0))
-	Sfx.play("click")
 
 
 ## Where LT takes the camera: the hero, or the gate while it is still up in the town / fog.
@@ -590,12 +602,10 @@ func _focus_hero() -> void:
 	if hero.is_targetable():
 		cursor.pad_cell = hero.cell
 	follow_hero = phase == Phase.INVASION and hero.is_targetable()
-	Sfx.play("click")
 
 
 func _toggle_pause() -> void:
 	_set_speed(_run_speed if speed == 0.0 else 0.0)
-	Sfx.play("click")
 
 
 ## 0 pauses: everything in the dungeon freezes and the pause screen (monster roster) opens.
@@ -658,7 +668,7 @@ func _poke_monster(m: Monster) -> void:
 		v.hurt()
 		fx.number(v.position + Vector3(0, 0.6, 0), str(int(round(dmg))), Color(1, 1, 1))
 	cam.shake(0.15)
-	Sfx.play("hit")
+	Sfx.play("miss")
 	if m.hp <= 0.01:
 		m.hp = 0.0
 		eco.kill(m, "killed")
@@ -689,11 +699,11 @@ func _break_torch(c: Vector2i) -> void:
 
 func _try_dig(c: Vector2i) -> bool:
 	if speed == 0.0:
-		Sfx.play("dig_fail")
+		Sfx.play("miss")
 		hud.toast("一時停止中は掘れません", UiTheme.TEXT_DIM)
 		return false
 	if dig_left <= 0 and not torches.has(c) and _monster_at(c) == null:
-		Sfx.play("dig_fail")
+		Sfx.play("miss")
 		hud.toast("採掘可能数が残っていない！", UiTheme.WARN)
 		return false
 	if torches.has(c):
@@ -704,7 +714,7 @@ func _try_dig(c: Vector2i) -> bool:
 		_poke_monster(target)
 		return true
 	if not grid.can_dig(c):
-		Sfx.play("dig_fail")
+		Sfx.play("miss")
 		return false
 	var n := grid.dig(c)
 	dig_left -= 1
@@ -1137,7 +1147,7 @@ func _debug_tick() -> void:
 		Sfx.play_bgm("captured")
 	if _debug.has("tiptest") and _frames == 80:
 		var path: String = Sfx._bgm.stream.resource_path if Sfx._bgm.stream else ""
-		var ok_bgm := path.ends_with("captured.wav") and Sfx._bgm.playing
+		var ok_bgm := (path.ends_with("captured.wav") or path.ends_with("captured.ogg")) and Sfx._bgm.playing
 		var bad := 0
 		var shown := {}
 		for m in eco.monsters:
@@ -1671,6 +1681,8 @@ func _autoplay() -> void:
 
 
 func _screenshot(path: String) -> void:
+	if DisplayServer.get_name() == "headless":
+		return  # The dummy renderer has no image; event tests still run.
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(path)
 	print("screenshot saved: ", path)

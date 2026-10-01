@@ -1,0 +1,36 @@
+[
+  {
+    "key": "hero_attack",
+    "seconds": 0.185,
+    "sample_rate": 32000,
+    "channels": 1,
+    "peak_dbfs": -9.000392326786972,
+    "true_peak_4x_dbtp": -8.74994170091396,
+    "rms_dbfs": -23.847916154267278,
+    "clipped_samples": 0,
+    "first_sample": 0,
+    "last_sample": 0,
+    "dc_offset": 1.0117459743401935e-09,
+    "energy_below_600hz_percent": 0.01712959286813603,
+    "spectral_centroid_hz": 3635.3994919788875,
+    "sha256": "c23ae352ac2785a26038c96d10e203479fe87302cd14da112246ebcc0a295d12",
+    "previous_sha256": "4a86e64005909128281b25ee30dc8a72e7527a0216248bbffca3c241b3f736a7"
+  },
+  {
+    "key": "pillbug_die",
+    "seconds": 0.205,
+    "sample_rate": 32000,
+    "channels": 1,
+    "peak_dbfs": -9.000392326786972,
+    "true_peak_4x_dbtp": -8.651700322137474,
+    "rms_dbfs": -32.1690071835829,
+    "clipped_samples": 0,
+    "first_sample": 0,
+    "last_sample": 0,
+    "dc_offset": 4.122690044802914e-07,
+    "energy_below_600hz_percent": 0.06513403572277572,
+    "spectral_centroid_hz": 4444.3483317008695,
+    "sha256": "658a5dfba8cece847e0cd288fe069c34b7c7170fc933b6f346b00d199c86423d",
+    "previous_sha256": "20d5350acceeeb6bc351619d8c5c7f421b6431f27b3ce085a20d501d723728c1"
+  }
+]

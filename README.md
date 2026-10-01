@@ -168,22 +168,35 @@ node tools/modelgen/preview/serve.mjs    # http://localhost:5178 でブラウザ
 - **きょろきょろ**：1マス幅の通路の分かれ道（3方向以上）で、その場所につき1回だけ。1ブロックだけ掘った行き止まりは道として数えない
 - **松明**：新しく24マス探索するごとに、近く（5マス以内）に松明がなければ足元に置きます。どこまで探索されたかの目印です。勇者が松明のマスに入ると HP と MP が最大値の1割回復します（`Balance.TORCH_*`）。松明はプレイヤーのブレーカーでしか壊せません
 
-## 効果音・BGM の差し替え
-
-BGM は支給曲の3曲です（切り替え時は短くフェード）。効果音はプログラムで合成しています（`scripts/autoload/sfx.gd`）。
+## 効果音・BGMは採用音源のOGG 5曲、SEは採用WAV 15種を使用します。未差替えのSEは `scripts/autoload/sfx.gd` の合成音へフォールバックします。
 
 | 場面 | ファイル | 曲名 |
 | --- | --- | --- |
-| 平常時（タイトル・建設中） | `assets/audio/bgm/build.wav` | 土の下の小さな暮らし（80BPM・96秒ループ） |
-| 勇者がダンジョンにいる時 | `assets/audio/bgm/battle.wav` | 足音が階段をおりてくる（112BPM・約69秒ループ） |
-| 魔王が捕まった時 | `assets/audio/bgm/captured.wav` | 魔王、絶体絶命（156BPM・約49秒ループ） |同じ名前の音声ファイルを置くと、起動時に自動でそちらが使われます（置いていない音は合成のまま）。
+| タイトル待機 | `assets/audio/bgm/title.ogg` | 地底の看板 |
+| 採掘・建設・配置 | `assets/audio/bgm/build.ogg` | もぐらの歩幅 |
+| 勇者侵攻 | `assets/audio/bgm/battle.ogg` | 地下の迎撃隊 |
+| 魔王捕獲 | `assets/audio/bgm/captured.ogg` | あと一歩で連れ去られる |
+| 勝利リザルト・強化購入 | `assets/audio/bgm/result_victory.ogg` | 地下のひとやすみ |
 
-| 種類 | 置き場所 | 形式 |
-| --- | --- | --- |
-| 効果音 | `assets/audio/se/<名前>.wav` | WAV（16bit、44.1kHz または 48kHz、モノラル推奨）。OGG も可 |
-| BGM | `assets/audio/bgm/build.*`（平常時）、`battle.*`（勇者がいる時）、`captured.*`（魔王が捕まった時） | OGG Vorbis（ステレオ、128〜192kbps 程度）。自動でループ再生 |
+曲はループ再生し、場面の切替時には短くフェードします。勝利リザルト曲は勝利SEの終了を待ち、通常曲より6dB控えめに再生します。敗北SE後は無音です。ポーズには別曲を追加しません。
 
-効果音の名前：`dig`（掘る）、`dig_fail`（掘れない）、`spawn_moss`（モコチュリ誕生）、`spawn_bug`（ザクザクムシ誕生）、`evolve`（進化）、`hit`（攻撃が当たる）、`hero_hurt`（勇者が被弾）、`monster_die`（魔物が倒れる）、`eat`（捕食）、`swing`（勇者の剣）、`heal`（勇者の回復）、`grab`（魔王を担ぐ）、`place`（魔王を置く）、`cutin`（カットイン）、`door`（門の扉）、`click`（ボタン）、`victory`（勝利）、`defeat`（敗北）
+SEの差替え先は `assets/audio/se/<キー>.wav`（OGGも使用可能）。採用音源のピッチは固定です。
+
+| キー | 用途 |
+| --- | --- |
+| `dig` / `miss` | 掘削成功 / 掘れない・対象なし・魔物へのツルハシ攻撃 |
+| `spawn_moss` / `spawn_bug` | コケ / ダンゴムシ誕生 |
+| `hero_attack` | 勇者の攻撃開始（命中時の重複音なし） |
+| `pillbug_die` | 幼虫・サナギの死亡 |
+| `pillbug_evolve` / `grass_evolve` | 虫の成虫化 / 草魔物の進化 |
+| `bee_attack` | 虫の成虫の攻撃開始。旧eat素材を流用し、捕食では鳴らさない |
+| `grab` / `door` | 魔王捕獲 / 門の開閉 |
+| `click` / `upgrade` | UI決定 / リザルト強化購入成功 |
+| `victory` / `defeat` | 勝利 / 敗北 |
+
+その他の `hit`（松明破壊）、`hero_hurt`、`monster_die`（草・成虫の戦闘死）、`heal`、`place`、`cutin`、購入失敗の `dig_fail` は合成音です。速度・カメラ操作・ポーズショートカットではclickを鳴らしません。
+
+採用素材の用途とハッシュは `assets/audio/v3/manifest.json`、音響検査結果は `assets/audio/v3/validation/audio_QA.json` を参照してください。
 
 ## 処理の軽さ（2026-09-26 に全体を見直し）
 
@@ -222,6 +235,7 @@ GODOT=/path/to/godot tools/run_tests.sh
 
 | テスト | 内容 |
 | --- | --- |
+| audiotest | 採用素材の読み込み、イベント別キー、固定ピッチ、BGM切替・ループ・音量、勝利SE後のリザルト曲開始と取消し |
 | sim_test | 生態系の耐久シミュレーションで養分の総量が保存されるか |
 | autoplay | 1ステージを自動プレイして勝利で終わるか |
 | padtest | コントローラー操作（RT+右スティックで町まで移動、右スティックでカーソル中心に回転、R3 でズーム、RB/LB で速度、LT で勇者へ、Y の確認を B で取り消し A で決定、B で一時停止を閉じる、RB 速度、A 長押し連続掘り、Y、魔王配置、一時停止中は掘れない） |

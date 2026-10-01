@@ -1,0 +1,27 @@
+{
+  "revision": "v3-SE-revision-1",
+  "changed_audio_keys": [
+    "hero_attack",
+    "pillbug_die"
+  ],
+  "files": [
+    {
+      "path": "assets/audio/se/hero_attack.wav",
+      "sha256": "c23ae352ac2785a26038c96d10e203479fe87302cd14da112246ebcc0a295d12",
+      "previous_sha256": "4a86e64005909128281b25ee30dc8a72e7527a0216248bbffca3c241b3f736a7",
+      "seconds": 0.185,
+      "title": "勇者攻撃・高めの棒の風切り音",
+      "usage": "勇者の攻撃が魔物に命中する瞬間の攻撃SE。低い太鼓音をなくし、高めで短い棒の風切り音へ修正。"
+    },
+    {
+      "path": "assets/audio/se/pillbug_die.wav",
+      "sha256": "658a5dfba8cece847e0cd288fe069c34b7c7170fc933b6f346b00d199c86423d",
+      "previous_sha256": "20d5350acceeeb6bc351619d8c5c7f421b6431f27b3ce085a20d501d723728c1",
+      "seconds": 0.205,
+      "title": "ダンゴムシ死亡・乾いたせんべい割れ",
+      "usage": "BUG LARVAのダンゴムシ、またはBUG PUPAの丸まった進化途中個体が死亡した瞬間。"
+    }
+  ],
+  "other_audio_files_unchanged": true,
+  "note": "Only the two WAV assets are replaced. No code changes are included. Numerical validation only; subjective listening not performed."
+}

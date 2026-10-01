@@ -221,7 +221,7 @@ func show_result(data: Dictionary) -> void:
 
 func _buy(id: String) -> void:
 	if GameState.buy(id):
-		Sfx.play("evolve")
+		Sfx.play("upgrade")
 	else:
 		Sfx.play("dig_fail")
 	_refresh_upgrades()
