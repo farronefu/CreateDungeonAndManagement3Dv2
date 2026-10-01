@@ -331,8 +331,8 @@ func _moss_arrive(m: Monster) -> void:
 		if m.nutrient <= 1:
 			for b in blocks:
 				if grid.get_nutrient(b) > 0:
-					grid.add_nutrient(b, -1)
-					m.nutrient += 1
+					var take := -grid.add_nutrient(b, -mini(Balance.MOSS_TAKE, grid.get_nutrient(b)))
+					m.nutrient += take
 					m.hp = minf(m.max_hp, m.hp + Balance.MOSS_ABSORB_HEAL)
 					m.anim_request = "absorb"
 					m.busy = Balance.MOSS_ABSORB_BUSY
@@ -340,8 +340,9 @@ func _moss_arrive(m: Monster) -> void:
 					break
 		else:
 			for b in blocks:
-				if grid.add_nutrient(b, 1) > 0:
-					m.nutrient -= 1
+				var given := grid.add_nutrient(b, mini(Balance.MOSS_GIVE, m.nutrient))
+				if given > 0:
+					m.nutrient -= given
 					m.anim_request = "absorb"
 					m.busy = Balance.MOSS_ABSORB_BUSY
 					nutrient_flow.emit(b, m, false)

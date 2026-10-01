@@ -60,6 +60,12 @@ const BUD_ABSORB_INTERVAL := 1.4
 const FLOWER_HP := 20
 const FLOWER_MAX_NUTRIENT := 11
 const FLOWER_LIFE := 32.0      # seconds until the flower scatters its children
+## nutrient a モコチュリ moves per step: it takes up to MOSS_TAKE from a neighbouring soil block
+## (when it carries 1 or less) and gives up to MOSS_GIVE back (when it carries 2 or more)
+const MOSS_TAKE := 3   # the original game's absorb limit
+const MOSS_GIVE := 2   # measured: 1 keeps moss too numerous, 3+ starves the evolution chain
+
+
 const FLOWER_CHILDREN := 5
 ## evolved trees stab adjacent heroes with a thorned root
 const BUD_ATK := 3
