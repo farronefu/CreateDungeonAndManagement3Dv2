@@ -32,7 +32,7 @@ var env: Environment
 var follow_hero := true
 
 var _hero_portrait: Texture2D
-var _hero_cutin: PortraitStudio
+var letterbox: Letterbox
 var _maou_cutin: PortraitStudio
 var _hud_timer := 0.0
 var _title_t := 0.0
@@ -258,13 +258,8 @@ func _build_ui() -> void:
 			_toggle_pause())
 	Pad.button_pressed.connect(_on_pad_button)
 	Pad.trigger_pressed.connect(_on_pad_trigger)
-	var hero_scene := load(profile.model_path) as PackedScene
 	_hero_portrait = load(profile.icon_path) as Texture2D
 	hud.set_hero(profile.display_name, _hero_portrait)
-	_hero_cutin = PortraitStudio.new()
-	add_child(_hero_cutin)
-	_hero_cutin.setup(hero_scene, Vector2i(560, 560), 1.0, Vector3(0.45, 0.62, 1.7), Vector3(0, 0.5, 0), 30.0)
-	_hero_cutin.actor.rotation.y = 0.35
 	_maou_cutin = PortraitStudio.new()
 	add_child(_maou_cutin)
 	_maou_cutin.setup(MonsterCatalog.scene("maou"), Vector2i(560, 560), 1.1, Vector3(0.0, 0.8, 1.7), Vector3(0, 0.6, 0), 30.0, false)
@@ -273,6 +268,8 @@ func _build_ui() -> void:
 	add_child(ui)
 	cutin = CutIn.new()
 	ui.add_child(cutin)
+	letterbox = Letterbox.new()
+	ui.add_child(letterbox)
 	screens = Screens.new()
 	ui.add_child(screens)
 	screens.start_pressed.connect(func() -> void:
@@ -292,14 +289,65 @@ func _begin_intro() -> void:
 	cam.focus_on(DungeonGrid.cell_center(grid.entrance) + Vector3(-1, 0, 4.5))
 	hud.set_visible_all(true)
 	Sfx.play_bgm("build")
-	_hero_cutin.actor.play(profile.anim_idle, 0.0)
-	await _cutin("勇者%sがやってくる！" % profile.display_name, "到着まであと%d秒。ダンジョンを掘って魔物を育てよう" % int(build_left), _hero_cutin.get_texture(), Color(0.75, 0.2, 0.12))
+	await _opening()
 	_begin_build()
+
+
+## Opening scene before the build phase: cinema bars slide in, the hero walks along the road in
+## the town, stops, raises his sword (the joy clip), says his line in the bottom bar and goes
+## down the steps into the fog. Everything else is frozen; A / Enter / Space / click skip it.
+func _opening() -> void:
+	var frozen := [layer, fx, maou, cursor]
+	for n in frozen:
+		(n as Node).process_mode = Node.PROCESS_MODE_DISABLED
+	cursor.mode = DigCursor.Mode.NONE
+	hud.set_visible_all(false)
+	cam.reset_angle()
+	cam.set_angle(0.0, deg_to_rad(30.0))
+	cam.zoom = 0.6
+	letterbox.begin()
+	Sfx.play("cutin")
+	hero.begin_descent()
+	var stop_at := 2.2   # on the road left of the mound, in plain view of the camera
+	var stage := 0       # 0 walking in, 1 sword raised, 2 down the steps
+	var t := 0.0
+	while hero.state == Hero.State.DESCENDING and not letterbox.skipped:
+		await get_tree().process_frame
+		var dt := get_process_delta_time()
+		if stage < 2:   # the camera stays on the road while he goes down the steps
+			cam.focus_on(hero.position + Vector3(0, 0, 0.3))
+		match stage:
+			0:
+				hero.tick(dt)
+				if hero.descent_dist() >= stop_at:
+					stage = 1
+					t = 0.0
+					hero.rotation.y = 0.0
+					var d := hero.actor.play_once(profile.anim_joy, profile.joy_anim_speed) if hero.actor.has_anim(profile.anim_joy) else 1.5
+					letterbox.say(profile.display_name, profile.intro_line, 1.6)
+					t = -maxf(d, 2.6)   # hold until the clip and the line are done
+			1:
+				t += dt
+				hero.rotation.y = lerp_angle(hero.rotation.y, 0.0, 0.2)
+				if t >= 0.0:
+					stage = 2
+			2:
+				hero.tick(dt)
+	hero.finish_descent()
+	var was_skipped := letterbox.skipped
+	letterbox.end()
+	if not was_skipped:
+		await get_tree().create_timer(0.5).timeout
+	hud.set_visible_all(true)
+	for n in frozen:
+		(n as Node).process_mode = Node.PROCESS_MODE_INHERIT
+	cam.reset_angle()
+	cam.zoom = 1.0
+	cam.focus_on(DungeonGrid.cell_center(grid.entrance) + Vector3(-1, 0, 4.5))
 
 
 func _begin_build() -> void:
 	phase = Phase.BUILD
-	hero.begin_descent()
 	cursor.mode = DigCursor.Mode.DIG
 	hud.toast("通路につながったブロックをクリックして掘ろう", UiTheme.TEXT)
 
@@ -359,8 +407,6 @@ func _try_place(c: Vector2i) -> void:
 	cursor.mode = DigCursor.Mode.NONE
 	phase = Phase.HERO_INTRO
 	await get_tree().create_timer(0.8 if not _debug.has("autostart") else 0.01).timeout
-	_hero_cutin.actor.play_once(profile.anim_attack, 1.0)
-	await _cutin("勇者%sが現れた！" % profile.display_name, profile.intro_line, _hero_cutin.get_texture(), Color(0.8, 0.12, 0.1))
 	_begin_invasion()
 
 
@@ -387,7 +433,7 @@ func _on_hero_died() -> void:
 	maou.set_mood("cheer")
 	_maou_cutin.actor.play("look_around", 0.0)
 	await get_tree().create_timer(1.6 if not _debug.has("autostart") else 0.01).timeout
-	await _cutin("勇者を撃退した！", "魔物たちの勝利だ！", _maou_cutin.get_texture(), Color(0.55, 0.25, 0.8))
+	await get_tree().create_timer(1.0 if not _debug.has("autostart") else 0.01).timeout
 	_show_result()
 
 
@@ -946,10 +992,6 @@ func _debug_bootstrap() -> void:
 		_show_result()
 	if _debug.has("title"):
 		screens.show_title()
-	if _debug.has("maoucutin"):
-		cutin.play("勇者を撃退した！", "魔物たちの勝利だ！", _maou_cutin.get_texture(), Color(0.55, 0.25, 0.8), 60.0)
-	if _debug.has("cutin"):
-		cutin.play("勇者%sが現れた！" % profile.display_name, profile.intro_line, _hero_cutin.get_texture(), Color(0.8, 0.12, 0.1), 60.0)
 	if _debug.has("angle"):
 		add_child(load("res://scripts/debug/angle.gd").new())
 	if _debug.has("dump"):
@@ -1200,7 +1242,7 @@ func _menutest() -> void:
 		_pad_event(JOY_BUTTON_A, false)
 	elif f == 40:
 		_mt["phase_after_A_on_title"] = phase
-		cutin._t = 99.0
+		letterbox.skipped = true   # skip the opening scene
 	elif f == 60:
 		_mt["phase_before_pause"] = phase
 		_pad_event(JOY_BUTTON_START, true)

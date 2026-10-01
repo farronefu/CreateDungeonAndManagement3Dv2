@@ -105,6 +105,17 @@ func begin_descent() -> void:
 	position = descent_path[0]
 
 
+## How far (in cells) along the descent path the hero is.
+func descent_dist() -> float:
+	return _descent_t / profile.move_time
+
+
+## Ends the descent at once: the hero is gone into the fog.
+func finish_descent() -> void:
+	visible = false
+	state = State.WAITING
+
+
 ## Invasion: the gate doors open and the hero, waiting behind them, walks in.
 func begin_invasion() -> void:
 	state = State.ENTERING
