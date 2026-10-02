@@ -426,7 +426,6 @@ func take_damage(d: int, _from: Monster) -> void:
 	hp -= dmg
 	actor.flash(Color(1, 0.2, 0.15))
 	fx.number(position + Vector3(0, 1.0, 0), str(dmg), Color(1.0, 0.35, 0.3), true)
-	Sfx.play("hero_hurt", position)
 	hp_changed.emit()
 	if hp <= 0.0:
 		_die()

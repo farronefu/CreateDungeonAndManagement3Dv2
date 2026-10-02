@@ -39,6 +39,7 @@ func _clear() -> void:
 	for c in get_children():
 		c.queue_free()
 	_upgrade_rows.clear()
+	Sfx.reset_ui_selection()
 
 
 func _dim(alpha: float) -> void:
@@ -69,8 +70,9 @@ func _button(text: String, cb: Callable, big: bool = true) -> Button:
 		b.custom_minimum_size = Vector2(320, 60)
 		b.add_theme_font_size_override("font_size", UiTheme.px(28))
 	b.pressed.connect(func() -> void:
-		Sfx.play("click")
+		Sfx.play("ui_confirm")
 		cb.call())
+	Sfx.watch_ui_selection(b)
 	return b
 
 
@@ -127,6 +129,7 @@ func show_title() -> void:
 
 
 func _show_howto() -> void:
+	Sfx.reset_ui_selection()
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.55)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -157,6 +160,7 @@ func _show_howto() -> void:
 	vb.add_child(how)
 	var close := _button("閉じる", func() -> void:
 		dim.queue_free()
+		Sfx.reset_ui_selection()
 		_focus_first.call_deferred(), false)
 	close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	close.custom_minimum_size = Vector2(220, 48)
@@ -208,6 +212,7 @@ func show_result(data: Dictionary) -> void:
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(190, 52)
 		b.pressed.connect(_buy.bind(id))
+		Sfx.watch_ui_selection(b)
 		hb.add_child(b)
 		vb.add_child(hb)
 		_upgrade_rows[id] = [lv, b]
@@ -221,9 +226,9 @@ func show_result(data: Dictionary) -> void:
 
 func _buy(id: String) -> void:
 	if GameState.buy(id):
-		Sfx.play("upgrade")
+		Sfx.play("ui_confirm")
 	else:
-		Sfx.play("dig_fail")
+		Sfx.play("miss")
 	_refresh_upgrades()
 
 

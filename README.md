@@ -174,37 +174,33 @@ node tools/modelgen/preview/serve.mjs    # http://localhost:5178 でブラウザ
 - **きょろきょろ**：1マス幅の通路の分かれ道（3方向以上）で、その場所につき1回だけ。1ブロックだけ掘った行き止まりは道として数えない
 - **松明**：新しく24マス探索するごとに、近く（5マス以内）に松明がなければ足元に置きます。どこまで探索されたかの目印です。勇者が松明のマスに入ると HP と MP が最大値の1割回復します（`Balance.TORCH_*`）。松明はプレイヤーのブレーカーでしか壊せません
 
-## 効果音・BGMは採用音源のOGG 5曲、SEは採用WAV 15種を使用します。未差替えのSEは `scripts/autoload/sfx.gd` の合成音へフォールバックします。
+## 効果音・BGMは採用OGG 5曲を維持し、SEはWAV 21種と既存の合成音 `heal` / `cutin` を使用します。素材は `assets/audio/se/` に置き、採用音は固定ピッチです。草の誕生・進化は個別の小音量を保持し、共通の音量正規化はしません。
 
-| 場面 | ファイル | 曲名 |
-| --- | --- | --- |
-| タイトル待機 | `assets/audio/bgm/title.ogg` | 地底の看板 |
-| 採掘・建設・配置 | `assets/audio/bgm/build.ogg` | もぐらの歩幅 |
-| 勇者侵攻 | `assets/audio/bgm/battle.ogg` | 地下の迎撃隊 |
-| 魔王捕獲 | `assets/audio/bgm/captured.ogg` | あと一歩で連れ去られる |
-| 勝利リザルト・強化購入 | `assets/audio/bgm/result_victory.ogg` | 地下のひとやすみ |
+| 場面 | BGM |
+| --- | --- |
+| タイトル | `title.ogg` |
+| 採掘・建設・配置 | `build.ogg` |
+| 勇者侵攻 | `battle.ogg` |
+| 魔王捕獲 | `captured.ogg` |
+| 勝利リザルト | `result_victory.ogg`（勝利SE終了後、通常より6dB小さく） |
 
-曲はループ再生し、場面の切替時には短くフェードします。勝利リザルト曲は勝利SEの終了を待ち、通常曲より6dB控えめに再生します。敗北SE後は無音です。ポーズには別曲を追加しません。
-
-草誕生と草進化は短く小さい採用音源の音量をそのまま使い、音量正規化・頻度制限の追加はしません。
-
-SEの差替え先は `assets/audio/se/<キー>.wav`（OGGも使用可能）。採用音源のピッチは固定です。
+全曲ループ・短いフェードで切替。敗北SE後は無音です。
 
 | キー | 用途 |
 | --- | --- |
-| `dig` / `miss` | 掘削成功 / 掘れない・対象なし・魔物へのツルハシ攻撃 |
-| `spawn_moss` / `spawn_bug` | コケ / ダンゴムシ誕生 |
-| `hero_hit` | 勇者の剣が魔物へ命中しダメージを与えた瞬間のみ。開始・空振りでは鳴らさず、汎用hitとの重複なし |
-| `pillbug_die` | 幼虫・サナギの死亡 |
-| `pillbug_evolve` / `grass_evolve` | 虫の成虫化 / 草魔物の進化 |
-| `bee_attack` | 虫の成虫の攻撃開始。旧eat素材を流用し、捕食では鳴らさない |
-| `grab` / `door` | 魔王捕獲 / 門の開閉 |
-| `click` / `upgrade` | UI決定 / リザルト強化購入成功 |
-| `victory` / `defeat` | 勝利 / 敗北 |
+| `dig` / `miss` / `torch_break` | 掘削成功 / 空振り・操作不成立（低いドゥン） / 松明の木割れ |
+| `spawn_moss` / `spawn_bug` / `grass_evolve` / `pillbug_evolve` | 草誕生 / 虫誕生 / 草の発芽進化 / 虫の成虫化 |
+| `hero_hit` | 勇者の剣が実命中した瞬間。開始・空振りでは鳴らさない |
+| `moss_hit` / `tree_hit` / `bee_attack` | 草の体当たり / BUD・FLOWERのザクッ / 蜂の命中（捕食成立も含む） |
+| `moss_die` / `tree_die` / `pillbug_die` / `bee_die` | 草が散る / 進化草の枝折れ / 幼虫・サナギ・丸まり進化表示中の死亡 / 蜂の死亡 |
+| `ui_move` / `ui_confirm` | フォーカス・マウスの選択移動 / 決定・画面遷移・魔王配置成功・強化購入成功 |
+| `grab` / `door` / `victory` / `defeat` | 魔王捕獲 / 門 / 勝利 / 敗北 |
 
-その他の `hit`（松明破壊）、`hero_hurt`、`monster_die`（草・成虫の戦闘死）、`heal`、`place`、`cutin`、購入失敗の `dig_fail` は合成音です。速度・カメラ操作・ポーズショートカットではclickを鳴らしません。
+攻撃音は命中時のみ。捕食もアニメーションの接触時点まで待ち、獲物が逃げた・死亡した場合は消費と命中音を発生させません。撃破音は1体につき種類別の1音だけです。初期フォーカスは無音で、同じボタンのフォーカスとマウス選択は移動音を重複させません。決定を処理する側だけが決定音を鳴らします。
 
-採用素材の用途とハッシュは `assets/audio/v3/manifest.json`、音響検査結果は `assets/audio/v3/validation/audio_QA.json` を参照してください。
+旧 `hero_hurt` / `monster_die` / `hit` / `place` / `click` / `upgrade` / `evolve` / `eat` / `swing` / `dig_fail` は参照を除去し、定義と不要な素材を削除しました。旧click素材はバイトを変えず `ui_move` に移管しています。
+
+素材ハッシュ・用途は `assets/audio/v3/manifest.json`、今回の生成レシピ・検査は `assets/audio/v3/se4/` を参照。耳による主観的評価は未実施です。
 
 ## 養分の流れの調整（2026-10-02）
 

@@ -7,7 +7,7 @@ extends Node
 
 const RATE := 22050
 ## Keep authored timing and pitch for the adopted cues.
-const FIXED_PITCH := ["dig", "spawn_bug", "grab", "door", "victory", "defeat", "click", "hero_hit", "pillbug_die", "pillbug_evolve", "spawn_moss", "miss", "grass_evolve", "upgrade", "bee_attack"]
+const FIXED_PITCH := ["dig", "spawn_moss", "spawn_bug", "pillbug_evolve", "hero_hit", "pillbug_die", "moss_die", "tree_die", "bee_die", "moss_hit", "tree_hit", "torch_break", "bee_attack", "grass_evolve", "ui_confirm", "ui_move", "grab", "door", "victory", "defeat", "miss"]
 
 var _streams := {}
 var _players: Array[AudioStreamPlayer] = []
@@ -18,6 +18,7 @@ var _bgm_tween: Tween
 const BGM_DB := -15.0
 var _last_play := {}
 var muted := false
+var _ui_selected: WeakRef
 
 
 func _ready() -> void:
@@ -58,6 +59,26 @@ func play(sound: String, _pos: Vector3 = Vector3.ZERO) -> void:
 	p.stream = _streams[sound]
 	p.pitch_scale = 1.0 if sound in FIXED_PITCH else randf_range(0.94, 1.06)
 	p.play()
+
+
+func reset_ui_selection() -> void:
+	_ui_selected = null
+
+
+func watch_ui_selection(control: BaseButton) -> void:
+	control.focus_entered.connect(_ui_select.bind(control))
+	control.mouse_entered.connect(_ui_select.bind(control))
+
+
+func _ui_select(control: BaseButton) -> void:
+	if control.disabled:
+		return
+	var previous: Object = _ui_selected.get_ref() if _ui_selected else null
+	if previous == control:
+		return
+	_ui_selected = weakref(control)
+	if previous != null:
+		play("ui_move")
 
 
 func duration(sound: String) -> float:
@@ -173,9 +194,6 @@ func _build_sfx() -> void:
 	_noise(b, 0, 0.3, 0.7, 14.0, 0.7)
 	_tone(b, 0, 0.25, 140, 55, 0, 0.8, 12.0)
 	_streams["dig"] = _wav(b)
-	b = _buf(0.14)
-	_tone(b, 0, 0.14, 110, 90, 1, 0.25, 10.0)
-	_streams["dig_fail"] = _wav(b)
 	b = _buf(0.25)
 	_tone(b, 0, 0.22, 380, 900, 0, 0.5, 10.0)
 	_tone(b, 0.05, 0.18, 600, 1200, 0, 0.3, 14.0)
@@ -188,25 +206,50 @@ func _build_sfx() -> void:
 	b = _buf(0.45)
 	for k in 3:
 		_tone(b, k * 0.08, 0.3, [523.0, 659.0, 784.0][k], [523.0, 659.0, 784.0][k], 2, 0.35, 6.0)
-	_streams["evolve"] = _wav(b)
+	_streams["pillbug_evolve"] = _wav(b)
 	b = _buf(0.15)
 	_noise(b, 0, 0.1, 0.8, 40.0, 0.2)
 	_tone(b, 0, 0.12, 240, 90, 0, 0.7, 20.0)
-	_streams["hit"] = _wav(b)
-	b = _buf(0.2)
-	_tone(b, 0, 0.18, 330, 150, 1, 0.3, 10.0)
-	_noise(b, 0, 0.08, 0.4, 30.0, 0.3)
-	_streams["hero_hurt"] = _wav(b)
+	_streams["hero_hit"] = _wav(b)
 	b = _buf(0.35)
 	_tone(b, 0, 0.35, 500, 120, 2, 0.45, 7.0)
-	_streams["monster_die"] = _wav(b)
+	_streams["pillbug_die"] = _wav(b)
+	b = _buf(0.35)
+	_tone(b, 0, 0.35, 500, 120, 2, 0.45, 7.0)
+	_streams["moss_die"] = _wav(b)
+	b = _buf(0.35)
+	_tone(b, 0, 0.35, 500, 120, 2, 0.45, 7.0)
+	_streams["tree_die"] = _wav(b)
+	b = _buf(0.35)
+	_tone(b, 0, 0.35, 500, 120, 2, 0.45, 7.0)
+	_streams["bee_die"] = _wav(b)
+	b = _buf(0.15)
+	_noise(b, 0, 0.1, 0.8, 40.0, 0.2)
+	_tone(b, 0, 0.12, 240, 90, 0, 0.7, 20.0)
+	_streams["moss_hit"] = _wav(b)
+	b = _buf(0.15)
+	_noise(b, 0, 0.1, 0.8, 40.0, 0.2)
+	_tone(b, 0, 0.12, 240, 90, 0, 0.7, 20.0)
+	_streams["tree_hit"] = _wav(b)
+	b = _buf(0.15)
+	_noise(b, 0, 0.1, 0.8, 40.0, 0.2)
+	_tone(b, 0, 0.12, 240, 90, 0, 0.7, 20.0)
+	_streams["torch_break"] = _wav(b)
 	b = _buf(0.3)
 	_noise(b, 0, 0.1, 0.6, 30.0, 0.5)
 	_noise(b, 0.13, 0.1, 0.6, 30.0, 0.5)
-	_streams["eat"] = _wav(b)
-	b = _buf(0.2)
-	_noise(b, 0, 0.2, 0.5, 10.0, 0.85)
-	_streams["swing"] = _wav(b)
+	_streams["bee_attack"] = _wav(b)
+	b = _buf(0.45)
+	for k in 3:
+		_tone(b, k * 0.08, 0.3, [523.0, 659.0, 784.0][k], [523.0, 659.0, 784.0][k], 2, 0.35, 6.0)
+	_streams["grass_evolve"] = _wav(b)
+	b = _buf(0.45)
+	for k in 3:
+		_tone(b, k * 0.08, 0.3, [523.0, 659.0, 784.0][k], [523.0, 659.0, 784.0][k], 2, 0.35, 6.0)
+	_streams["ui_confirm"] = _wav(b)
+	b = _buf(0.05)
+	_tone(b, 0, 0.05, 1200, 900, 2, 0.3, 60.0)
+	_streams["ui_move"] = _wav(b)
 	b = _buf(0.6)
 	for k in 6:
 		_tone(b, k * 0.06, 0.3, 700 + k * 150, 800 + k * 160, 0, 0.18, 8.0)
@@ -215,10 +258,6 @@ func _build_sfx() -> void:
 	_tone(b, 0, 0.12, 392, 392, 1, 0.2, 10.0)
 	_tone(b, 0.12, 0.15, 294, 294, 1, 0.2, 10.0)
 	_streams["grab"] = _wav(b)
-	b = _buf(0.7)
-	_tone(b, 0, 0.5, 90, 45, 0, 0.9, 6.0)
-	_tone(b, 0.05, 0.6, 880, 880, 2, 0.2, 5.0)
-	_streams["place"] = _wav(b)
 	b = _buf(0.7)
 	_noise(b, 0, 0.5, 0.5, 5.0, 0.9)
 	_tone(b, 0.12, 0.5, 110, 70, 1, 0.3, 6.0)
@@ -229,9 +268,6 @@ func _build_sfx() -> void:
 	_noise(b, 0.72, 0.25, 0.5, 16.0, 0.8)
 	_tone(b, 0.72, 0.28, 72, 45, 0, 0.6, 11.0)
 	_streams["door"] = _wav(b)
-	b = _buf(0.05)
-	_tone(b, 0, 0.05, 1200, 900, 2, 0.3, 60.0)
-	_streams["click"] = _wav(b)
 	b = _buf(1.8)
 	var fan := [523.0, 659.0, 784.0, 1047.0]
 	for k in 4:
@@ -243,9 +279,9 @@ func _build_sfx() -> void:
 	for k in 4:
 		_tone(b, k * 0.3, 0.6 if k < 3 else 1.1, dn[k], dn[k], 2, 0.3, 2.5)
 	_streams["defeat"] = _wav(b)
-	# Distinct event keys; temporary synthesized fallbacks are replaced by named files.
-	for pair in [["hero_hit", "hit"], ["pillbug_die", "monster_die"], ["pillbug_evolve", "evolve"], ["miss", "dig_fail"], ["grass_evolve", "evolve"], ["upgrade", "evolve"], ["bee_attack", "eat"]]:
-		_streams[pair[0]] = _streams[pair[1]]
+	b = _buf(0.12)
+	_tone(b, 0, 0.12, 90, 45, 0, 0.9, 6.0)
+	_streams["miss"] = _wav(b)
 
 
 # ------------------------------------------------------------------ music

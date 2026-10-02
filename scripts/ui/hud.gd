@@ -166,8 +166,9 @@ func _build_pause_screen() -> void:
 	_resume_btn.text = "再開する"
 	_resume_btn.custom_minimum_size = Vector2(280, 52)
 	_resume_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	Sfx.watch_ui_selection(_resume_btn)
 	_resume_btn.pressed.connect(func() -> void:
-		Sfx.play("click")
+		Sfx.play("ui_confirm")
 		resume_pressed.emit())
 	vb.add_child(_resume_btn)
 	for entry in [["このステージをやり直す", retry_pressed], ["タイトルに戻る", title_pressed]]:
@@ -176,8 +177,9 @@ func _build_pause_screen() -> void:
 		b.custom_minimum_size = Vector2(280, 46)
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		var sig: Signal = entry[1]
+		Sfx.watch_ui_selection(b)
 		b.pressed.connect(func() -> void:
-			Sfx.play("click")
+			Sfx.play("ui_confirm")
 			sig.emit())
 		vb.add_child(b)
 	var hint := UiTheme.label("Start ボタン / P キーでも再開", 16, UiTheme.TEXT_DIM)
@@ -220,6 +222,7 @@ func _build_confirm() -> void:
 		var b := Button.new()
 		b.text = "はい（A）" if yes else "いいえ（B）"
 		b.custom_minimum_size = Vector2(170, 48)
+		Sfx.watch_ui_selection(b)
 		b.pressed.connect(answer.bind(yes))
 		hb.add_child(b)
 		if yes:
@@ -229,6 +232,7 @@ func _build_confirm() -> void:
 
 ## Shows a yes / no question; `cb` receives true (はい / A) or false (いいえ / B).
 func ask(text: String, cb: Callable) -> void:
+	Sfx.reset_ui_selection()
 	_confirm_label.text = text
 	_confirm_cb = cb
 	_confirm.visible = true
@@ -243,7 +247,7 @@ func is_confirming() -> bool:
 func answer(yes: bool) -> void:
 	if not _confirm.visible:
 		return
-	Sfx.play("click")
+	Sfx.play("ui_confirm")
 	_confirm.visible = false
 	_confirm_yes.release_focus()
 	var cb := _confirm_cb
@@ -255,6 +259,7 @@ func answer(yes: bool) -> void:
 func set_paused(p: bool) -> void:
 	_pause_screen.visible = p
 	if p:
+		Sfx.reset_ui_selection()
 		_info.visible = false
 		_resume_btn.grab_focus.call_deferred()
 	else:
@@ -308,8 +313,9 @@ func _build_status() -> void:
 	_call_btn = Button.new()
 	_call_btn.text = "勇者を呼ぶ（Y）"
 	_call_btn.focus_mode = Control.FOCUS_NONE
+	Sfx.watch_ui_selection(_call_btn)
 	_call_btn.pressed.connect(func() -> void:
-		Sfx.play("click")
+		Sfx.play("ui_confirm")
 		call_hero_pressed.emit())
 	_build_box.add_child(_call_btn)
 	# placement / other messages
@@ -420,6 +426,7 @@ func _build_time_controls() -> void:
 		var b := IconButton.new(kinds[i])
 		b.button_pressed = SPEEDS[i] == 1.0
 		b.tooltip_text = "速度 x%d (RB)" % int(SPEEDS[i])
+		Sfx.watch_ui_selection(b)
 		b.pressed.connect(_on_speed.bind(SPEEDS[i]))
 		hb.add_child(b)
 		_speed_btns.append(b)
@@ -427,6 +434,7 @@ func _build_time_controls() -> void:
 
 func _on_speed(s: float) -> void:
 	set_speed(s)
+	Sfx.play("ui_confirm")
 	speed_changed.emit(s)
 
 

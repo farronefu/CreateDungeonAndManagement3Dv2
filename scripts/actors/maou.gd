@@ -77,7 +77,7 @@ func place(c: Vector2i, quiet: bool = false) -> void:
 		actor.play("idle", 0.0, 1.0, true)
 		return
 	_land()
-	Sfx.play("place", position)
+	Sfx.play("ui_confirm", position)
 
 
 ## Captured by the hero standing in the next cell: he stays in his cell, now wrapped up.

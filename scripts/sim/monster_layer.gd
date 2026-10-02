@@ -25,7 +25,7 @@ func setup(e: Ecosystem, effects: Effects) -> void:
 	eco.evolved.connect(_on_evolved)
 	eco.nutrient_flow.connect(_on_flow)
 	eco.ate.connect(_on_ate)
-	eco.attack_started.connect(_on_attack_started)
+	eco.hero_hit.connect(_on_hero_hit)
 	# build every model once up front: the first instance of each pays for loading and for
 	# generating its idle clip, which would otherwise hitch the frame the monster first appears
 	for key in ["moss", "moss_bud", "moss_flower", "evolution", "bug_larva", "bug_pupa", "bug_adult", "bug_evolution"]:
@@ -69,10 +69,12 @@ func _on_died(m: Monster, cause: String) -> void:
 	_visuals.erase(m.id)
 	v.die(cause)
 	_dying.append(v)
-	if m.kind == Monster.Kind.BUG and (m.stage != Monster.ADULT or v._evolving) and cause != "eaten":
-		Sfx.play("pillbug_die", v.position)
-	elif cause == "killed":
-		Sfx.play("monster_die", v.position)
+	# One species cue per death, including prey consumed by a successful attack.
+	if cause in ["killed", "eaten"] or (m.kind == Monster.Kind.BUG and cause in ["starve", "old"]):
+		if m.kind == Monster.Kind.MOSS:
+			Sfx.play("moss_die" if m.stage == Monster.MOSS else "tree_die", v.position)
+		else:
+			Sfx.play("pillbug_die" if m.stage != Monster.ADULT or v._evolving else "bee_die", v.position)
 	if cause != "eaten":
 		fx.dust(v.position + Vector3(0, 0.15, 0), Color(0.55, 0.75, 0.35, 0.6) if m.kind == Monster.Kind.MOSS else Color(0.6, 0.45, 0.3, 0.6), 0.7)
 
@@ -108,10 +110,17 @@ func _on_ate(pred: Monster, prey: Monster) -> void:
 	var v: MonsterVisual = _visuals.get(prey.id)
 	if v:
 		fx.sparkle(v.position + Vector3(0, 0.2, 0), Color(0.6, 0.9, 0.3), 10)
+	_play_monster_hit(pred)
 
 
-func _on_attack_started(m: Monster) -> void:
-	if m.kind == Monster.Kind.BUG and m.stage == Monster.ADULT:
+func _on_hero_hit(m: Monster, _damage: int) -> void:
+	_play_monster_hit(m)
+
+
+func _play_monster_hit(m: Monster) -> void:
+	if m.kind == Monster.Kind.MOSS:
+		Sfx.play("moss_hit" if m.stage == Monster.MOSS else "tree_hit", DungeonGrid.cell_center(m.cell))
+	elif m.stage == Monster.ADULT:
 		Sfx.play("bee_attack", DungeonGrid.cell_center(m.cell))
 
 

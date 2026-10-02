@@ -1,5 +1,9 @@
 {
-  "version": 3,
+  "version": "SE4",
+  "seed": 2026100203,
+  "new_sample_rate": 32000,
+  "normalization": "Per-recipe peak targets only; quiet grass levels preserved. Existing recordings copied byte for byte.",
+  "subjective_listening_performed": false,
   "se": [
     {
       "key": "torch_break",
@@ -191,77 +195,9 @@
       "usage": "UI選択移動。旧clickのバイト完全コピー。"
     }
   ],
-  "bgm": [
-    {
-      "key": "build",
-      "title": "採掘／建設：もぐらの歩幅",
-      "status": "preserved",
-      "file": "assets/audio/bgm/build.ogg",
-      "source": "02_mining_もぐらの歩幅.ogg",
-      "sha256": "c21f9c15aa8fb67023358ba6909d2f075cb85f576e7f05621b018ef25ccfe0dd"
-    },
-    {
-      "key": "battle",
-      "title": "侵攻：地下の迎撃隊",
-      "status": "preserved",
-      "file": "assets/audio/bgm/battle.ogg",
-      "source": "03_battle_地下の迎撃隊.ogg",
-      "sha256": "eff07c0e6fb008d56d8b86327820ac82c44d8a063f96dbe9859d4a7c2637aa58"
-    },
-    {
-      "key": "captured",
-      "title": "魔王捕獲：あと一歩で連れ去られる",
-      "status": "preserved",
-      "file": "assets/audio/bgm/captured.ogg",
-      "source": "04_captured_あと一歩で連れ去られる.ogg",
-      "sha256": "d6225f2b180b779eb5509629e0979e4f6ecae82f0472e653cc6b021e33836fb6"
-    },
-    {
-      "key": "title",
-      "title": "地底の看板",
-      "description": "タイトル画面の待機中。建設曲とは分け、低い主題と余白でゲームの入口を作る。",
-      "bpm": 92,
-      "bars": 16,
-      "seconds": 41.739125,
-      "samples": 1335652,
-      "file": "assets/audio/bgm/title.ogg",
-      "melody_max_midi": 64,
-      "master_file": "bgm/title.wav",
-      "preview": "preview/v3_title.mp3",
-      "status": "new",
-      "sha256": "9ccb820b649036f35706b7d2cbea8adf3b38084397ff7af4a88d5e2711599fe5"
-    },
-    {
-      "key": "result_victory",
-      "title": "地下のひとやすみ",
-      "description": "勝利SEの後、勝利リザルト画面で成績確認・強化購入中に流す。敗北画面では使わない。",
-      "bpm": 80,
-      "bars": 16,
-      "seconds": 48.0,
-      "samples": 1536000,
-      "file": "assets/audio/bgm/result_victory.ogg",
-      "melody_max_midi": 67,
-      "master_file": "bgm/result_victory.wav",
-      "preview": "preview/v3_result_victory.mp3",
-      "status": "new",
-      "sha256": "9aa8b857bef4b41d58ca2f97449e1431a59911b2d52267a3b795858588067869"
-    }
-  ],
-  "integration_notes": [
-    "Register all semantic keys in Sfx streams; current play() ignores unregistered keys.",
-    "Current file search prioritizes .wav over .ogg. Do not leave an older same-key WAV masking the selected OGG.",
-    "Use click only for UI confirmation; separate cancellation/navigation without the same click.",
-    "Repurpose eat to bee_attack. Do not continue playing it for predation.",
-    "Use the exact same miss file for invalid/no-target actions and pickaxe attacks on monsters.",
-    "These are event mapping requirements; no repository files were changed by this audio task."
-  ],
-  "bgm_additions": "Phase audit: title uses dedicated title; win results use result_victory after victory sting. Defeat stays silent after defeat sting; no new placement/cutin BGM.",
-  "patch": "patch_se2/patch_manifest.json",
-  "patch_se3": "patch_se3/manifest.json",
-  "revision": "SE4",
   "legacy_synthesized_keys": [
     "heal",
     "cutin"
   ],
-  "patch_se4": "se4/manifest.json"
+  "bgm": "unchanged"
 }

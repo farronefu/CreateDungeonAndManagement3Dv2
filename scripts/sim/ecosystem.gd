@@ -16,7 +16,6 @@ signal died(m: Monster, cause: String)
 signal evolved(m: Monster)
 signal nutrient_flow(block: Vector2i, m: Monster, into_monster: bool)
 signal hero_hit(m: Monster, damage: int)
-signal attack_started(m: Monster)
 signal ate(predator: Monster, prey: Monster)
 
 var grid: DungeonGrid
@@ -111,6 +110,8 @@ func _set_stage(m: Monster, stage: int, fresh: bool) -> void:
 	m.age = 0.0 if fresh else m.age
 	m.timer = 0.0
 	m.busy = 0.0
+	m.eat_target = null
+	m.eat_timer = -1.0
 	m.base_anim = "idle"
 	var mm := _moss_mult()
 	var bm := _bug_mult()
@@ -160,6 +161,8 @@ func kill(m: Monster, cause: String) -> void:
 	if not m.alive:
 		return
 	m.alive = false
+	m.eat_target = null
+	m.eat_timer = -1.0
 	if cause != "eaten":
 		_scatter_nutrient(m.cell, m.nutrient)
 	m.nutrient = 0
@@ -201,6 +204,10 @@ func tick(delta: float) -> void:
 			m.hit_timer -= delta
 			if m.hit_timer < 0.0:
 				_land_hit(m)
+		if m.eat_timer >= 0.0:
+			m.eat_timer -= delta
+			if m.eat_timer < 0.0:
+				_land_eat(m)
 		if m.kind == Monster.Kind.MOSS:
 			match m.stage:
 				Monster.MOSS:
@@ -275,7 +282,6 @@ func _try_attack_hero(m: Monster, front_only: bool) -> bool:
 		m.cooldown = Balance.BUG_ATTACK_CD
 	m.hit_dmg = int(round(m.atk * rng.randf_range(0.85, 1.15)))
 	m.hit_timer = m.busy * Balance.ATTACK_HIT_FRACTION
-	attack_started.emit(m)
 	return true
 
 
@@ -454,16 +460,30 @@ func _try_eat(m: Monster) -> bool:
 			m.dir = d
 		m.anim_request = "eat"
 		m.busy = 1.0
-		m.hp = minf(m.max_hp, m.hp + Balance.EAT_HEAL + prey.nutrient * 2)
-		m.nutrient += prey.nutrient
-		ate.emit(m, prey)
-		kill(prey, "eaten")
+		m.eat_target = prey
+		m.eat_timer = m.busy * Balance.ATTACK_HIT_FRACTION
 		return true
 	var path := grid.find_path(m.cell, prey.cell)
 	if path.is_empty():
 		return false
 	_start_move(m, path[0], _bug_step(m))
 	return true
+
+
+## Feeding transfers nutrient and emits its contact only once, when the attack connects.
+func _land_eat(m: Monster) -> void:
+	var prey := m.eat_target
+	m.eat_target = null
+	m.eat_timer = -1.0
+	if not m.alive or prey == null or not prey.alive:
+		return
+	var d := prey.cell - m.cell
+	if absi(d.x) + absi(d.y) > 1:
+		return
+	m.hp = minf(m.max_hp, m.hp + Balance.EAT_HEAL + prey.nutrient * 2)
+	m.nutrient += prey.nutrient
+	ate.emit(m, prey)
+	kill(prey, "eaten")
 
 
 func _bug_step(m: Monster) -> float:

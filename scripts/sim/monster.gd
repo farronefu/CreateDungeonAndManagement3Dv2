@@ -38,6 +38,9 @@ var busy := 0.0
 ## pending attack on the hero: lands when hit_timer crosses 0
 var hit_timer := -1.0
 var hit_dmg := 0
+## Feeding also connects mid-animation; consumption waits for a live adjacent prey.
+var eat_target: Monster
+var eat_timer := -1.0
 var toggle := false
 var alive := true
 var jitter := Vector2.ZERO

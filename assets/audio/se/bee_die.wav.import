@@ -2,13 +2,13 @@
 
 importer="wav"
 type="AudioStreamWAV"
-uid="uid://ba13dhjmh2s5c"
-path="res://.godot/imported/click.wav-27aa35ee9c42ceac44a9a3bfa711e942.sample"
+uid="uid://dduuoobho1ew5"
+path="res://.godot/imported/bee_die.wav-91da9bc7061a373036e73474d2e59477.sample"
 
 [deps]
 
-source_file="res://assets/audio/se/click.wav"
-dest_files=["res://.godot/imported/click.wav-27aa35ee9c42ceac44a9a3bfa711e942.sample"]
+source_file="res://assets/audio/se/bee_die.wav"
+dest_files=["res://.godot/imported/bee_die.wav-91da9bc7061a373036e73474d2e59477.sample"]
 
 [params]
 

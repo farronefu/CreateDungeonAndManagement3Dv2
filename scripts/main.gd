@@ -739,7 +739,7 @@ func _break_torch(c: Vector2i) -> void:
 	fx.debris(c, 0.0)
 	fx.dust(t.position + Vector3(0, 0.3, 0), Color(1.0, 0.6, 0.3, 0.7), 0.8)
 	cam.shake(0.2)
-	Sfx.play("hit")
+	Sfx.play("torch_break")
 	t.queue_free()
 
 

@@ -29,8 +29,9 @@ func _run() -> void:
 	game = get_parent()
 	for i in 20:
 		await get_tree().process_frame
-	for key in Sfx.FIXED_PITCH:
-		_check(sfx._streams[key].resource_path == "res://assets/audio/se/" + key + ".wav", "installed recording: " + key)
+	if not game._debug.has("audio_fallback"):
+		for key in Sfx.FIXED_PITCH:
+			_check(sfx._streams[key].resource_path == "res://assets/audio/se/" + key + ".wav", "installed recording: " + key)
 	game.set_process(false)
 	game.speed = 0.0
 	var c: Vector2i = game.grid.entrance
@@ -40,7 +41,7 @@ func _run() -> void:
 	_check(_heard("spawn_moss"), "moss birth")
 	_reset()
 	game.eco._evolve(moss, Monster.BUD)
-	_check(_heard("grass_evolve") and not _heard("upgrade"), "grass evolution is separate from purchases")
+	_check(_heard("grass_evolve") and not _heard("ui_confirm"), "grass evolution is separate from purchases")
 	var bug: Monster = game.eco.spawn(Monster.Kind.BUG, Monster.LARVA, c, 10, "birth")
 	_reset()
 	game.layer._process(0.0)
@@ -55,10 +56,51 @@ func _run() -> void:
 	game.hero.cell = c
 	bug.cooldown = 0.0
 	_reset()
-	_check(game.eco._try_attack_hero(bug, false) and _heard("bee_attack"), "adult attack starts its own cue")
+	_check(game.eco._try_attack_hero(bug, false) and not _heard("bee_attack"), "adult attack start is silent")
+	game.hero.cell = c + Vector2i(3, 0)
 	_reset()
-	game.layer._on_ate(bug, moss)
-	_check(not _heard("eat") and not _heard("bee_attack"), "feeding does not play the reused attack recording")
+	game.eco._land_hit(bug)
+	_check(not _heard("bee_attack"), "adult miss is silent")
+	game.hero.cell = c
+	_reset()
+	game.eco._land_hit(bug)
+	_check(_heard("bee_attack") and not _heard("hero_hurt"), "adult contact without generic hero hurt")
+	bug.hit_timer = -1.0
+	_reset()
+	_check(game.eco._try_eat(bug) and bug.eat_target != null and bug.eat_timer > 0.0, "feeding schedules a later contact")
+	_check(not _heard("bee_attack"), "feeding start is silent")
+	var prey: Monster = bug.eat_target
+	var nutrient_before: int = game.grid.total_nutrient() + game.eco.total_nutrient()
+	_reset()
+	game.eco._land_eat(bug)
+	_check(not prey.alive and _heard("bee_attack") and not _heard("eat"), "adult feeding contact uses adopted sound")
+	_check(game.grid.total_nutrient() + game.eco.total_nutrient() == nutrient_before, "delayed feeding conserves nutrient")
+	_reset()
+	game.eco._land_eat(bug)
+	_check(sfx._last_play.is_empty(), "feeding contact cannot repeat")
+	var escaped_prey: Monster = game.eco.spawn(Monster.Kind.MOSS, Monster.MOSS, c + Vector2i(3, 0), 0, "load")
+	bug.eat_target = escaped_prey
+	_reset()
+	game.eco._land_eat(bug)
+	_check(escaped_prey.alive and sfx._last_play.is_empty(), "escaped feeding target is a silent miss")
+	escaped_prey.alive = false
+	bug.eat_target = escaped_prey
+	_reset()
+	game.eco._land_eat(bug)
+	_check(sfx._last_play.is_empty(), "dead feeding target is silent")
+	for stage in [Monster.MOSS, Monster.BUD, Monster.FLOWER]:
+		var striker: Monster = game.eco.spawn(Monster.Kind.MOSS, stage, c, 0, "load")
+		_reset()
+		_check(game.eco._try_attack_hero(striker, false), "grass attack scheduled")
+		_check(not _heard("moss_hit") and not _heard("tree_hit"), "grass attack start is silent")
+		game.hero.cell = c + Vector2i(3, 0)
+		game.eco._land_hit(striker)
+		_check(not _heard("moss_hit") and not _heard("tree_hit"), "grass miss is silent")
+		game.hero.cell = c
+		_reset()
+		game.eco._land_hit(striker)
+		_check(_heard("moss_hit" if stage == Monster.MOSS else "tree_hit"), "grass contact stage %d" % stage)
+		striker.hit_timer = -1.0
 	game.hero.attack_cd = 0.0
 	_reset()
 	game.hero._attack(bug)
@@ -94,11 +136,16 @@ func _run() -> void:
 	_reset()
 	game._try_dig(Vector2i(-1, -1))
 	_check(_heard("miss"), "empty or invalid target")
-	for stage in [Monster.LARVA, Monster.PUPA, Monster.ADULT]:
-		var victim: Monster = game.eco.spawn(Monster.Kind.BUG, stage, c, 10, "load")
-		_reset()
-		game.eco.kill(victim, "killed")
-		_check(_heard("pillbug_die") == (stage != Monster.ADULT), "death stage %d" % stage)
+	for species in [Monster.Kind.MOSS, Monster.Kind.BUG]:
+		for stage in [0, 1, 2]:
+			var victim: Monster = game.eco.spawn(species, stage, c, 10, "load")
+			_reset()
+			game.eco.kill(victim, "killed")
+			var cue := ("moss_die" if stage == 0 else "tree_die") if species == Monster.Kind.MOSS else ("bee_die" if stage == 2 else "pillbug_die")
+			_check(_heard(cue) and sfx._last_play.size() == 1, "single species death cue %d/%d" % [species, stage])
+			_reset()
+			game.eco.kill(victim, "killed")
+			_check(sfx._last_play.is_empty(), "dead victim cannot play twice")
 	var emerging: Monster = game.eco.spawn(Monster.Kind.BUG, Monster.ADULT, c, 10, "load")
 	emerging.visual.play_evolution("bug_evolution")
 	_reset()
@@ -110,12 +157,42 @@ func _run() -> void:
 	_reset()
 	game._focus_hero()
 	_check(not _heard("click"), "camera shortcut is not UI confirmation")
+	game._place_torch(c)
+	_reset()
+	game._break_torch(c)
+	_check(_heard("torch_break") and not _heard("hit"), "torch wood break")
 	game._show_result()
 	get_tree().root.get_node("GameState").evolution_points = 10000
+	game.screens._refresh_upgrades()
 	_reset()
-	game.screens._buy("dig")
-	_check(_heard("upgrade") and not _heard("grass_evolve"), "purchase cue")
-	for key in ["hero_hit", "pillbug_die", "pillbug_evolve", "grass_evolve", "miss", "upgrade", "bee_attack"]:
+	var first: Button = game.screens._upgrade_rows["dig"][1]
+	var second: Button = game.screens._upgrade_rows["moss"][1]
+	sfx.reset_ui_selection()
+	first.focus_entered.emit()
+	first.mouse_entered.emit()
+	_check(not _heard("ui_move"), "initial menu selection is silent")
+	var next_before: int = sfx._next
+	second.focus_entered.emit()
+	second.mouse_entered.emit()
+	_check(_heard("ui_move") and sfx._next == (next_before + 1) % sfx._players.size(), "focus and hover coalesce to one move")
+	_reset()
+	next_before = sfx._next
+	first.pressed.emit()
+	_check(_heard("ui_confirm") and not _heard("ui_move") and sfx._next == (next_before + 1) % sfx._players.size(), "single purchase confirmation")
+	game.hud.ask("audio test", func(_answer: bool) -> void: pass)
+	_reset()
+	next_before = sfx._next
+	game.hud.answer(true)
+	_check(_heard("ui_confirm") and sfx._next == (next_before + 1) % sfx._players.size(), "one yes confirmation")
+	_reset()
+	game.hud.answer(false)
+	_check(sfx._last_play.is_empty(), "closed dialog cannot confirm twice")
+	_reset()
+	game.maou.place(c)
+	_check(_heard("ui_confirm") and not _heard("place"), "placement uses shared confirmation")
+	for obsolete in ["hero_hurt", "monster_die", "hit", "place", "click", "upgrade", "evolve", "eat", "swing", "dig_fail"]:
+		_check(not sfx._streams.has(obsolete), "obsolete definition removed: " + obsolete)
+	for key in Sfx.FIXED_PITCH:
 		_reset()
 		sfx.play(key)
 		_check(sfx._players[(sfx._next - 1 + sfx._players.size()) % sfx._players.size()].pitch_scale == 1.0, "authored pitch: " + key)
@@ -142,4 +219,18 @@ func _run() -> void:
 	await get_tree().create_timer(0.15).timeout
 	_check(sfx._bgm_name == "result_victory", "result music starts after victory cue")
 	print("AUDIOTEST ", "PASS" if failures == 0 else "FAIL", " failures=", failures)
-	get_tree().quit(0 if failures == 0 else 1)
+	var tree := get_tree()
+	if sfx._bgm_tween:
+		sfx._bgm_tween.kill()
+	sfx._bgm.stop()
+	sfx._bgm.stream = null
+	for player in sfx._players:
+		player.stop()
+		player.stream = null
+	await tree.create_timer(0.1).timeout
+	sfx.reset_ui_selection()
+	reparent(tree.root)  # Keep this test coroutine alive while its game scene is freed.
+	game.queue_free()
+	await tree.process_frame
+	await tree.process_frame
+	tree.quit(0 if failures == 0 else 1)
