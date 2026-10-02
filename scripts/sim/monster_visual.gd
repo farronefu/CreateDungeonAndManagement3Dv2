@@ -207,7 +207,9 @@ func hurt() -> void:
 	if actor and not _dying:
 		actor.flash(Color(1, 1, 1))
 		_bar_timer = 3.0
-		if not actor.is_busy() and not _evolving:
+		# Pillbugs keep the hit flash and HP bar without deforming their body.
+		var pillbug := m.kind == Monster.Kind.BUG and m.stage in [Monster.LARVA, Monster.PUPA]
+		if not pillbug and not actor.is_busy() and not _evolving:
 			_play_request("hurt", 0.0)
 
 
