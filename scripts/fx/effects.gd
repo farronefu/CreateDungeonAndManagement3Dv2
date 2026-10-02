@@ -133,7 +133,7 @@ func _curve(points: Array) -> Curve:
 	return c
 
 
-func debris(c: Vector2i, mossy: float) -> void:
+func debris(c: Vector2i, mossy: float, nutrient: int = -1) -> void:
 	var pos := DungeonGrid.cell_center(c, Balance.BLOCK_H * 0.55)
 	# clods of earth
 	var p := CPUParticles3D.new()
@@ -155,6 +155,10 @@ func debris(c: Vector2i, mossy: float) -> void:
 	var g := Gradient.new()
 	g.set_color(0, Color(0.36, 0.25, 0.16))
 	g.set_color(1, Color(0.3, 0.38, 0.18).lerp(Color(0.45, 0.33, 0.22), 1.0 - mossy))
+	if nutrient >= 0:
+		var block_color := VoxelBlockCatalog.debris_color(nutrient)
+		g.set_color(0, block_color.darkened(0.15))
+		g.set_color(1, block_color.lightened(0.08))
 	p.color_initial_ramp = g
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 	p.emission_box_extents = Vector3(0.3, 0.3, 0.3)
@@ -163,7 +167,8 @@ func debris(c: Vector2i, mossy: float) -> void:
 	add_child(p)
 	p.emitting = true
 	get_tree().create_timer(1.3).timeout.connect(p.queue_free)
-	dust(pos, Color(0.72, 0.6, 0.46, 0.7))
+	var dust_color := VoxelBlockCatalog.debris_color(nutrient) if nutrient >= 0 else Color(0.72, 0.6, 0.46)
+	dust(pos, Color(dust_color.r, dust_color.g, dust_color.b, 0.7))
 
 
 func dust(pos: Vector3, color: Color, size: float = 1.0) -> void:

@@ -765,7 +765,7 @@ func _try_dig(c: Vector2i) -> bool:
 	var n := grid.dig(c)
 	dig_left -= 1
 	cursor.swing()
-	fx.debris(c, clampf(n / 12.0, 0.0, 1.0))
+	fx.debris(c, clampf(n / 12.0, 0.0, 1.0), n)
 	cam.shake(0.35)
 	Sfx.play("dig")
 	var m := eco.spawn_from_dig(c, n)

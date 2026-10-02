@@ -1,14 +1,7 @@
 class_name DungeonView
 extends Node3D
-## Renders the DungeonGrid as individual rounded soil blocks with gaps between them
-## (勇者のくせになまいきだ style). Each block's look follows its nutrient stage
-## (Balance.soil_stage): ① bare → ② a few plants → ③ lush → ④ starting to wither → ⑤ withered,
-## with 3D leaf clumps, grass tufts, hanging vines and embedded pebbles as instanced decor.
-## Also the packed-dirt floor and the 3D surface world.
-##
-## Everything is split into CHUNK x CHUNK cell chunks with their own MultiMeshes, so the engine
-## culls whole chunks outside the camera / shadow view, and a nutrient change or a dig only
-## rebuilds the decor of the chunks it touched.
+## Renders approved six-face voxel blocks with nutrient-selected embedded atlases.
+## Chunk MultiMeshes keep updates cheap; floor props and the surface world remain separate.
 
 const OUTER_SIDE := 20     # undiggable rock beyond the grid, so the camera never sees the void
 const OUTER_BOTTOM := 16
@@ -16,16 +9,12 @@ const HALF := Vector3(0.485, 0.44, 0.485)   # a thin ~0.03 gap between neighbour
 const CHUNK := 10
 const DECOR_INTERVAL := 0.25   # seconds between decor rebuilds of dirty chunks
 
-# leaf / straw palettes (sRGB)
-const GREEN := [Color(0.46, 0.72, 0.3), Color(0.36, 0.62, 0.26), Color(0.52, 0.76, 0.36)]
-const YELLOW := [Color(0.9, 0.76, 0.36), Color(0.82, 0.66, 0.3), Color(0.94, 0.82, 0.46)]
-const DECOR_LAYERS := ["clump0", "clump1", "clump2", "vine", "tuft", "pebble"]
-
 var grid: DungeonGrid
 var block_mat: ShaderMaterial
 var surface: SurfaceWorld
 
 var _slot := {}  # Vector2i -> [multimesh, index]
+var _nutrient_of := {}  # last solid block color; retained during crumble
 var _seed := {}
 var _anim := {}  # Vector2i -> time left (crumble)
 var _hover := Vector2i(-999, -999)
@@ -34,8 +23,6 @@ var _rng := RandomNumberGenerator.new()
 var _chunks := {}          # Vector2i -> Chunk
 var _dirty := {}           # chunk keys whose decor needs a rebuild
 var _decor_timer := 0.0
-var _decor_mesh := {}      # layer -> Mesh
-var _decor_mat := {}       # layer -> Material
 var _floor_rocks: MultiMeshInstance3D
 var _floor_shrooms: MultiMeshInstance3D
 var _floor_props := {}
@@ -71,13 +58,7 @@ func setup(g: DungeonGrid) -> void:
 
 
 func _build_materials() -> void:
-	block_mat = ShaderMaterial.new()
-	block_mat.shader = load("res://shaders/block.gdshader")
-	block_mat.set_shader_parameter("noise_a", ProcGen.noise_a())
-	block_mat.set_shader_parameter("noise_b", ProcGen.noise_b())
-	block_mat.set_shader_parameter("block_height", HALF.y * 2.0)
-	block_mat.set_shader_parameter("depth_rows", float(grid.h))
-
+	block_mat = VoxelBlockCatalog.material()
 
 # ------------------------------------------------------------------ chunks & blocks
 func _chunk_of(c: Vector2i) -> Vector2i:
@@ -94,16 +75,9 @@ func _get_chunk(k: Vector2i) -> Chunk:
 	return _chunks[k]
 
 
-func _variant_of(c: Vector2i) -> int:
-	return absi(c.x * 73856093 ^ c.y * 19349663) % 3
-
-
 func _build_blocks() -> void:
-	# 3 shape variants x (detailed inner grid, cheap outer rock ring). Row 0 is not drawn as
-	# blocks: SurfaceWorld builds it as a stone rampart with the gate.
-	var meshes: Array[Mesh] = []
-	for i in 6:
-		meshes.append(ProcGen.rounded_box(HALF, 0.085, 200 + (i % 3) * 31, 0.012, 0.03, 0 if i >= 3 else 1))
+	# All approved stages have byte-identical geometry and UVs. Share the mesh.
+	var block_mesh := VoxelBlockCatalog.mesh()
 	var lists := {}   # chunk -> mesh index -> cells
 	for y in range(1, grid.h + OUTER_BOTTOM):
 		for x in range(-OUTER_SIDE, grid.w + OUTER_SIDE):
@@ -112,7 +86,7 @@ func _build_blocks() -> void:
 			var ch := _get_chunk(k)
 			if grid.in_bounds(c):
 				ch.cells.append(c)
-			var i := _variant_of(c) + (0 if grid.in_bounds(c) else 3)
+			var i := 0 if grid.in_bounds(c) else 1
 			if not lists.has(k):
 				lists[k] = {}
 			if not lists[k].has(i):
@@ -125,7 +99,7 @@ func _build_blocks() -> void:
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
 			mm.use_custom_data = true
-			mm.mesh = meshes[i]
+			mm.mesh = block_mesh
 			mm.instance_count = cells.size()
 			for n in cells.size():
 				var c: Vector2i = cells[n]
@@ -135,7 +109,7 @@ func _build_blocks() -> void:
 			var mmi := MultiMeshInstance3D.new()
 			mmi.multimesh = mm
 			mmi.material_override = block_mat
-			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if i >= 3 else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if i == 1 else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 			mmi.layers = RenderLayers.DUNGEON
 			ch.node.add_child(mmi)
 
@@ -161,11 +135,17 @@ func _write_instance(c: Vector2i) -> void:
 	if s <= 0.0:
 		mm.set_instance_transform(sv[1], Transform3D(Basis().scaled(Vector3.ONE * 0.0001), Vector3(c.x + 0.5, -5, c.y + 0.5)))
 	else:
-		# hand-placed feel: a slight twist and height variation; crumbling blocks sink and shrink
-		var basis := Basis(Vector3.UP, (sd - 0.5) * 0.08).scaled(Vector3(lerpf(0.6, 1.0, s), s * (0.97 + sd * 0.06), lerpf(0.6, 1.0, s)))
+		# Quarter turns preserve the authored 0.03 m gap; crumbling still sinks and shrinks.
+		var basis := Basis(Vector3.UP, floorf(sd * 4.0) * PI * 0.5).scaled(Vector3(lerpf(0.6, 1.0, s), s, lerpf(0.6, 1.0, s)))
 		mm.set_instance_transform(sv[1], Transform3D(basis, Vector3(c.x + 0.5, HALF.y * s, c.y + 0.5)))
 	var hover := _hover_amt if c == _hover else 0.0
 	var n := grid.get_nutrient(c) if grid.in_bounds(c) else 0
+	if _anim.has(c):
+		n = _nutrient_of.get(c, n)
+	elif solid:
+		_nutrient_of[c] = n
+	else:
+		_nutrient_of.erase(c)
 	mm.set_instance_custom_data(sv[1], Color(float(n) / 16.0, sd, hover, _kind_of(c)))
 
 
@@ -236,32 +216,13 @@ func _build_floor() -> void:
 
 # ------------------------------------------------------------------ decor
 func _build_decor_resources() -> void:
-	var plant := ProcGen.plant_material()
-	for i in 3:
-		_decor_mesh["clump%d" % i] = ProcGen.leaf_clump_mesh(31 + i * 7)
-		_decor_mat["clump%d" % i] = plant
-	_decor_mesh["vine"] = ProcGen.vine_chain_mesh(5)
-	_decor_mat["vine"] = plant
-	var grass_mat := StandardMaterial3D.new()
-	grass_mat.albedo_texture = ProcGen.grass_texture(true)
-	grass_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	grass_mat.alpha_scissor_threshold = 0.4
-	grass_mat.cull_mode = BaseMaterial3D.CULL_BACK
-	grass_mat.vertex_color_use_as_albedo = true
-	grass_mat.vertex_color_is_srgb = true
-	grass_mat.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	grass_mat.roughness = 1.0
-	grass_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	_decor_mesh["tuft"] = ProcGen.tuft_mesh(0.26, 0.22)
-	_decor_mat["tuft"] = grass_mat
+	# Authored voxel blocks have no extra leaves, tufts, vines or embedded pebbles.
 	var stone := StandardMaterial3D.new()
 	stone.vertex_color_use_as_albedo = true
 	stone.vertex_color_is_srgb = true
 	stone.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
 	stone.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 	stone.roughness = 1.0
-	_decor_mesh["pebble"] = ProcGen.rock_mesh(9)
-	_decor_mat["pebble"] = stone
 	_floor_rocks = _mmi(ProcGen.rock_mesh(4), stone, true, self)
 	var stem := StandardMaterial3D.new()
 	stem.albedo_color = Color("e8dcc0")
@@ -293,68 +254,14 @@ func _mmi(mesh: Mesh, mat: Material, colors: bool, parent: Node) -> MultiMeshIns
 var _stage_of := {}   # Vector2i -> soil stage the decor was last built for
 
 
-## Rebuilds the leaf clumps, tufts, vines and pebbles of one chunk.
+## Keep stage tracking/debug rebuild hooks; the block texture updates immediately.
 func _rebuild_chunk_decor(k: Vector2i) -> void:
 	var ch: Chunk = _chunks[k]
-	if ch.cells.is_empty():
-		return
-	var xs := {}
-	var cs := {}
-	for l in DECOR_LAYERS:
-		xs[l] = []
-		cs[l] = []
 	for c in ch.cells:
-		if grid.is_floor(c) or _anim.has(c) or grid.get_type(c) == DungeonGrid.BEDROCK:
+		if grid.is_block(c) and not _anim.has(c):
+			_stage_of[c] = Balance.soil_stage(grid.get_nutrient(c))
+		else:
 			_stage_of.erase(c)
-			continue
-		var r := RandomNumberGenerator.new()
-		r.seed = hash(c) * 31 + 7
-		var stage := Balance.soil_stage(grid.get_nutrient(c))
-		_stage_of[c] = stage
-		# leaves and grass on top
-		var clumps: int = [0, 0, 6, 6, 6][stage]
-		var tufts: int = [0, 2, 1, 1, 2][stage]
-		for i in clumps:
-			var v := r.randi() % 3
-			var s := r.randf_range(0.85, 1.25)
-			xs["clump%d" % v].append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * s), _top_point(c, r, 0.27)))
-			cs["clump%d" % v].append(_stage_color(stage, r))
-		for i in tufts:
-			xs["tuft"].append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * r.randf_range(0.8, 1.2)), _top_point(c, r)))
-			cs["tuft"].append(_stage_color(stage, r))
-		# vines hang over edges that face a passage
-		var per_side: int = [0, 1, 2, 2, 2][stage]
-		for d in DungeonGrid.DIRS:
-			if not grid.is_floor(c + d):
-				continue
-			for i in per_side:
-				if stage == 1 and r.randf() < 0.5:
-					continue
-				var nrm := Vector3(d.x, 0, d.y)
-				var side := Vector3(-d.y, 0, d.x)
-				var pos := Vector3(c.x + 0.5, HALF.y * 2.0 - 0.03, c.y + 0.5) + nrm * (HALF.x + 0.012) + side * r.randf_range(-0.3, 0.3)
-				var basis := Basis.looking_at(-nrm, Vector3.UP).scaled(Vector3(1, r.randf_range(0.55, 1.1) * (0.6 if stage == 1 else 1.0), 1))
-				xs["vine"].append(Transform3D(basis, pos))
-				cs["vine"].append(_stage_color(stage, r))
-		# pebbles pressed into the clay (one on top of bare soil, the rest on the sides)
-		var peb: int = [3, 2, 1, 1, 2][stage]
-		for i in peb:
-			var p: Vector3
-			if stage == 0 and i == 0:
-				p = _top_point(c, r, 0.25) - Vector3(0, 0.02, 0)
-			else:
-				var d2: Vector2i = DungeonGrid.DIRS[r.randi() % 4]
-				var n2 := Vector3(d2.x, 0, d2.y)
-				p = Vector3(c.x + 0.5, r.randf_range(0.18, 0.62), c.y + 0.5) + n2 * (HALF.x - 0.005) + Vector3(-d2.y, 0, d2.x) * r.randf_range(-0.3, 0.3)
-			var ps := r.randf_range(0.11, 0.15)
-			xs["pebble"].append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(ps, ps * 0.8, ps)), p))
-			cs["pebble"].append(Color(0.5, 0.49, 0.5).darkened(r.randf() * 0.15))
-	for l in DECOR_LAYERS:
-		if not ch.decor.has(l):
-			if (xs[l] as Array).is_empty():
-				continue
-			ch.decor[l] = _mmi(_decor_mesh[l], _decor_mat[l], true, ch.node).multimesh
-		_fill(ch.decor[l], xs[l], cs[l])
 
 
 func _add_floor_props(c: Vector2i) -> void:
@@ -401,23 +308,3 @@ func _fill(mm: MultiMesh, xs: Array, cs: Array) -> void:
 		mm.set_instance_transform(i, xs[i])
 		if mm.use_colors and i < cs.size():
 			mm.set_instance_color(i, cs[i])
-
-
-func _pick(arr: Array, r: RandomNumberGenerator) -> Color:
-	return arr[r.randi() % arr.size()]
-
-
-## Point on the rounded top of a block (the mesh domes up slightly toward the middle).
-func _top_point(c: Vector2i, r: RandomNumberGenerator, spread: float = 0.3) -> Vector3:
-	var o := Vector2(r.randf_range(-spread, spread), r.randf_range(-spread, spread))
-	var dome := 0.035 * (1.0 - clampf(o.length() / 0.45, 0.0, 1.0))
-	return Vector3(c.x + 0.5 + o.x, HALF.y * 2.0 + dome - 0.01, c.y + 0.5 + o.y)
-
-
-func _stage_color(stage: int, r: RandomNumberGenerator) -> Color:
-	match stage:
-		1, 2:
-			return _pick(GREEN, r)
-		3:
-			return _pick(GREEN, r) if r.randf() < 0.5 else _pick(YELLOW, r)
-	return _pick(YELLOW, r)
