@@ -15,10 +15,11 @@ const MODELS := {
 	"moss_flower": {"path": "res://assets/models/grass/tree.glb", "scale": 0.37, "fix_colors": false, "anims": {}},
 	# grass -> tree transformation, played when モコチュリ roots into a ツボミ
 	"evolution": {"path": "res://assets/models/grass/evolution.glb", "scale": 0.37, "fix_colors": false, "anims": {}, "evo_time": 7.0},
-	# ザクザクムシ 幼虫 / サナギ: supplied juvenile pillbug (2026-09-24). The pupa is the same bug curled up.
-	"bug_larva": {"path": "res://assets/models/pillbug/juvenile-pillbug.glb", "scale": 0.38, "fix_colors": false, "stride": 0.117,
-		"anims": {"move": "Walk", "attack": "Attack", "eat": "Attack", "die": "Death"}},
-	"bug_pupa": {"path": "res://assets/models/pillbug/juvenile-pillbug.glb", "scale": 0.38, "fix_colors": false,
+	# Approved voxel pillbug v2 (2026-10-02): +Y up, +Z forward, ground origin; pupa is curled.
+	"bug_larva": {"path": "res://assets/models/pillbug/voxel-pillbug-v2.glb", "scale": 0.38, "fix_colors": true, "stride": 0.117, "loops": ["Idle", "Walk", "CurlIdle"],
+		"anims": {"idle": "Idle", "move": "Walk", "attack": "Attack", "eat": "Eat", "spawn": "Spawn", "die": "Death"}},
+	"bug_pupa": {"path": "res://assets/models/pillbug/voxel-pillbug-v2.glb", "scale": 0.38, "fix_colors": true,
+		"loops": ["Idle", "Walk", "CurlIdle"],
 		"anims": {"idle": "CurlIdle", "spawn": "Curl", "hatch": "Uncurl", "die": "Death"}},
 	# ザクザクムシ 成虫: supplied flying scythe bug (broad-scythe, 2026-09-25). It hovers; LayEgg has a tail_tip bone
 	"bug_adult": {"path": "res://assets/models/broad-scythe/broad-scythe.glb", "scale": 0.3, "fix_colors": false,
@@ -57,6 +58,10 @@ static func make_actor(key: String) -> ModelActor:
 	var entry: Dictionary = MODELS[key]
 	var a := ModelActor.new()
 	a.setup(scene(key), 0.0, 0.0, bool(entry["fix_colors"]), [], (entry["anims"] as Dictionary).duplicate())
+	# Authored voxel clips declare an exact loop set; Eat and Spawn are one-shots.
+	if entry.has("loops") and a.anim:
+		for clip in a.anim.get_animation_list():
+			a.anim.get_animation(clip).loop_mode = Animation.LOOP_LINEAR if clip in entry["loops"] else Animation.LOOP_NONE
 	a.scale = Vector3.ONE * scale_of(key)
 	return a
 
