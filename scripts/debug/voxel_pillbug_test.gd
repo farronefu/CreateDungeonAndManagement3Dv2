@@ -74,8 +74,8 @@ func run() -> void:
 	check(pupa_sk.get_bone_pose_scale(underbody).y < 0.3, "Curled internal body retracts")
 	v._play_request("hatch", Balance.PUPA_HATCH_TIME)
 	check(v._evolving and v._evo_wait_key == "bug_pupa", "Existing separate evolution still used")
-	check(MonsterCatalog.MODELS["bug_evolution"]["path"] == "res://assets/models/broad-scythe/pillbug-to-scythe-evolution.glb", "Evolution model unchanged")
-	check(MonsterCatalog.MODELS["bug_adult"]["path"] == "res://assets/models/broad-scythe/broad-scythe.glb", "Adult model unchanged")
+	check(MonsterCatalog.MODELS["bug_evolution"]["path"] == "res://assets/models/final-runtime/MonsterChain-Bug-Evolution-Voxel-Animated.glb", "Approved evolution model")
+	check(MonsterCatalog.MODELS["bug_adult"]["path"] == "res://assets/models/final-runtime/MonsterChain-Broad-Scythe-Voxel-Animated.glb", "Approved adult model")
 	# Complete the existing evolution and ensure it ends in the adult model.
 	m.stage = Monster.ADULT
 	v._update_evolution(3.6)

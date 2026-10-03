@@ -82,6 +82,10 @@ check "retrytest" "$OUT/retrytest.txt" "RETRYTEST PASS"
 "$GODOT" --resolution 1280x720 -- --menutest > "$OUT/menutest.txt" 2>&1
 check "menutest" "$OUT/menutest.txt" "MENUTEST PASS"
 
+# approved runtime models: scales, clips, palette materials, evolutions and breaker stroke
+"$GODOT" --headless -s res://scripts/debug/final_runtime_test.gd > "$OUT/final_runtime.txt" 2>&1
+check "final_runtime" "$OUT/final_runtime.txt" "FINAL RUNTIME PASS checks=[0-9]+ failures=0"
+
 echo "----"
 if [ "$fails" -eq 0 ]; then echo "ALL PASS"; else echo "$fails FAILED"; fi
 exit "$fails"

@@ -10,11 +10,11 @@ extends RefCounted
 
 const MODELS := {
 	# モコチュリ / ツボミ / モコバナ: supplied grass & tree models (Mossbound set, 2026-09-24)
-	"moss": {"path": "res://assets/models/grass/grass.glb", "scale": 0.37, "fix_colors": false, "anims": {"move": "walk", "absorb": "gather"}},
-	"moss_bud": {"path": "res://assets/models/grass/tree.glb", "scale": 0.29, "fix_colors": false, "anims": {}},
-	"moss_flower": {"path": "res://assets/models/grass/tree.glb", "scale": 0.37, "fix_colors": false, "anims": {}},
+	"moss": {"path": "res://assets/models/final-runtime/MonsterChain-Mokochuri-Voxel-Animated.glb", "scale": 0.37, "fix_colors": false, "anims": {"move": "walk", "absorb": "gather"}},
+	"moss_bud": {"path": "res://assets/models/final-runtime/MonsterChain-Tsubomi-Voxel-Animated.glb", "scale": 0.29, "fix_colors": false, "anims": {}},
+	"moss_flower": {"path": "res://assets/models/final-runtime/MonsterChain-Mokobana-Voxel-Animated.glb", "scale": 0.37, "fix_colors": false, "anims": {}},
 	# grass -> tree transformation, played when モコチュリ roots into a ツボミ
-	"evolution": {"path": "res://assets/models/grass/evolution.glb", "scale": 0.37, "fix_colors": false, "anims": {}, "evo_time": 7.0},
+	"evolution": {"path": "res://assets/models/final-runtime/MonsterChain-PlantEvolution-Voxel-Animated.glb", "scale": 0.37, "fix_colors": false, "anims": {}, "evo_time": 7.0},
 	# Approved voxel pillbug v2 (2026-10-02): +Y up, +Z forward, ground origin; pupa is curled.
 	"bug_larva": {"path": "res://assets/models/pillbug/voxel-pillbug-v2.glb", "scale": 0.38, "fix_colors": true, "stride": 0.117, "loops": ["Idle", "Walk", "CurlIdle"],
 		"anims": {"idle": "Idle", "move": "Walk", "attack": "Attack", "eat": "Eat", "spawn": "Spawn", "die": "Death"}},
@@ -22,17 +22,17 @@ const MODELS := {
 		"loops": ["Idle", "Walk", "CurlIdle"],
 		"anims": {"idle": "CurlIdle", "spawn": "Curl", "hatch": "Uncurl", "die": "Death"}},
 	# ザクザクムシ 成虫: supplied flying scythe bug (broad-scythe, 2026-09-25). It hovers; LayEgg has a tail_tip bone
-	"bug_adult": {"path": "res://assets/models/broad-scythe/broad-scythe.glb", "scale": 0.3, "fix_colors": false,
+	"bug_adult": {"path": "res://assets/models/final-runtime/MonsterChain-Broad-Scythe-Voxel-Animated.glb", "scale": 0.3, "fix_colors": false,
 		"anims": {"move": "Fly", "idle": "Hover", "attack": "Attack", "eat": "Attack", "lay_egg": "LayEgg", "die": "Death"}},
 	# pupa -> adult: the curled pill bug cracks open and the scythe bug flies out (3.5 s)
-	"bug_evolution": {"path": "res://assets/models/broad-scythe/pillbug-to-scythe-evolution.glb", "scale": 0.38, "fix_colors": false, "anims": {}, "evo_time": 3.5},
+	"bug_evolution": {"path": "res://assets/models/final-runtime/MonsterChain-Bug-Evolution-Voxel-Animated.glb", "scale": 0.38, "fix_colors": false, "vertex_palette": true, "anims": {}, "evo_time": 3.5},
 	# 魔王: supplied caped demon king (2026-09-27): idle / look_around, moving eyes (eye.L / eye.R)
-	"maou": {"path": "res://assets/models/demon-king/demon-king.glb", "scale": 0.47, "fix_colors": false, "anims": {}},
+	"maou": {"path": "res://assets/models/final-runtime/MonsterChain-Demon-King-Voxel-Animated.glb", "scale": 0.47, "fix_colors": false, "vertex_palette": true, "anims": {}},
 	# the captured 魔王: wrapped in bandages, lying on his back (head +Z), kicking (struggle, loop)
-	"maou_wrapped": {"path": "res://assets/models/demon-king/demon-king-wrapped.glb", "scale": 0.47, "fix_colors": false, "anims": {"idle": "struggle"}},
+	"maou_wrapped": {"path": "res://assets/models/final-runtime/MonsterChain-Demon-King-Captured-Voxel-Animated.glb", "scale": 0.47, "fix_colors": false, "vertex_palette": true, "anims": {"idle": "struggle"}},
 	# dig cursor: supplied hydraulic breaker (2026-09-26, reduced for the game). MetalChisel slides
 	# along its local Y out of BreakerBody; the tip is at the model origin, the body is 2.4 tall
-	"breaker": {"path": "res://assets/models/breaker/breaker.glb", "scale": 0.45, "fix_colors": false, "anims": {}},
+	"breaker": {"path": "res://assets/models/final-runtime/MonsterChain-Mining-Breaker-Voxel-Animated.glb", "scale": 0.45, "fix_colors": false, "anims": {}},
 }
 
 ## Autumn tint curve for the evolution effect (one value per frame at 30 fps).
@@ -58,6 +58,8 @@ static func make_actor(key: String) -> ModelActor:
 	var entry: Dictionary = MODELS[key]
 	var a := ModelActor.new()
 	a.setup(scene(key), 0.0, 0.0, bool(entry["fix_colors"]), [], (entry["anims"] as Dictionary).duplicate())
+	if entry.get("vertex_palette", false):
+		a.use_authored_vertex_palette()
 	# Authored voxel clips declare an exact loop set; Eat and Spawn are one-shots.
 	if entry.has("loops") and a.anim:
 		for clip in a.anim.get_animation_list():

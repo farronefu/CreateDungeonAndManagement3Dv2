@@ -99,6 +99,30 @@ func _toonify(g: GeometryInstance3D) -> void:
 		mi.set_surface_override_material(i, _toon_cache[src])
 
 
+## Godot leaves COLOR_0 disabled on untextured glTF palette materials.
+## Opt in only for approved palette models, preserving textured faces and all other properties.
+static var _vertex_palette_cache := {}
+
+
+func use_authored_vertex_palette() -> void:
+	for g in _meshes:
+		if not (g is MeshInstance3D):
+			continue
+		var mi := g as MeshInstance3D
+		for i in mi.mesh.get_surface_count():
+			var src := mi.get_active_material(i) as BaseMaterial3D
+			if src == null or src.vertex_color_use_as_albedo or src.albedo_texture != null:
+				continue
+			var colors = mi.mesh.surface_get_arrays(i)[Mesh.ARRAY_COLOR]
+			if colors == null or colors.is_empty():
+				continue
+			if not _vertex_palette_cache.has(src):
+				var m := src.duplicate() as BaseMaterial3D
+				m.vertex_color_use_as_albedo = true
+				_vertex_palette_cache[src] = m
+			mi.set_surface_override_material(i, _vertex_palette_cache[src])
+
+
 ## Turns metallic materials into bright glossy plastic (the scene has no reflections, so fully
 ## metallic surfaces render almost black). Skin / unlit parts are left alone.
 func plasticize(tint: Color, roughness: float) -> void:

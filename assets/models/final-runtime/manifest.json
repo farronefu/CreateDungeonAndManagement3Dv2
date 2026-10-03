@@ -1,0 +1,110 @@
+{
+  "package": "MonsterChain Final Runtime Models",
+  "created_utc": "2026-10-03T06:12:00Z",
+  "source_repository": "https://github.com/farronefu/CreateDungeonAndManagement3Dv2",
+  "audited_commit": "fa9a2a7b6110a1fafc35a38651d9b7c8c9e04bcd",
+  "model_count": 9,
+  "axes": {
+    "up": "+Y",
+    "forward": "+Z"
+  },
+  "models": [
+    {
+      "asset": "breaker",
+      "file": "models/MonsterChain-Mining-Breaker-Voxel-Animated.glb",
+      "size_bytes": 4085216,
+      "sha256": "27a732a172ff122c749086129655fc96cebc336242664ff113be4270d94721bd",
+      "asset_version": 0,
+      "catalog_key": "breaker",
+      "audited_resource_path": "res://assets/models/breaker/breaker.glb",
+      "actor_scale": 0.45
+    },
+    {
+      "asset": "king",
+      "file": "models/MonsterChain-Demon-King-Voxel-Animated.glb",
+      "size_bytes": 26181316,
+      "sha256": "8250242f237b8e226c76e9da65a40d835ca69751204cb52ec251b9366335e2d7",
+      "asset_version": 1,
+      "catalog_key": "maou",
+      "audited_resource_path": "res://assets/models/demon-king/demon-king.glb",
+      "actor_scale": 0.47
+    },
+    {
+      "asset": "king_captured",
+      "file": "models/MonsterChain-Demon-King-Captured-Voxel-Animated.glb",
+      "size_bytes": 15423668,
+      "sha256": "4854982a1f63367c450986e556f2476170a43efab6e07e2138be639deef79eec",
+      "asset_version": 1,
+      "catalog_key": "maou_wrapped",
+      "audited_resource_path": "res://assets/models/demon-king/demon-king-wrapped.glb",
+      "actor_scale": 0.47
+    },
+    {
+      "asset": "adult_scythe",
+      "file": "models/MonsterChain-Broad-Scythe-Voxel-Animated.glb",
+      "size_bytes": 2358400,
+      "sha256": "fb65c66039549a2895367c002ff6ff38be3a5859c33a50ac6dde6666e99379e7",
+      "asset_version": 1,
+      "catalog_key": "bug_adult",
+      "audited_resource_path": "res://assets/models/broad-scythe/broad-scythe.glb",
+      "actor_scale": 0.3
+    },
+    {
+      "asset": "bug_evolution",
+      "file": "models/MonsterChain-Bug-Evolution-Voxel-Animated.glb",
+      "size_bytes": 7309768,
+      "sha256": "f0925c396de962a5b241b3b35c4b585aa59f237bc7561eabf7169afde35531ee",
+      "asset_version": 1,
+      "catalog_key": "bug_evolution",
+      "audited_resource_path": "res://assets/models/broad-scythe/pillbug-to-scythe-evolution.glb",
+      "actor_scale": 0.38
+    },
+    {
+      "asset": "mokochuri",
+      "file": "models/MonsterChain-Mokochuri-Voxel-Animated.glb",
+      "size_bytes": 1935364,
+      "sha256": "59b1467d40466a264b65706f653f4cfa8695dac67e247f35eafee08189650ae2",
+      "asset_version": 2,
+      "catalog_key": "moss",
+      "audited_resource_path": "res://assets/models/grass/grass.glb",
+      "actor_scale": 0.37
+    },
+    {
+      "asset": "tsubomi",
+      "file": "models/MonsterChain-Tsubomi-Voxel-Animated.glb",
+      "size_bytes": 2669972,
+      "sha256": "97fb5fd27b789bc670912e33cd9ff3524a121634930111f9aef7f7a37605ddd2",
+      "asset_version": 1,
+      "catalog_key": "moss_bud",
+      "audited_resource_path": "res://assets/models/grass/tree.glb",
+      "actor_scale": 0.29
+    },
+    {
+      "asset": "mokobana",
+      "file": "models/MonsterChain-Mokobana-Voxel-Animated.glb",
+      "size_bytes": 2669972,
+      "sha256": "f1bb837e7ed4333f785ada7b339220795e3612daaa1be71f63cc6de7d703502d",
+      "asset_version": 1,
+      "catalog_key": "moss_flower",
+      "audited_resource_path": "res://assets/models/grass/tree.glb",
+      "actor_scale": 0.37
+    },
+    {
+      "asset": "plant_evolution",
+      "file": "models/MonsterChain-PlantEvolution-Voxel-Animated.glb",
+      "size_bytes": 4605180,
+      "sha256": "ea3e6dea44bc35b6705f02caa5b4f3ed461523f3592433a495f316e88db9350f",
+      "asset_version": 1,
+      "catalog_key": "evolution",
+      "audited_resource_path": "res://assets/models/grass/evolution.glb",
+      "actor_scale": 0.37
+    }
+  ],
+  "notes": [
+    "Exact final exported GLBs. No geometry, animation, material or hierarchy conversion during packaging.",
+    "Tsubomi and Mokobana share source-sized tree geometry; actor scales differ. Existing catalog points both to one tree.glb.",
+    "Mokochuri v2 includes green absorption and recessed eye correction.",
+    "King v1 restores original identity. Scythe/evolution v1 include corrected wings. Tree v1 has thicker pointed vines.",
+    "These nine models cover the remaining-character/breaker batch. Earlier pillbug and block assets are outside this package."
+  ]
+}
