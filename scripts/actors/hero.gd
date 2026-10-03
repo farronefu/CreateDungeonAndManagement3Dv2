@@ -83,6 +83,8 @@ func setup(p: HeroProfile, g: DungeonGrid, e: Ecosystem, mz: Maou, effects: Effe
 	actor = ModelActor.new()
 	add_child(actor)
 	actor.setup(load(p.model_path), p.model_height, deg_to_rad(p.model_yaw_offset_deg), false, [p.anim_walk, p.anim_idle])
+	# Enable authored COLOR_0 on untextured voxel surfaces; textured materials stay intact.
+	actor.use_authored_vertex_palette()
 	if p.plastic_look:
 		actor.plasticize(p.armor_tint, p.armor_roughness)
 	actor.play(p.anim_idle, 0.0)

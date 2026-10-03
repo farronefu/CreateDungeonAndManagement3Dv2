@@ -86,6 +86,10 @@ check "menutest" "$OUT/menutest.txt" "MENUTEST PASS"
 "$GODOT" --headless -s res://scripts/debug/final_runtime_test.gd > "$OUT/final_runtime.txt" 2>&1
 check "final_runtime" "$OUT/final_runtime.txt" "FINAL RUNTIME PASS checks=[0-9]+ failures=0"
 
+# voxel hero: authored palette, untrimmed clips, normalization and controller timing
+"$GODOT" --headless -s res://scripts/debug/yuta_test.gd -- --autostart --seed=3 > "$OUT/yuta.txt" 2>&1
+check "yuta" "$OUT/yuta.txt" "YUTA PASS checks=[0-9]+ failures=0"
+
 echo "----"
 if [ "$fails" -eq 0 ]; then echo "ALL PASS"; else echo "$fails FAILED"; fi
 exit "$fails"
