@@ -5,7 +5,7 @@ extends Node3D
 
 const OUTER_SIDE := 20     # undiggable rock beyond the grid, so the camera never sees the void
 const OUTER_BOTTOM := 16
-const HALF := Vector3(0.485, 0.44, 0.485)   # a thin ~0.03 gap between neighbours
+const HALF := Vector3(0.4925, 0.44, 0.4925) # a thin ~0.015 gap between neighbours
 const CHUNK := 10
 const DECOR_INTERVAL := 0.25   # seconds between decor rebuilds of dirty chunks
 

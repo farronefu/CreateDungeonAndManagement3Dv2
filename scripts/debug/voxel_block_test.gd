@@ -11,7 +11,7 @@ func run() -> void:
 	var mesh := VoxelBlockCatalog.mesh()
 	check(mesh.get_surface_count() == 1, "One surface")
 	check(mesh.surface_get_arrays(0)[Mesh.ARRAY_INDEX].size() == 1440 * 3, "Shared 1440-triangle relief shell")
-	check(mesh.get_aabb().size.is_equal_approx(Vector3(0.97, 0.88, 0.97)), "Authored dimensions")
+	check(mesh.get_aabb().size.is_equal_approx(Vector3(0.985, 0.88, 0.985)), "Authored dimensions")
 	check(VoxelBlockCatalog._textures.size() == 6, "Six embedded atlases")
 	for tex in VoxelBlockCatalog._textures:
 		check(tex.get_width() == 408 and tex.get_height() == 272, "Atlas dimensions")
@@ -41,7 +41,19 @@ func run() -> void:
 		check(xf.basis.get_scale().is_equal_approx(Vector3.ONE), "No height variation")
 		check(absf(xf.basis.x.x) < 0.001 or absf(absf(xf.basis.x.x) - 1.0) < 0.001, "Quarter-turn rotations only")
 		var box := xf * mesh.get_aabb()
-		check(absf(box.size.x - 0.97) < 0.001 and absf(box.position.y) < 0.001, "Exact 0.03 m neighbor gap")
+		check(absf(box.size.x - 0.985) < 0.001 and absf(box.position.y) < 0.001, "Exact 0.015 m neighbor gap")
+	# Neighbors keep a thin, positive seam under every fixed quarter-turn rotation.
+	for c in v._slot:
+		for direction in [Vector2i.RIGHT,Vector2i.DOWN]:
+			var neighbor: Vector2i = c+direction
+			if not v._slot.has(neighbor): continue
+			if g.is_floor(c) or g.is_floor(neighbor): continue
+			var slot: Array = v._slot[c]
+			var other: Array = v._slot[neighbor]
+			var box: AABB = slot[0].get_instance_transform(slot[1])*mesh.get_aabb()
+			var next_box: AABB = other[0].get_instance_transform(other[1])*mesh.get_aabb()
+			var gap: float = next_box.position.x-box.end.x if direction==Vector2i.RIGHT else next_box.position.z-box.end.z
+			check(absf(gap-0.015)<0.0001,"Adjacent envelopes leave 0.015m and cannot overlap")
 	var stable_seeds: Dictionary = v._seed.duplicate()
 	var mutable := Vector2i(3, 2)
 	for n in values:
