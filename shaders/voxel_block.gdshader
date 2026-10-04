@@ -28,7 +28,7 @@ float plateau_height(vec2 cell, float face, float variant, float n, bool bedrock
 	else if (n >= 10.0) { level = levels.a; }
 	else if (n >= 5.0) { level = levels.b; }
 	else if (n >= 1.0) { level = levels.g; }
-	return level*0.12;
+	return level*0.10;
 }
 void vertex() {
 	cdata = custom_override.x >= 0.0 ? custom_override : INSTANCE_CUSTOM;
@@ -37,7 +37,7 @@ void vertex() {
 	float variant = mod(floor(cdata.g*1024.0),4.0);
 	float a = plateau_height(COLOR.xy,UV2.x,variant,n,bedrock);
 	float b = plateau_height(COLOR.zw,UV2.x,variant,n,bedrock);
-	VERTEX += surface_normal(UV2.x)*(mix(a,b,UV2.y)-0.12);
+	VERTEX += surface_normal(UV2.x)*(mix(a,b,UV2.y)-0.10);
 	if (distance(COLOR.xy,COLOR.zw) > 0.001 && a < b) { NORMAL = -NORMAL; }
 }
 void fragment() {

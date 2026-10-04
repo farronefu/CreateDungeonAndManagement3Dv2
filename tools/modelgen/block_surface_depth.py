@@ -1,81 +1,102 @@
-"""Generate stable connected plateau profiles for the shared six-face block shell.
+"""Generate restrained connected relief; color atlases and cell seeds stay unchanged.
 
-Uses existing Pillow/numpy authoring dependencies; no game-time randomness or asset imports.
-The original color atlases remain untouched. RGBA stores rock / mixed moss / green / dry heights.
+Two broad patches replace small per-cell height changes. Candidate selection bounds
+the number of internal steps, and removes isolated peaks instead of adding pegs.
+Uses existing Pillow/numpy authoring dependencies, never gameplay RNG.
 """
 from pathlib import Path
-import json,random
+import json, random
 import numpy as np
 from PIL import Image
 
-GRID=6
-VARIANTS=4
+GRID = 6
+VARIANTS = 4
+DEPTH = 0.10
+PREVIOUS_MEAN_STEPS = [26.625, 30.7916666667, 29.5833333333, 30.2916666667]
 
-def connected_blob(rng,minimum=4,maximum=12):
-    cells={(rng.randrange(GRID),rng.randrange(GRID))}
-    for _ in range(rng.randint(minimum,maximum)*6):
-        x,y=rng.choice(sorted(cells));dx,dy=rng.choice([(1,0),(-1,0),(0,1),(0,-1)])
-        if 0<=x+dx<GRID and 0<=y+dy<GRID:cells.add((x+dx,y+dy))
-        if len(cells)>=maximum:break
+def neighbors(cell):
+    x, y = cell
+    return [(a,b) for a,b in [(x-1,y),(x+1,y),(x,y-1),(x,y+1)] if 0<=a<GRID and 0<=b<GRID]
+
+def patch(rng, count, start=None, weights=None):
+    if start is None:
+        start = max(((x,y) for y in range(GRID) for x in range(GRID)),
+                    key=lambda p: rng.random()+(float(weights[p[1],p[0]]) if weights is not None else 0))
+    cells = {start}
+    while len(cells)<count:
+        frontier = sorted({n for p in cells for n in neighbors(p)}-cells)
+        chosen = max(frontier, key=lambda p: sum(n in cells for n in neighbors(p))*0.7+rng.random()*0.9)
+        cells.add(chosen)
     return cells
 
-def remove_isolated_highs(field):
-    for y in range(GRID):
-        for x in range(GRID):
-            neighbors=[field[ny,nx] for nx,ny in [(x-1,y),(x+1,y),(x,y-1),(x,y+1)] if 0<=nx<GRID and 0<=ny<GRID]
-            if field[y,x]>max(neighbors)+0.10:field[y,x]=max(neighbors)
-    return field
+def components(field, value):
+    remaining = {(x,y) for y in range(GRID) for x in range(GRID) if field[y,x]==value}
+    groups = []
+    while remaining:
+        pending = [min(remaining)]; remaining.remove(pending[0]); group = set(pending)
+        while pending:
+            for n in neighbors(pending.pop()):
+                if n in remaining: remaining.remove(n); pending.append(n); group.add(n)
+        groups.append(group)
+    return groups
+
+def step_count(field):
+    return int(np.sum(field[:,1:]!=field[:,:-1])+np.sum(field[1:]!=field[:-1]))
+
+def profile(variant, face, channel, moss_weights):
+    best = None
+    target = round(PREVIOUS_MEAN_STEPS[channel]*0.5)
+    for attempt in range(80):
+        rng = random.Random(91030+variant*991+face*137+channel*2017+attempt*7919)
+        base = 255 if channel==0 else (214 if channel==1 else 219)
+        field = np.full((GRID,GRID),base,dtype=np.uint8)
+        if channel!=0:
+            for x,y in patch(rng,rng.randint(7,10),weights=moss_weights if channel==1 else None): field[y,x]=255
+        corner = rng.choice([(0,0),(0,5),(5,0),(5,5)])
+        hollow = patch(rng,rng.randint(5,7),corner)
+        for x,y in hollow: field[y,x]=209 if channel==0 else 153
+        if channel==0:
+            x,y=corner;field[y,x]=166
+            for a,b in neighbors(corner): field[b,a]=166
+        # A valley may cut a raised patch; merge any resulting isolated peak.
+        for group in components(field,255):
+            if len(group)<3:
+                for x,y in group: field[y,x]=base if channel else 209
+        peaks = components(field,255)
+        if not peaks or min(map(len,peaks))<3 or max(map(len,peaks))<4: continue
+        groups=[g for value in np.unique(field) for g in components(field,value)]
+        largest=max(map(len,groups));steps=step_count(field)
+        if len(np.unique(field))<3 or largest<18: continue
+        score=abs(steps-target)*10+(36-largest)*0.01
+        if best is None or score<best[0]: best=(score,field.copy())
+    if best is None: raise RuntimeError((variant,face,channel))
+    return best[1]
 
 def generate(root):
     out=root/'assets/models/blocks/block_surface_depth.png'
     moss=Image.open(root/'assets/models/blocks/Block_Nutrient_01_04_Moss_Block_mottled_BaseColor.png').convert('RGB')
-    atlas=np.zeros((GRID*6,GRID*VARIANTS,4),dtype=np.uint8)
-    metrics=[]
+    atlas=np.zeros((36,24,4),dtype=np.uint8);metrics=[]
     for variant in range(VARIANTS):
         for face in range(6):
-            rng=random.Random(73190+variant*991+face*137)
-            rock=np.full((GRID,GRID),0.91)
-            green=np.full((GRID,GRID),0.36)
-            dry=np.full((GRID,GRID),0.52)
-            for _ in range(3):
-                for x,y in connected_blob(rng,4,rng.randint(7,13)):rock[y,x]=rng.choice([0.56,0.72,0.82]) if rng.random()<0.18 else 0.72
-            for field in [green,dry]:
-                for level in [0.72,0.94,0.56]:
-                    for x,y in connected_blob(rng,4,rng.randint(6,12)):field[y,x]=level
-                # A broad connected hollow, rather than separate one-cell pegs.
-                for x,y in connected_blob(rng,3,6):field[y,x]=0.20
-                remove_isolated_highs(field)
-            # Original moss colors stay fixed; match the coarse relief to their coverage.
-            mixed=rock.copy()
-            for y in range(GRID):
-                for x in range(GRID):
-                    u=(x+0.5)/GRID
-                    v=(y+0.5)/GRID
-                    px=int(face%3*136+4+u*128);py=int(face//3*136+4+(1-v)*128)
-                    rr,gg,bb=moss.getpixel((px,py))
-                    if gg>rr and gg>bb:mixed[y,x]=max(green[y,x],0.90)
-                    else:mixed[y,x]=min(rock[y,x],0.65)
-            remove_isolated_highs(mixed)
-            # Unequal bites at selected corners and edges, all within the nominal box.
-            for field in [rock,mixed,green,dry]:
-                corners=[(0,0),(0,GRID-1),(GRID-1,0),(GRID-1,GRID-1)]
-                for x,y in rng.sample(corners,2):
-                    field[y,x]=0.16
-                    nx=x+(1 if x==0 else -1)
-                    field[y,nx]=min(field[y,nx],0.44)
-                field[rng.randrange(GRID),rng.randrange(GRID)]=1.0
-                remove_isolated_highs(field)
-                # A connected plateau reaches the old envelope, preserving exact bounds.
-                highest=np.unravel_index(np.argmax(field),field.shape)
-                hy,hx=highest;field[hy,hx]=1.0
-                nx=hx+1 if hx<GRID-1 else hx-1;field[hy,nx]=1.0
-            values=np.stack([rock,mixed,green,dry],axis=2)
-            block=np.round(np.clip(values,0,1)*255).astype(np.uint8)
-            atlas[face*GRID:(face+1)*GRID,variant*GRID:(variant+1)*GRID]=block
-            metrics.append({'variant':variant,'face':face,'unique_levels':[len(np.unique(block[:,:,c])) for c in range(4)]})
+            weights=np.zeros((6,6))
+            for y in range(6):
+                for x in range(6):
+                    rr,gg,bb=moss.getpixel((int(face%3*136+4+(x+0.5)/6*128),int(face//3*136+4+(1-(y+0.5)/6)*128)))
+                    weights[y,x]=0.8 if gg>rr and gg>bb else 0
+            fields=[profile(variant,face,c,weights) for c in range(4)]
+            atlas[face*6:(face+1)*6,variant*6:(variant+1)*6]=np.stack(fields,axis=2)
+            metrics.append({'variant':variant,'face':face,'unique_levels':[len(np.unique(f)) for f in fields],
+                            'internal_steps':[step_count(f) for f in fields],
+                            'largest_flat_cells':[max(len(g) for v in np.unique(f) for g in components(f,v)) for f in fields],
+                            'surface_height_range_m':[float((int(f.max())-int(f.min()))/255*DEPTH) for f in fields]})
     Image.fromarray(atlas,'RGBA').save(out)
-    (out.with_suffix('.json')).write_text(json.dumps({'grid':GRID,'variants':VARIANTS,'depth_m':0.12,'height_channels':['rock','mixed_moss','green','dry'],'reference_sha256':'46ef6eaf8d9eeeb9712a3d0b1d7a24575ded82cd8608be76edefd35bc97c722b','profiles':metrics},indent=2))
-    print('Generated',out,atlas.shape)
+    means=np.mean([m['internal_steps'] for m in metrics],axis=0).tolist()
+    metadata={'grid':6,'variants':4,'depth_m':DEPTH,'style':'restrained_connected_plateaus',
+              'height_channels':['rock','mixed_moss','green','dry'],
+              'reference_sha256':'46ef6eaf8d9eeeb9712a3d0b1d7a24575ded82cd8608be76edefd35bc97c722b',
+              'previous_mean_internal_steps':PREVIOUS_MEAN_STEPS,'mean_internal_steps':means,'profiles':metrics}
+    out.with_suffix('.json').write_text(json.dumps(metadata,indent=2),encoding='utf8')
+    print('Generated restrained profiles; mean internal steps:',means)
 
 if __name__=='__main__':
     generate(Path(__file__).resolve().parents[2])

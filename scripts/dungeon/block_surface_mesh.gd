@@ -4,7 +4,7 @@ extends RefCounted
 ## All geometry stays inside the existing 0.985 x 0.88 x 0.985 envelope.
 const GRID := 6
 const VARIANTS := 4
-const DEPTH := 0.12
+const DEPTH := 0.10
 const HALF := Vector3(0.4925, 0.44, 0.4925)
 const CORE := HALF - Vector3.ONE * DEPTH
 const NORMALS := [Vector3.UP, Vector3.BACK, Vector3.RIGHT, Vector3.FORWARD, Vector3.LEFT, Vector3.DOWN]

@@ -139,7 +139,33 @@ func check_relief(mesh: ArrayMesh) -> void:
 						minimum = minf(minimum,h)
 						maximum = maxf(maximum,h)
 						if nutrient == 5: signature.append(h)
-				check(levels.size() >= 4 and minimum < 0.03 and is_equal_approx(maximum,BlockSurfaceMesh.DEPTH), "Irregular plateaus, pits and exact envelope")
+				check(levels.size() >= 3 and maximum-minimum>=0.025 and maximum-minimum<=0.045 and is_equal_approx(maximum,BlockSurfaceMesh.DEPTH), "Irregular plateaus, pits and exact envelope")
+				var steps := 0
+				var visited := {}
+				var largest_flat := 0
+				for y in 6:
+					for x in 6:
+						var cell := Vector2i(x,y)
+						var height := VoxelBlockCatalog.surface_height(face,cell,nutrient,seed_value)
+						for d in [Vector2i.RIGHT,Vector2i.DOWN]:
+							var next: Vector2i = cell+d
+							if next.x<6 and next.y<6 and absf(height-VoxelBlockCatalog.surface_height(face,next,nutrient,seed_value))>0.001: steps+=1
+						if visited.has(cell): continue
+						var pending := [cell]
+						visited[cell]=true
+						var area := 0
+						while not pending.is_empty():
+							var current: Vector2i = pending.pop_back()
+							area+=1
+							for d in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
+								var next: Vector2i = current+d
+								if next.x<0 or next.y<0 or next.x>=6 or next.y>=6 or visited.has(next): continue
+								if absf(height-VoxelBlockCatalog.surface_height(face,next,nutrient,seed_value))<0.001:
+									visited[next]=true
+									pending.append(next)
+						largest_flat=maxi(largest_flat,area)
+				check(steps<=18,"Restrained internal step density")
+				check(largest_flat>=18,"At least half of every face is one connected resting plane")
 				# Highest protrusions always belong to connected patches, not isolated cubes.
 				for y in BlockSurfaceMesh.GRID:
 					for x in BlockSurfaceMesh.GRID:
