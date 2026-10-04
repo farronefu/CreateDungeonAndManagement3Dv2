@@ -1,0 +1,11 @@
+# Shared irregular block relief
+
+The six original GLBs and color atlases are unchanged. A single indexed, 1440-triangle shell replaces their flat geometry. Every face has a 6x6 stepped surface with connecting walls and corner cuts. Four fixed height profiles per face are selected from the existing deterministic cell seed. Rock uses shallow connected pits, moss follows the existing green coverage, green and dry stages use broader raised patches. The entire shell remains inside the original 0.97 x 0.88 x 0.97 m bounds, with a 0.12 m maximum relief range; adjacent blocks retain their nominal 0.03 m gap.
+
+No per-frame geometry allocation, TIME displacement or gameplay RNG was added. Nutrient changes select height/color channels while keeping the cell variant and quarter-turn rotation. The existing grid, picking, dig rules, persistence, crumble, debris and all actor/audio assets are unchanged. `VoxelBlockCatalog.surface_height` mirrors GPU displacement only for validation.
+
+Authoring: `python tools/modelgen/block_surface_depth.py` regenerates the 24x36 RGBA height atlas (Pillow/numpy development dependencies). Keep this texture lossless, nearest-filtered, without mipmaps or sRGB conversion. RGBA channels are height data, not visual transparency. The reference image SHA256 is recorded in the accompanying JSON.
+
+Regression: `scripts/debug/voxel_block_test.gd` requires a rendered Godot process; the dummy renderer does not retain MultiMesh custom data. The standard `tools/run_tests.sh` includes this check in addition to the 17 existing cases. It validates all nutrient boundaries, all six faces and four profiles, displaced bounds, connected peak patches, stable reload seeds, hover, bedrock, saves, dig/crumble and debris.
+
+Measured at 1280x720, seed 3, frozen scene, 60 warm-up and 120 sampled frames on RTX 3060 Ti / Godot 4.7.2 Forward+: median 16.697 -> 16.645 ms, p95 17.697 -> 17.586 ms. The 77 MultiMeshes and 7150 slots are unchanged. Submitted block triangles across all chunks increase from 4,776,200 to 10,296,000; visible primitives from 4,344,268 to 7,007,686 and scene draw calls from 199 to 200. These timings are for this scene and hardware, not a claim about all GPUs or all viewpoints.

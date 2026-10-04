@@ -10,12 +10,13 @@ func _init() -> void:
 func run() -> void:
 	var mesh := VoxelBlockCatalog.mesh()
 	check(mesh.get_surface_count() == 1, "One surface")
-	check(mesh.surface_get_arrays(0)[Mesh.ARRAY_INDEX].size() == 668 * 3, "Approved 668-triangle mesh")
+	check(mesh.surface_get_arrays(0)[Mesh.ARRAY_INDEX].size() == 1440 * 3, "Shared 1440-triangle relief shell")
 	check(mesh.get_aabb().size.is_equal_approx(Vector3(0.97, 0.88, 0.97)), "Authored dimensions")
 	check(VoxelBlockCatalog._textures.size() == 6, "Six embedded atlases")
 	for tex in VoxelBlockCatalog._textures:
 		check(tex.get_width() == 408 and tex.get_height() == 272, "Atlas dimensions")
 	check(VoxelBlockCatalog._textures[3].get_image().get_data() == VoxelBlockCatalog._textures[4].get_image().get_data(), "Both dry stages have identical pixels")
+	check_relief(mesh)
 	var g := DungeonGrid.new(10, 10)
 	var values := [0, 1, 4, 5, 9, 10, 12, 13]
 	var stages := [0, 1, 1, 2, 2, 3, 3, 4]
@@ -41,11 +42,13 @@ func run() -> void:
 		check(absf(xf.basis.x.x) < 0.001 or absf(absf(xf.basis.x.x) - 1.0) < 0.001, "Quarter-turn rotations only")
 		var box := xf * mesh.get_aabb()
 		check(absf(box.size.x - 0.97) < 0.001 and absf(box.position.y) < 0.001, "Exact 0.03 m neighbor gap")
+	var stable_seeds: Dictionary = v._seed.duplicate()
 	var mutable := Vector2i(3, 2)
 	for n in values:
 		g.set_nutrient(mutable, n)
 		var slot: Array = v._slot[mutable]
 		check(is_equal_approx(slot[0].get_instance_custom_data(slot[1]).r * 16, n), "Immediate stage update %d" % n)
+		check(v._seed == stable_seeds,"Nutrient changes preserve all shape seeds")
 	v.set_hover(mutable, 0.7)
 	var selected: Array = v._slot[mutable]
 	check(is_equal_approx(selected[0].get_instance_custom_data(selected[1]).b, 0.7), "Hover retained")
@@ -62,6 +65,11 @@ func run() -> void:
 	var saved := g.to_dict()
 	var loaded := DungeonGrid.from_dict(saved)
 	check(loaded.to_dict() == saved, "Existing save schema round trip")
+	var reloaded_view = load("res://scripts/dungeon/dungeon_view.gd").new()
+	root.add_child(reloaded_view)
+	reloaded_view.setup(loaded)
+	check(reloaded_view._seed == stable_seeds,"Reload reconstructs identical cell variants and rotations")
+	reloaded_view.queue_free()
 	var dig_cell := Vector2i(2, 3)
 	g.set_nutrient(dig_cell, 10)
 	check(g.can_dig(dig_cell), "Exposed block dig rule unchanged")
@@ -87,3 +95,60 @@ func run() -> void:
 	quit(1 if failures else 0)
 
 
+
+
+func check_relief(mesh: ArrayMesh) -> void:
+	check(mesh == VoxelBlockCatalog.mesh(), "Mesh cached across blocks")
+	var arrays := mesh.surface_get_arrays(0)
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var cells: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+	var descriptors: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV2]
+	var normals := BlockSurfaceMesh.NORMALS
+	var box := mesh.get_aabb().grow(0.00001)
+	var hashes := {}
+	for face in 6:
+		for y in 6:
+			for x in 6:
+				var h := VoxelBlockCatalog.surface_height(face,Vector2i(x,y),0,0.0,true)
+				check(h>=BlockSurfaceMesh.DEPTH*0.85 and h<=BlockSurfaceMesh.DEPTH,"Bedrock shallow relief remains inside envelope")
+	for face in 6:
+		for variant in 4:
+			var seed_value := float(variant)/1024.0
+			var signature := []
+			for nutrient in [0,1,4,5,9,10,12,13,16]:
+				var levels := {}
+				var maximum := 0.0
+				var minimum := 1.0
+				for y in BlockSurfaceMesh.GRID:
+					for x in BlockSurfaceMesh.GRID:
+						var h := VoxelBlockCatalog.surface_height(face,Vector2i(x,y),nutrient,seed_value)
+						check(h == VoxelBlockCatalog.surface_height(face,Vector2i(x,y),nutrient,seed_value), "Stable per-cell height")
+						levels[roundi(h*100000)] = true
+						minimum = minf(minimum,h)
+						maximum = maxf(maximum,h)
+						if nutrient == 5: signature.append(h)
+				check(levels.size() >= 4 and minimum < 0.03 and is_equal_approx(maximum,BlockSurfaceMesh.DEPTH), "Irregular plateaus, pits and exact envelope")
+				# Highest protrusions always belong to connected patches, not isolated cubes.
+				for y in BlockSurfaceMesh.GRID:
+					for x in BlockSurfaceMesh.GRID:
+						var cell := Vector2i(x,y)
+						if VoxelBlockCatalog.surface_height(face,cell,nutrient,seed_value) < maximum-0.001: continue
+						var connected := false
+						for d in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
+							var neighbor: Vector2i = cell+d
+							if neighbor.x>=0 and neighbor.x<6 and neighbor.y>=0 and neighbor.y<6:
+								connected = connected or VoxelBlockCatalog.surface_height(face,neighbor,nutrient,seed_value) >= maximum-0.001
+						check(connected,"Peak belongs to a connected plateau")
+				if nutrient == 5: hashes[hash(signature)] = true
+				# CPU reconstruction checks the actual shared vertex descriptors, including walls.
+				for i in vertices.size():
+					if int(descriptors[i].x) != face: continue
+					var payload: Color = cells[i]
+					var a := Vector2(payload.r,payload.g)
+					var b := Vector2(payload.b,payload.a)
+					var h_a := VoxelBlockCatalog.surface_height(face,Vector2i(floori(a.x*6),floori(a.y*6)),nutrient,seed_value)
+					var h_b := 0.0 if b == Vector2.ONE else VoxelBlockCatalog.surface_height(face,Vector2i(floori(b.x*6),floori(b.y*6)),nutrient,seed_value)
+					var displaced: Vector3 = vertices[i]+normals[face]*(lerpf(h_a,h_b,descriptors[i].y)-BlockSurfaceMesh.DEPTH)
+					check(box.has_point(displaced),"All displaced vertices inside existing bounds")
+	print("RELIEF unique signatures=",hashes.size())
+	check(hashes.size() == 24,"Four distinct fixed variants on every face")

@@ -90,6 +90,10 @@ check "final_runtime" "$OUT/final_runtime.txt" "FINAL RUNTIME PASS checks=[0-9]+
 "$GODOT" --headless -s res://scripts/debug/yuta_test.gd -- --autostart --seed=3 > "$OUT/yuta.txt" 2>&1
 check "yuta" "$OUT/yuta.txt" "YUTA PASS checks=[0-9]+ failures=0"
 
+# shared relief: six-face bounds, stable connected profiles, nutrient boundaries, dig and saves
+"$GODOT" --resolution 1280x720 -s res://scripts/debug/voxel_block_test.gd > "$OUT/blocks.txt" 2>&1
+check "blocks" "$OUT/blocks.txt" "VOXEL BLOCK PASS failures=0"
+
 echo "----"
 if [ "$fails" -eq 0 ]; then echo "ALL PASS"; else echo "$fails FAILED"; fi
 exit "$fails"
