@@ -119,16 +119,16 @@ godot --headless --export-pack "Windows Desktop" build/windows/MonsterChain.pck
 | ゲーム内 | ファイル | 使用クリップ |
 | --- | --- | --- |
 | 勇者（鎧は金属質を外して明るいプラスチック調に表示。`HeroProfile.plastic_look` / `armor_tint`） | `assets/models/hero/hero.glb` | idle / walk / attack / death（死亡）/ joy（魔王を見つけて喜ぶ）/ look_around（1マス幅の通路の分かれ道で、その場所につき1回だけ見回す） |
-| モコチュリ（草の魔物） | `assets/models/grass/grass.glb` | walk（移動）/ attack（体当たり、0.44 の位置で命中）/ gather（養分吸収）/ die（枯れて粒になって消える）。idle は walk の先頭姿勢から生成 |
-| ツボミ・モコバナ（進化後の木） | `assets/models/grass/tree.glb` | attack（トゲの根で隣のマスを突き刺す、0.44 で命中）/ die（枯れて粒になって消える）。idle は attack の先頭姿勢。吸収・被弾はゲーム側の揺れで表現 |
-| ザクザクムシ 幼虫（ダンゴムシ幼体） | `assets/models/pillbug/juvenile-pillbug.glb` | Walk（移動）/ Attack（体当たり・捕食、44% で命中）/ Death（粉々に割れて消える） |
+| モコチュリ（草の魔物） | `assets/models/final-runtime/MonsterChain-Mokochuri-Voxel-Animated.glb` | walk（移動）/ attack（体当たり、0.44 の位置で命中）/ gather（養分吸収）/ die（枯れて粒になって消える）。idle は walk の先頭姿勢から生成 |
+| ツボミ・モコバナ（進化後の木） | `assets/models/final-runtime/MonsterChain-Tsubomi-Voxel-Animated.glb` / `assets/models/final-runtime/MonsterChain-Mokobana-Voxel-Animated.glb` | attack（トゲの根で隣のマスを突き刺す、0.44 で命中）/ die（枯れて粒になって消える）。idle は attack の先頭姿勢。吸収・被弾はゲーム側の揺れで表現 |
+| ザクザクムシ 幼虫（ダンゴムシ幼体） | `assets/models/pillbug/voxel-pillbug-v2.glb` | Walk（移動）/ Attack（体当たり・捕食、44% で命中）/ Death（粉々に割れて消える） |
 | ザクザクムシ サナギ | 同上 | Curl（幼虫からサナギになる時に丸まる）→ CurlIdle（丸まったまま呼吸）/ Uncurl（羽化の直前に戻る）/ Death |
-| ザクザクムシ 成虫（鎌と羽の魔物） | `assets/models/broad-scythe/broad-scythe.glb` | Fly（移動）/ Hover（待機）/ Attack（鎌の二段斬り・捕食）/ LayEgg（尻尾を地面に振り下ろし、接地した瞬間＝1.0秒目に尻尾の先 `tail_tip` から幼虫が1匹生まれる。サナギから羽化した直後は続けて2回産卵する）/ Death |
-| サナギ → 成虫の進化演出 | `assets/models/broad-scythe/pillbug-to-scythe-evolution.glb` | Evolve（3.5秒：丸まったダンゴムシが割れて成虫が飛び出す） |
-| 魔王（マントの魔王） | `assets/models/demon-king/demon-king.glb` | idle（立っている）/ look_around（見渡す。眼球 `eye.L` / `eye.R` も動く）。待機中は7〜12秒ごとに見渡し、勇者が近いとそわそわ見渡し続ける。勝利時は跳ねる、着地は軽くつぶれる（`scripts/actors/maou.gd`） |
-| 捕まった魔王（包帯で簀巻き） | `assets/models/demon-king/demon-king-wrapped.glb` | struggle（仰向けで足をバタつかせる、ループ）。勇者が魔王の隣のマスに立って捕まえるとこのモデルに切り替わり、勇者の1マス後ろを頭を勇者に向けて引きずられる。勇者が倒れるとその場で元の姿に戻る |
-| 掘削カーソル（油圧ブレーカー） | `assets/models/breaker/breaker.glb` | アニメーションなし。本体 `BreakerBody` から金属の先端 `MetalChisel` をローカルY方向に伸ばして、ブロックを3回たたく（`scripts/player/dig_cursor.gd`）。支給モデル（193万三角形・66MB）を Blender で約2.5万三角形・テクスチャ1024pxに軽量化して1.2MB |
-| 進化演出 | `assets/models/grass/evolution.glb` + `evolution-color.json` + `shaders/autumn.gdshader` | モコチュリがツボミになる時に 7 秒再生（秋色への色変化つき） |
+| ザクザクムシ 成虫（鎌と羽の魔物） | `assets/models/final-runtime/MonsterChain-Broad-Scythe-Voxel-Animated.glb` | Fly（移動）/ Hover（待機）/ Attack（鎌の二段斬り・捕食）/ LayEgg（尻尾を地面に振り下ろし、接地した瞬間＝1.0秒目に尻尾の先 `tail_tip` から幼虫が1匹生まれる。サナギから羽化した直後は続けて2回産卵する）/ Death |
+| サナギ → 成虫の進化演出 | `assets/models/final-runtime/MonsterChain-Bug-Evolution-Voxel-Animated.glb` | Evolve（3.5秒：丸まったダンゴムシが割れて成虫が飛び出す） |
+| 魔王（マントの魔王） | `assets/models/final-runtime/MonsterChain-Demon-King-Voxel-Animated.glb` | idle（立っている）/ look_around（見渡す。眼球 `eye.L` / `eye.R` も動く）。待機中は7〜12秒ごとに見渡し、勇者が近いとそわそわ見渡し続ける。勝利時は跳ねる、着地は軽くつぶれる（`scripts/actors/maou.gd`） |
+| 捕まった魔王（包帯で簀巻き） | `assets/models/final-runtime/MonsterChain-Demon-King-Captured-Voxel-Animated.glb` | struggle（仰向けで足をバタつかせる、ループ）。勇者が魔王の隣のマスに立って捕まえるとこのモデルに切り替わり、勇者の1マス後ろを頭を勇者に向けて引きずられる。勇者が倒れるとその場で元の姿に戻る |
+| 掘削カーソル（油圧ブレーカー） | `assets/models/final-runtime/MonsterChain-Mining-Breaker-Voxel-Animated.glb` | アニメーションなし。本体 `BreakerBody` から金属の先端 `MetalChisel` をローカルY方向に伸ばして、ブロックを3回たたく（`scripts/player/dig_cursor.gd`）。支給モデル（193万三角形・66MB）を Blender で約2.5万三角形・テクスチャ1024pxに軽量化して1.2MB |
+| 進化演出 | `assets/models/final-runtime/MonsterChain-PlantEvolution-Voxel-Animated.glb` + `assets/models/grass/evolution-color.json` + `shaders/autumn.gdshader` | モコチュリがツボミになる時に 7 秒再生（秋色への色変化つき） |
 
 ### 魔物・魔王・掘削カーソル
 [`scripts/sim/monster_catalog.gd`](scripts/sim/monster_catalog.gd) のパスを差し替えます。クリップ名が違う場合は `anims` で対応付けできます（例: `{"move": "walk", "absorb": "gather"}`）。無いクリップは揺れ・ポップ・縮小などで自動的に代用します。

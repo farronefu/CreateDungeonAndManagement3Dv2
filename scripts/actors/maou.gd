@@ -3,8 +3,8 @@ extends Node3D
 ## The demon lord. Stands near the entrance from the start of each stage; if the hero drags him
 ## out through the entrance, the stage is lost.
 ##
-## Models: assets/models/demon-king/demon-king.glb (idle, look_around, cower_in, cower, cower_out)
-## while free, and demon-king-wrapped.glb (struggle) once captured. The moods the game asks for:
+## Models: MonsterChain-Demon-King-Voxel-Animated.glb (idle, look_around, cower_in, cower, cower_out)
+## while free, and MonsterChain-Demon-King-Captured-Voxel-Animated.glb (struggle) once captured. The moods the game asks for:
 ##   idle     stands; every LOOK_EVERY seconds he looks around once
 ##   scared   (hero close by) crouches on the floor hiding his face and trembles (cower_in, then
 ##            cower on a loop); once the hero is gone he gets back up (cower_out)
