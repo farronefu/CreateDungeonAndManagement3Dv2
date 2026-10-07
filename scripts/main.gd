@@ -195,8 +195,8 @@ func _setup_stage() -> void:
 	add_child(layer)
 	layer.setup(eco, fx)
 	if snap.is_empty():
-		# a few moss already living in the starter room
-		for c in [Vector2i(grid.entrance.x - 7, 5), Vector2i(grid.entrance.x - 5, 4), Vector2i(grid.entrance.x - 6, 7)]:
+		# two moss already living in the starter room
+		for c in [Vector2i(grid.entrance.x - 7, 5), Vector2i(grid.entrance.x - 5, 4)]:
 			if grid.is_floor(c):
 				eco.spawn(Monster.Kind.MOSS, Monster.MOSS, c, 2, "load")
 	else:

@@ -234,7 +234,37 @@ func generate(seed_value: int) -> void:
 			carve.call(Vector2i(x, y))
 	for y in range(6, 9):
 		carve.call(Vector2i(entrance.x + 3, y))
+	_thin_initial_soil(seed_value)
 
+
+
+## Applies only to newly generated soil, never loaded snapshots.
+## Keep sparse one-unit soil and most bug-producing pockets intact.
+func _thin_initial_soil(seed_value: int) -> void:
+	var initial := total_nutrient()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value + 731293
+	var rich: Array[int] = []
+	for i in nutrient.size():
+		if nutrient[i] >= Balance.BUG_SPAWN_MIN:
+			rich.append(i)
+	var count := mini(maxi(0, rich.size() - 1), int(round(rich.size() * Balance.INITIAL_RICH_SOIL_REDUCTION)))
+	for k in count:
+		var j := rng.randi_range(0, rich.size() - 1)
+		nutrient[rich[j]] = Balance.BUG_SPAWN_MIN - 1
+		rich.remove_at(j)
+	var left := maxi(0, int(round(initial * Balance.INITIAL_NUTRIENT_REDUCTION)) - (initial - total_nutrient()))
+	var eligible: Array[int] = []
+	for i in nutrient.size():
+		if nutrient[i] > Balance.MOSS_SPAWN_MIN and nutrient[i] < Balance.BUG_SPAWN_MIN:
+			eligible.append(i)
+	while left > 0 and not eligible.is_empty():
+		var j := rng.randi_range(0, eligible.size() - 1)
+		var i := eligible[j]
+		nutrient[i] -= 1
+		left -= 1
+		if nutrient[i] == Balance.MOSS_SPAWN_MIN:
+			eligible.remove_at(j)
 
 ## One soil block. depth: 0 (surface) .. 1 (bottom); bias: -1..1 regional noise for gentle clustering.
 func _roll_soil(rng: RandomNumberGenerator, depth: float, bias: float) -> int:

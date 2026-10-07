@@ -9,6 +9,10 @@ const GRID_H := 50
 const BLOCK_H := 0.9
 const MAX_NUTRIENT := 16
 
+# New-run trial: preserve evolution/circulation; reduce the initial resource pool.
+const INITIAL_NUTRIENT_REDUCTION := 0.05
+const INITIAL_RICH_SOIL_REDUCTION := 0.08
+
 # --- hero exploring ---
 const HERO_SIGHT := 3          # cells: floor in line of sight within this radius counts as explored
 const TORCH_EVERY := 24        # the hero plants a torch after exploring this many new cells ...
