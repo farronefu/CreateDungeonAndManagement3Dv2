@@ -31,10 +31,10 @@ const MOSS_SPAWN_MIN := 1   # 養分 1〜9 → モコチュリ
 const BUG_SPAWN_MIN := 10   # 養分 10〜16 → ザクザクムシ
 
 # --- soil look: nutrient builds up and the block shifts one stage to the right ---
-#   0 ① 何もない土   1 ② 少し植生がある土   2 ③ 植生が多い土   3 ④ 少し枯れた土   4 ⑤ 枯れた土
+#   0 ① 何もない土   1 ② 少し植生がある土   2 ③ 植生が多い土   3 ④ 枯れた土   4 ⑤ ひび割れた土
 #   ②③ hatch モコチュリ, ④⑤ hatch ザクザクムシ (the pill bug)
 const SOIL_STAGE_MIN := [0, 1, 5, 10, 13]
-const SOIL_NAMES := ["何もない土", "少し植生がある土", "植生が多い土", "少し枯れた土", "枯れた土"]
+const SOIL_NAMES := ["何もない土", "少し植生がある土", "植生が多い土", "枯れた土", "ひび割れた土"]
 
 
 static func soil_stage(n: int) -> int:

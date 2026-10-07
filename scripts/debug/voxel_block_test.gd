@@ -12,10 +12,10 @@ func run() -> void:
 	check(mesh.get_surface_count() == 1, "One surface")
 	check(mesh.surface_get_arrays(0)[Mesh.ARRAY_INDEX].size() == 1440 * 3, "Shared 1440-triangle relief shell")
 	check(mesh.get_aabb().size.is_equal_approx(Vector3(0.985, 0.88, 0.985)), "Authored dimensions")
-	check(VoxelBlockCatalog._textures.size() == 6, "Six embedded atlases")
+	check(VoxelBlockCatalog._textures.size() == 6, "Six atlases")
 	for tex in VoxelBlockCatalog._textures:
 		check(tex.get_width() == 408 and tex.get_height() == 272, "Atlas dimensions")
-	check(VoxelBlockCatalog._textures[3].get_image().get_data() == VoxelBlockCatalog._textures[4].get_image().get_data(), "Both dry stages have identical pixels")
+	check(VoxelBlockCatalog._textures[3].get_image().get_data() != VoxelBlockCatalog._textures[4].get_image().get_data(), "Cracked stage has its own pixels")
 	check_relief(mesh)
 	var g := DungeonGrid.new(10, 10)
 	var values := [0, 1, 4, 5, 9, 10, 12, 13]

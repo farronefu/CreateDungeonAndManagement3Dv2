@@ -1,12 +1,12 @@
 class_name VoxelBlockCatalog
 extends RefCounted
-## Original six-face atlases, with a cached closed shell and stable connected relief profiles.
+## Six-face atlases (five authored, the cracked one made to the same layout), with a cached closed shell and stable connected relief profiles.
 const PATHS := [
 	"res://assets/models/blocks/Block_Nutrient_00_Rock.glb",
 	"res://assets/models/blocks/Block_Nutrient_01_04_Moss.glb",
 	"res://assets/models/blocks/Block_Nutrient_05_09_Green.glb",
 	"res://assets/models/blocks/Block_Nutrient_10_12_Dry.glb",
-	"res://assets/models/blocks/Block_Nutrient_13Plus_Dry.glb",
+	"res://assets/models/blocks/Block_Nutrient_13Plus_Cracked_BaseColor.png",   # hand-made atlas, same layout
 	"res://assets/models/blocks/Block_Bedrock_Obsidian.glb",
 ]
 static var _mesh: Mesh
@@ -18,6 +18,9 @@ static func _load_assets() -> void:
 	if _mesh:
 		return
 	for path in PATHS:
+		if path.ends_with(".png"):
+			_textures.append(load(path) as Texture2D)
+			continue
 		var scene := (load(path) as PackedScene).instantiate()
 		var mi := scene.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
 		_textures.append((mi.get_active_material(0) as BaseMaterial3D).albedo_texture)
@@ -43,6 +46,7 @@ static func debris_color(nutrient: int) -> Color:
 		0: return Color(0.40, 0.42, 0.44)
 		1: return Color(0.27, 0.43, 0.18)
 		2: return Color(0.25, 0.40, 0.13)
+		4: return Color(0.80, 0.70, 0.48)
 	return Color(0.38, 0.23, 0.11)
 
 
