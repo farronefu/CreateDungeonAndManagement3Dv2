@@ -2,7 +2,7 @@ class_name Monster
 extends RefCounted
 ## Simulation state of one monster. Rendering lives in MonsterVisual.
 
-enum Kind { MOSS, BUG }
+enum Kind { MOSS, BUG, SCORPION }
 # MOSS stages
 const MOSS := 0
 const BUD := 1
@@ -31,6 +31,9 @@ var timer := 0.0
 var meta_timer := 0.0
 var cooldown := 0.0
 var lay_cooldown := 0.0
+## サソリ: prey eaten since it last laid an egg, and the soil block it is stinging right now
+var meals := 0
+var lay_cell := Vector2i(-1, -1)
 ## larvae a freshly emerged adult still lays straight away (see Ecosystem._tick_adult)
 var birth_lays := 0
 var _birth_lay := false
@@ -63,24 +66,30 @@ func is_prey() -> bool:
 func model_key() -> String:
 	if kind == Kind.MOSS:
 		return ["moss", "moss_bud", "moss_flower"][stage]
+	if kind == Kind.SCORPION:
+		return "scorpion"
 	return ["bug_larva", "bug_pupa", "bug_adult"][stage]
 
 
 func display_name() -> String:
 	if kind == Kind.MOSS:
 		return ["モコチュリ", "モコツボミ", "モコバナ"][stage]
+	if kind == Kind.SCORPION:
+		return "サソリ"
 	return ["ザクザクムシ(幼虫)", "ザクザクムシ(サナギ)", "ザクザクムシ(成虫)"][stage]
 
 
 ## Threat order used by the hero when picking a target.
 func threat() -> int:
+	if kind == Kind.SCORPION:
+		return 9
 	if kind == Kind.BUG:
 		return [5, 3, 8][stage]
 	return [2, 1, 1][stage]
 
 
 func to_dict() -> Dictionary:
-	return {"kind": kind, "stage": stage, "cell": cell, "dir": dir, "hp": hp, "max_hp": max_hp, "atk": atk, "nutrient": nutrient, "age": age, "timer": timer, "lay_cooldown": lay_cooldown}
+	return {"kind": kind, "stage": stage, "cell": cell, "dir": dir, "hp": hp, "max_hp": max_hp, "atk": atk, "nutrient": nutrient, "age": age, "timer": timer, "lay_cooldown": lay_cooldown, "meals": meals}
 
 
 static func from_dict(d: Dictionary) -> Monster:
@@ -97,4 +106,5 @@ static func from_dict(d: Dictionary) -> Monster:
 	m.age = d["age"]
 	m.timer = d["timer"]
 	m.lay_cooldown = d["lay_cooldown"]
+	m.meals = d.get("meals", 0)
 	return m

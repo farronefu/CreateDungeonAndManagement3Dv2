@@ -26,6 +26,10 @@ const MODELS := {
 		"anims": {"move": "Fly", "idle": "Hover", "attack": "Attack", "eat": "Attack", "lay_egg": "LayEgg", "die": "Death"}},
 	# pupa -> adult: the curled pill bug cracks open and the scythe bug flies out (3.5 s)
 	"bug_evolution": {"path": "res://assets/models/final-runtime/MonsterChain-Bug-Evolution-Voxel-Animated.glb", "scale": 0.38, "fix_colors": false, "vertex_palette": true, "anims": {}, "evo_time": 3.5},
+	# サソリ: voxel scorpion (2026-10-08). Attack drives the sting forward over its head, so it doubles as
+	# the egg-laying sting into a wall. Death crumbles into grains (fx_Scorpion_Dust, hidden otherwise)
+	"scorpion": {"path": "res://assets/models/scorpion/scorpion.glb", "scale": 0.38, "fix_colors": false, "stride": 0.28, "loops": ["Idle", "Walk"],
+		"anims": {"idle": "Idle", "move": "Walk", "attack": "Attack", "eat": "Eat", "lay_egg": "Attack", "die": "Death"}},
 	# 魔王: supplied caped demon king (2026-09-27): idle / look_around, moving eyes (eye.L / eye.R)
 	"maou": {"path": "res://assets/models/final-runtime/MonsterChain-Demon-King-Voxel-Animated.glb", "scale": 0.47, "fix_colors": false, "vertex_palette": true, "anims": {}},
 	# the captured 魔王: wrapped in bandages, lying on his back (head +Z), kicking (struggle, loop)

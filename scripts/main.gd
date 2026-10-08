@@ -593,6 +593,7 @@ func _update_hud(_force: bool) -> void:
 		"bug_larva": eco.count(Monster.Kind.BUG, Monster.LARVA),
 		"bug_pupa": eco.count(Monster.Kind.BUG, Monster.PUPA),
 		"bug_adult": eco.count(Monster.Kind.BUG, Monster.ADULT),
+		"scorpion": eco.count(Monster.Kind.SCORPION),
 	}, grid.total_nutrient())
 
 
@@ -770,7 +771,7 @@ func _try_dig(c: Vector2i) -> bool:
 	Sfx.play("dig")
 	var m := eco.spawn_from_dig(c, n)
 	if m:
-		hud.toast("%s が生まれた！" % m.display_name(), Color(0.6, 1.0, 0.4) if m.kind == Monster.Kind.MOSS else Color(1.0, 0.65, 0.3))
+		hud.toast("%s が生まれた！" % m.display_name(), Color(0.6, 1.0, 0.4) if m.kind == Monster.Kind.MOSS else (Color(0.5, 0.75, 1.0) if m.kind == Monster.Kind.SCORPION else Color(1.0, 0.65, 0.3)))
 	_tip_timer = 0.0
 	return true
 
@@ -856,11 +857,19 @@ func _monster_tip(m: Monster) -> String:
 	var evo := _evolution_need(m)
 	if evo != "":
 		txt += "\n[color=#f0e070]進化まで %s[/color]" % evo
+	if m.kind == Monster.Kind.SCORPION:
+		txt += "\n[color=#b0a898]ザクザクムシを食べる（幼虫・サナギ・成虫）[/color]"
+		if m.meals >= Balance.SCORPION_LAY_MEALS:
+			txt += "\n[color=#f0e070]隣の土に卵を産みつける[/color]"
+		else:
+			txt += "\n[color=#f0e070]産卵まで あと%d匹[/color]" % (Balance.SCORPION_LAY_MEALS - m.meals)
 	return txt
 
 
 ## The values the next evolution waits for, as shown in the popup ("" for final forms).
 func _evolution_need(m: Monster) -> String:
+	if m.kind == Monster.Kind.SCORPION:
+		return ""
 	if m.kind == Monster.Kind.MOSS:
 		match m.stage:
 			Monster.MOSS:
@@ -880,6 +889,8 @@ func _evolution_need(m: Monster) -> String:
 
 ## Popup for a soil block: nutrient and how much more reaches the next stage.
 func _cell_tip(c: Vector2i) -> String:
+	if grid.is_egg(c):
+		return _egg_tip(c)
 	if not grid.is_block(c):
 		return ""
 	var n := grid.get_nutrient(c)
@@ -887,7 +898,15 @@ func _cell_tip(c: Vector2i) -> String:
 	var txt := "養分 %s %d" % [_bar(n, Balance.MAX_NUTRIENT, "#c0ff80"), n]
 	if stage < Balance.SOIL_STAGE_MIN.size() - 1:
 		txt += "\n[color=#b0a898]養分があと %d で次の段階へ[/color]" % (Balance.SOIL_STAGE_MIN[stage + 1] - n)
+	if n >= Balance.SCORPION_SPAWN_MIN:
+		txt += "\n[color=#9cc4ff]掘るとサソリが生まれる[/color]"
 	return txt
+
+
+## Popup for a block a scorpion laid its egg in.
+func _egg_tip(c: Vector2i) -> String:
+	var left := maxi(0, int(ceil(float(grid.eggs.get(c, 0.0)))))
+	return "[b][color=#ffd040]サソリの卵[/color][/b]\n掘るとサソリが生まれる\nあと %d秒で自然にふ化する\n養分 %d\n[color=#b0a898]卵の土の養分は吸われず、足されない[/color]" % [left, grid.get_nutrient(c)]
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -1179,6 +1198,8 @@ func _debug_tick() -> void:
 		_poketest()
 	if _debug.has("birthtest") and _frames == 20:
 		_birthtest()
+	if _debug.has("scorpionshot"):
+		_scorpionshot()
 	# --tiptest: every monster that can still evolve shows what it needs; BGM files are used
 	# --dietest: monsters that die play their death clip to the end (not frozen on the first frame)
 	if _debug.has("dietest"):
@@ -1418,6 +1439,51 @@ func _capturetest() -> void:
 	var ok: bool = grab_dist == 1 and wrapped and max_dist <= 1 and escaped["v"]
 	print("CAPTURETEST ", "PASS " if ok else "FAIL ", {"grab_distance": grab_dist, "wrapped_model": wrapped, "max_distance_while_dragged": max_dist, "escaped": escaped["v"], "time": snappedf(t, 0.1)})
 	get_tree().quit()
+
+
+## (run with --autostart --scorpionshot) the scorpion in the real scene: its model and clips,
+## the egg block's look, and the popups for the scorpion, cracked soil and the egg block.
+func _scorpionshot() -> void:
+	var e := grid.entrance
+	if _frames == 20:
+		speed = 1.0
+		phase = Phase.BUILD
+		var egg := Vector2i(e.x - 2, 6)
+		var cracked := Vector2i(e.x, 6)
+		grid.set_nutrient(cracked, 14)
+		grid.set_nutrient(egg, 3)
+		grid.make_egg(egg, 9, Balance.SCORPION_EGG_TIME)
+		var s := eco.spawn(Monster.Kind.SCORPION, 0, Vector2i(e.x - 1, 5), 12, "dig")
+		s.dir = Vector2i(0, 1)
+		_dt["scorpion"] = s
+		_dt["dying"] = eco.spawn(Monster.Kind.SCORPION, 0, Vector2i(e.x + 2, 5), 0, "load")
+		_dt["egg"] = egg
+		_dt["cracked"] = cracked
+	if _frames >= 20:
+		cam.focus_on(DungeonGrid.cell_center(Vector2i(e.x, 5)), true)   # the dig cursor would pull the view away
+	if _frames == 70:
+		eco.kill(_dt["dying"], "killed")
+	if _frames == 88:
+		var s: Monster = _dt["scorpion"]
+		var v := layer.visual_of(s)
+		var clips_ok := v != null and v.actor != null
+		for clip in ["idle", "move", "attack", "eat", "lay_egg", "die"]:
+			clips_ok = clips_ok and v.actor.has_anim(clip)
+		var tip_egg := _cell_tip(_dt["egg"])
+		var tip_soil := _cell_tip(_dt["cracked"])
+		var tip_mon := _monster_tip(s)
+		var slot: Array = view._slot[_dt["egg"]]
+		var kind: float = slot[0].get_instance_custom_data(slot[1]).a
+		var res := {
+			"clips": clips_ok,
+			"egg_tip": tip_egg.contains("サソリの卵") and tip_egg.contains("秒で自然にふ化"),
+			"soil_tip": tip_soil.contains("掘るとサソリが生まれる"),
+			"monster_tip": tip_mon.contains("産卵まで あと%d匹" % Balance.SCORPION_LAY_MEALS),
+			"egg_look": is_equal_approx(kind, 0.5),
+		}
+		_screenshot("debug_shots/scorpionshot.png")
+		print("SCORPIONSHOT ", "PASS " if not res.values().has(false) else "FAIL ", res)
+		get_tree().quit()
 
 
 ## (run with --autostart --digs=45 --simulate=40 --birthtest) a pupa that hatches into the scythe

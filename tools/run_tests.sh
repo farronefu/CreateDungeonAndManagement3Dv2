@@ -94,6 +94,14 @@ check "yuta" "$OUT/yuta.txt" "YUTA PASS checks=[0-9]+ failures=0"
 "$GODOT" --resolution 1280x720 -s res://scripts/debug/voxel_block_test.gd > "$OUT/blocks.txt" 2>&1
 check "blocks" "$OUT/blocks.txt" "VOXEL BLOCK PASS failures=0"
 
+# scorpion: cracked soil, three meals, sealed egg block, hatching when dug and by itself (headless)
+"$GODOT" --headless -s res://scripts/debug/scorpion_test.gd > "$OUT/scorpion.txt" 2>&1
+check "scorpion (rules)" "$OUT/scorpion.txt" "SCORPIONTEST PASS failures=0"
+
+# scorpion in the game: model, egg block look and the popups
+"$GODOT" --resolution 1280x720 -- --autostart --seed=3 --scorpionshot > "$OUT/scorpionshot.txt" 2>&1
+check "scorpion (in game)" "$OUT/scorpionshot.txt" "SCORPIONSHOT PASS"
+
 echo "----"
 if [ "$fails" -eq 0 ]; then echo "ALL PASS"; else echo "$fails FAILED"; fi
 exit "$fails"

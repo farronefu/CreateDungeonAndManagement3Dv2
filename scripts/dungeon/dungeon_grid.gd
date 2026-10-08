@@ -6,7 +6,9 @@ extends RefCounted
 signal cell_dug(cell: Vector2i)
 signal nutrient_changed(cell: Vector2i)
 
-enum { BLOCK, FLOOR, BEDROCK }
+## EGG: a soil block a scorpion has laid its egg in. It is a wall like BLOCK, but its nutrient is
+## sealed: nothing can be taken from it or added to it until it is dug or hatches by itself.
+enum { BLOCK, FLOOR, BEDROCK, EGG }
 
 const DIRS: Array[Vector2i] = [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]
 
@@ -15,6 +17,10 @@ var h: int
 var types := PackedByteArray()
 var nutrient := PackedByteArray()
 var entrance := Vector2i.ZERO
+## egg blocks: cell -> seconds until the egg hatches by itself
+var eggs := {}
+## true when the block removed by the last dig() was an egg block
+var last_dug_egg := false
 
 
 func _init(width: int = Balance.GRID_W, height: int = Balance.GRID_H) -> void:
@@ -53,6 +59,10 @@ func is_block(c: Vector2i) -> bool:
 	return in_bounds(c) and types[idx(c)] == BLOCK
 
 
+func is_egg(c: Vector2i) -> bool:
+	return in_bounds(c) and types[idx(c)] == EGG
+
+
 func get_nutrient(c: Vector2i) -> int:
 	return nutrient[idx(c)] if in_bounds(c) else 0
 
@@ -83,13 +93,26 @@ func has_floor_neighbor(c: Vector2i) -> bool:
 
 
 func can_dig(c: Vector2i) -> bool:
-	return is_block(c) and has_floor_neighbor(c)
+	return (is_block(c) or is_egg(c)) and has_floor_neighbor(c)
+
+
+## Seals `add` more nutrient into the soil block `c` and turns it into an egg block.
+func make_egg(c: Vector2i, add: int, hatch_in: float) -> bool:
+	if not is_block(c):
+		return false
+	types[idx(c)] = EGG
+	nutrient[idx(c)] = mini(255, nutrient[idx(c)] + add)   # not capped at MAX_NUTRIENT: it is no longer soil
+	eggs[c] = hatch_in
+	nutrient_changed.emit(c)
+	return true
 
 
 ## Turns a block into floor. Returns the nutrient it contained.
 func dig(c: Vector2i) -> int:
-	if not is_block(c):
+	last_dug_egg = is_egg(c)
+	if not is_block(c) and not last_dug_egg:
 		return 0
+	eggs.erase(c)
 	var n := get_nutrient(c)
 	types[idx(c)] = FLOOR
 	nutrient[idx(c)] = 0
@@ -274,7 +297,7 @@ func _roll_soil(rng: RandomNumberGenerator, depth: float, bias: float) -> int:
 	if r < p_bare:
 		return 0
 	if r < p_bare + p_rich:
-		return rng.randi_range(Balance.BUG_SPAWN_MIN, 14)
+		return rng.randi_range(Balance.BUG_SPAWN_MIN, Balance.SCORPION_SPAWN_MIN - 1)   # cracked soil only builds up later
 	# nutrient soil: mostly small amounts, larger deeper down
 	var n := 1 + int(pow(rng.randf(), 1.7) * 7.0 + depth * 2.0)
 	return clampi(n, Balance.MOSS_SPAWN_MIN, Balance.BUG_SPAWN_MIN - 1)
@@ -282,7 +305,10 @@ func _roll_soil(rng: RandomNumberGenerator, depth: float, bias: float) -> int:
 
 # ------------------------------------------------------------------ persistence
 func to_dict() -> Dictionary:
-	return {"w": w, "h": h, "types": types.duplicate(), "nutrient": nutrient.duplicate(), "entrance": entrance}
+	var d := {"w": w, "h": h, "types": types.duplicate(), "nutrient": nutrient.duplicate(), "entrance": entrance}
+	if not eggs.is_empty():
+		d["eggs"] = eggs.duplicate()
+	return d
 
 
 static func from_dict(d: Dictionary) -> DungeonGrid:
@@ -290,4 +316,5 @@ static func from_dict(d: Dictionary) -> DungeonGrid:
 	g.types = (d["types"] as PackedByteArray).duplicate()
 	g.nutrient = (d["nutrient"] as PackedByteArray).duplicate()
 	g.entrance = d["entrance"]
+	g.eggs = (d.get("eggs", {}) as Dictionary).duplicate()
 	return g

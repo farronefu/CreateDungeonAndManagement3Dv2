@@ -85,9 +85,10 @@ godot --headless --export-pack "Windows Desktop" build/windows/MonsterChain.pck
 | ② 少し植生がある土 | 1〜4 | 苔の斑点・草・短いツタ | モコチュリ |
 | ③ 植生が多い土 | 5〜9 | 緑の葉が茂り、ツタが垂れる | モコチュリ |
 | ④ 枯れた土 | 10〜12 | 茶色く乾いた土 | ザクザクムシ（ダンゴムシ） |
-| ⑤ ひび割れた土 | 13〜16 | 砂色の土に二股の太い割れ目 | ザクザクムシ（ダンゴムシ）※サソリの魔物を追加予定 |
+| ⑤ ひび割れた土 | 13〜16 | 砂色の土に二股の太い割れ目 | サソリ |
+| サソリの卵の土 | （封印） | 青灰色の殻に黄色い割れ目 | サソリ（掘るか、60秒たつと自然にふ化） |
 
-段階の境目は `scripts/core/balance.gd` の `SOIL_STAGE_MIN`、出現する魔物の境目は `MOSS_SPAWN_MIN` / `BUG_SPAWN_MIN` です。マップの外周は掘れない岩です。
+段階の境目は `scripts/core/balance.gd` の `SOIL_STAGE_MIN`、出現する魔物の境目は `MOSS_SPAWN_MIN` / `BUG_SPAWN_MIN` / `SCORPION_SPAWN_MIN` です。マップの外周は掘れない岩です。
 
 ## 生態系（ニジリゴケ／ガジガジムシの関係を参考にしたオリジナル設計）
 
@@ -96,7 +97,8 @@ godot --headless --export-pack "Windows Desktop" build/windows/MonsterChain.pck
 | 魔物 | 役割 | 仕様 |
 | --- | --- | --- |
 | **モコチュリ**（被食） | 養分の運び屋 | 養分1〜9の土を掘ると誕生。壁に当たるまで直進し、隣の土と養分をやり取り（所持1以下なら最大3吸収、2以上なら最大2放出）。養分2以上・HP2以下で **ツボミ** に根付き、5×5から養分を集めて8で **モコバナ** に開花。寿命で最大5匹の子を生む（繁殖） |
-| **ザクザクムシ**（捕食） | モコチュリを食べる | 養分10以上の土で誕生。空腹になるとモコチュリを探して食べる。HP60で **サナギ** → 20秒で **成虫**。成虫は養分とHPを使って幼虫を産む。勇者に近いと襲いかかる |
+| **ザクザクムシ**（捕食） | モコチュリを食べる | 養分10〜12の土で誕生。空腹になるとモコチュリを探して食べる。HP60で **サナギ** → 20秒で **成虫**。成虫は養分とHPを使って幼虫を産む。勇者に近いと襲いかかる |
+| **サソリ**（上位の捕食） | ザクザクムシを食べる（幼虫・サナギ・成虫） | ひび割れた土（養分13以上）で誕生。HPが100以下になると獲物を探して食べる。3匹食べると隣の土ブロックに尻尾を刺し、持っている養分（最大14）を封じて「卵の土」に変える。卵の土はモコチュリに養分を吸われず、養分が足されることもない。プレイヤーが掘るか60秒たつと、封じた養分を持った子サソリが1匹出る。産卵の間隔は30秒、寿命は180秒、同時に8匹まで（卵の土を含む） |
 
 数値はすべて [`scripts/core/balance.gd`](scripts/core/balance.gd) にまとまっています。
 
@@ -125,6 +127,7 @@ godot --headless --export-pack "Windows Desktop" build/windows/MonsterChain.pck
 | ザクザクムシ サナギ | 同上 | Curl（幼虫からサナギになる時に丸まる）→ CurlIdle（丸まったまま呼吸）/ Uncurl（羽化の直前に戻る）/ Death |
 | ザクザクムシ 成虫（鎌と羽の魔物） | `assets/models/final-runtime/MonsterChain-Broad-Scythe-Voxel-Animated.glb` | Fly（移動）/ Hover（待機）/ Attack（鎌の二段斬り・捕食）/ LayEgg（尻尾を地面に振り下ろし、接地した瞬間＝1.0秒目に尻尾の先 `tail_tip` から幼虫が1匹生まれる。サナギから羽化した直後は続けて2回産卵する）/ Death |
 | サナギ → 成虫の進化演出 | `assets/models/final-runtime/MonsterChain-Bug-Evolution-Voxel-Animated.glb` | Evolve（3.5秒：丸まったダンゴムシが割れて成虫が飛び出す） |
+| サソリ | `assets/models/scorpion/scorpion.glb` | Idle（待機）/ Walk（移動）/ Attack（尻尾を前へ伸ばして刺す。1.2秒、36% の位置で命中。産卵で壁を刺す動きにも使う）/ Eat（捕食）/ Death（上から粒になって散って消える。粒の体 `fx_Scorpion_Dust` は普段は隠れている） |
 | 魔王（マントの魔王） | `assets/models/final-runtime/MonsterChain-Demon-King-Voxel-Animated.glb` | idle（立っている）/ look_around（見渡す。眼球 `eye.L` / `eye.R` も動く）。待機中は7〜12秒ごとに見渡し、勇者が近いとそわそわ見渡し続ける。勝利時は跳ねる、着地は軽くつぶれる（`scripts/actors/maou.gd`） |
 | 捕まった魔王（包帯で簀巻き） | `assets/models/final-runtime/MonsterChain-Demon-King-Captured-Voxel-Animated.glb` | struggle（仰向けで足をバタつかせる、ループ）。勇者が魔王の隣のマスに立って捕まえるとこのモデルに切り替わり、勇者の1マス後ろを頭を勇者に向けて引きずられる。勇者が倒れるとその場で元の姿に戻る |
 | 掘削カーソル（油圧ブレーカー） | `assets/models/final-runtime/MonsterChain-Mining-Breaker-Voxel-Animated.glb` | アニメーションなし。本体 `BreakerBody` から金属の先端 `MetalChisel` をローカルY方向に伸ばして、ブロックを3回たたく（`scripts/player/dig_cursor.gd`）。支給モデル（193万三角形・66MB）を Blender で約2.5万三角形・テクスチャ1024pxに軽量化して1.2MB |
@@ -262,6 +265,8 @@ GODOT=/path/to/godot tools/run_tests.sh
 | capturetest | 勇者が隣のマスから魔王を捕まえ、簀巻きの姿で1マス後ろを引きずられ、入口から連れ出されるか |
 | cowertest | 魔王が最初から入口の近くに立っているか、勇者が4マス以内に来るとうずくまって震え（cower_in → cower）、6マス以上離れると立ち上がって（cower_out）待機に戻るか |
 | birthtest | サナギから羽化したハチがすぐに幼虫を2体生むか、養分の総量が変わらないか |
+| scorpion_test（ヘッドレス） | ひび割れた土からサソリが出るか、3匹食べて卵の土を作るか、卵の土の養分が封印されているか、掘っても放置してもふ化するか、養分の総量が変わらないか |
+| scorpionshot | ゲーム画面でサソリのモデルと各モーション、卵の土の見た目、サソリ・ひび割れた土・卵の土の説明文が出るか |
 | tiptest | 進化前の魔物のポップアップに「進化まで」が出るか、BGM ファイルが再生されるか |
 | retrytest | 一時停止メニューの「このステージをやり直す」で、勇者到着のカットインから始まるか |
 | dragtest | マウスの長押しドラッグで、通ったブロックを順に掘れるか（通路上をなぞっても消費しない） |

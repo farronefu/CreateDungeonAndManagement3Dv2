@@ -28,11 +28,12 @@ const DIG_MAX_BASE := 100
 
 # --- nutrient -> spawned monster ---
 const MOSS_SPAWN_MIN := 1   # 養分 1〜9 → モコチュリ
-const BUG_SPAWN_MIN := 10   # 養分 10〜16 → ザクザクムシ
+const BUG_SPAWN_MIN := 10   # 養分 10〜12 → ザクザクムシ
+const SCORPION_SPAWN_MIN := 13   # 養分 13〜16（ひび割れた土）→ サソリ
 
 # --- soil look: nutrient builds up and the block shifts one stage to the right ---
 #   0 ① 何もない土   1 ② 少し植生がある土   2 ③ 植生が多い土   3 ④ 枯れた土   4 ⑤ ひび割れた土
-#   ②③ hatch モコチュリ, ④⑤ hatch ザクザクムシ (the pill bug)
+#   ②③ hatch モコチュリ, ④ hatches ザクザクムシ (the pill bug), ⑤ hatches サソリ
 const SOIL_STAGE_MIN := [0, 1, 5, 10, 13]
 const SOIL_NAMES := ["何もない土", "少し植生がある土", "植生が多い土", "枯れた土", "ひび割れた土"]
 
@@ -105,6 +106,27 @@ const ADULT_LAY_COOLDOWN := 22.0
 const ADULT_LIFE := 120.0
 const BUG_ATTACK_CD := 1.3
 const ADULT_AGGRO_RANGE := 4
+
+# --- サソリ (eats ザクザクムシ at every stage; modelled on 勇なま's トカゲおとこ: strong, slow to breed) ---
+const SCORPION_HP := 85
+const SCORPION_HP_MAX := 120
+const SCORPION_ATK := 14
+const SCORPION_STEP_TIME := 0.85
+const SCORPION_HUNGRY := 100       # hunts when its HP is at or below this
+const SCORPION_METABOLISM := 1.0   # HP drain, relative to BUG_METABOLISM
+const SCORPION_SIGHT := 6
+const SCORPION_LIFE := 180.0
+const SCORPION_AGGRO_RANGE := 4
+## the Attack clip: 1.2 s, the sting lands 13 frames (of 36) in
+const SCORPION_ATTACK_BUSY := 1.2
+const SCORPION_ATTACK_HIT := 0.36
+const SCORPION_ATTACK_CD := 1.8
+## breeding: after this many meals it stings a neighbouring soil block and seals its nutrient in it
+const SCORPION_LAY_MEALS := 3
+const SCORPION_LAY_COOLDOWN := 30.0
+const SCORPION_EGG_NUTRIENT := 14   # at most this much of what it carries goes into the egg
+const SCORPION_EGG_TIME := 60.0     # an egg block that is not dug hatches by itself after this long
+const MAX_SCORPIONS := 8
 
 # --- population caps (performance) ---
 const MAX_MOSS := 70

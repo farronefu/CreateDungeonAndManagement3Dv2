@@ -1,6 +1,6 @@
 class_name VoxelBlockCatalog
 extends RefCounted
-## Six-face atlases (five authored, the cracked one made to the same layout), with a cached closed shell and stable connected relief profiles.
+## Six-face atlases (five authored; the cracked and the egg one made to the same layout), with a cached closed shell and stable connected relief profiles.
 const PATHS := [
 	"res://assets/models/blocks/Block_Nutrient_00_Rock.glb",
 	"res://assets/models/blocks/Block_Nutrient_01_04_Moss.glb",
@@ -8,6 +8,7 @@ const PATHS := [
 	"res://assets/models/blocks/Block_Nutrient_10_12_Dry.glb",
 	"res://assets/models/blocks/Block_Nutrient_13Plus_Cracked_BaseColor.png",   # hand-made atlas, same layout
 	"res://assets/models/blocks/Block_Bedrock_Obsidian.glb",
+	"res://assets/models/blocks/Block_ScorpionEgg_BaseColor.png",   # scorpion egg block (same layout)
 ]
 static var _mesh: Mesh
 static var _textures: Array[Texture2D] = []

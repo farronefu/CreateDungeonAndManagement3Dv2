@@ -17,6 +17,7 @@ var _slot := {}  # Vector2i -> [multimesh, index]
 var _nutrient_of := {}  # last solid block color; retained during crumble
 var _seed := {}
 var _anim := {}  # Vector2i -> time left (crumble)
+var _egg_anim := {}  # crumbling cells that were egg blocks (they keep the egg look while they sink)
 var _hover := Vector2i(-999, -999)
 var _hover_amt := 0.0
 var _rng := RandomNumberGenerator.new()
@@ -117,6 +118,8 @@ func _build_blocks() -> void:
 func _kind_of(c: Vector2i) -> float:
 	if not grid.in_bounds(c) or grid.get_type(c) == DungeonGrid.BEDROCK:
 		return 1.0
+	if grid.is_egg(c) or _egg_anim.has(c):
+		return 0.5
 	return 0.0
 
 
@@ -146,11 +149,13 @@ func _write_instance(c: Vector2i) -> void:
 		_nutrient_of[c] = n
 	else:
 		_nutrient_of.erase(c)
-	mm.set_instance_custom_data(sv[1], Color(float(n) / 16.0, sd, hover, _kind_of(c)))
+	mm.set_instance_custom_data(sv[1], Color(minf(float(n), 16.0) / 16.0, sd, hover, _kind_of(c)))
 
 
 func _on_cell_dug(c: Vector2i) -> void:
 	_anim[c] = 0.22
+	if grid.last_dug_egg:
+		_egg_anim[c] = true
 	# the dug block loses its decor, and its neighbours grow vines over the new edge
 	for d in [Vector2i.ZERO, Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		_dirty[_chunk_of(c + d)] = true
@@ -184,6 +189,7 @@ func _process(delta: float) -> void:
 			_anim[c] -= delta
 			if _anim[c] <= 0.0:
 				_anim.erase(c)
+				_egg_anim.erase(c)
 				_dirty[_chunk_of(c)] = true
 			_write_instance(c)
 	_decor_timer -= delta

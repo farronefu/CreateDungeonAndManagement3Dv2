@@ -10,6 +10,8 @@ extends RefCounted
 ##    to 5 new moss when its life ends (this is how moss breeds).
 ##  - ザクザクムシ larvae hunt moss when hungry, pupate at HP 60, hatch into adults after 20 s,
 ##    and adults with enough HP and nutrient give birth to new larvae.
+##  - サソリ come out of cracked soil (養分 13+), eat ザクザクムシ of every stage, and after three
+##    meals seal an egg in a neighbouring soil block.
 
 signal spawned(m: Monster, cause: String)
 signal died(m: Monster, cause: String)
@@ -17,6 +19,7 @@ signal evolved(m: Monster)
 signal nutrient_flow(block: Vector2i, m: Monster, into_monster: bool)
 signal hero_hit(m: Monster, damage: int)
 signal ate(predator: Monster, prey: Monster)
+signal egg_laid(block: Vector2i, m: Monster)
 
 var grid: DungeonGrid
 var monsters: Array[Monster] = []
@@ -88,6 +91,11 @@ func spawn(kind: int, stage: int, c: Vector2i, n: int, cause: String = "birth", 
 
 ## Called when the player digs a block. Returns the monster born from its nutrient (or null).
 func spawn_from_dig(c: Vector2i, n: int) -> Monster:
+	if grid.last_dug_egg or n >= Balance.SCORPION_SPAWN_MIN:
+		if count(Monster.Kind.SCORPION) < Balance.MAX_SCORPIONS:
+			return spawn(Monster.Kind.SCORPION, 0, c, n, "dig")
+		if grid.last_dug_egg:
+			return _refund(c, n)
 	if n >= Balance.BUG_SPAWN_MIN:
 		if count(Monster.Kind.BUG) >= Balance.MAX_BUGS:
 			return _refund(c, n)
@@ -115,7 +123,11 @@ func _set_stage(m: Monster, stage: int, fresh: bool) -> void:
 	m.base_anim = "idle"
 	var mm := _moss_mult()
 	var bm := _bug_mult()
-	if m.kind == Monster.Kind.MOSS:
+	if m.kind == Monster.Kind.SCORPION:
+		m.max_hp = Balance.SCORPION_HP_MAX
+		m.hp = Balance.SCORPION_HP
+		m.atk = Balance.SCORPION_ATK
+	elif m.kind == Monster.Kind.MOSS:
 		match stage:
 			Monster.MOSS:
 				m.max_hp = Balance.MOSS_HP_MAX * mm
@@ -216,6 +228,8 @@ func tick(delta: float) -> void:
 					_tick_bud(m, delta)
 				Monster.FLOWER:
 					_tick_flower(m, delta)
+		elif m.kind == Monster.Kind.SCORPION:
+			_tick_scorpion(m, delta)
 		else:
 			match m.stage:
 				Monster.LARVA:
@@ -224,6 +238,7 @@ func tick(delta: float) -> void:
 					_tick_pupa(m, delta)
 				Monster.ADULT:
 					_tick_adult(m, delta)
+	_tick_eggs(delta)
 	for s in _pending_spawns:
 		spawn(s[0], s[1], s[2], s[3], s[4], s[5] if s.size() > 5 else null)
 	_pending_spawns.clear()
@@ -276,12 +291,17 @@ func _try_attack_hero(m: Monster, front_only: bool) -> bool:
 		m.dir = d
 	m.anim_request = "attack"
 	m.busy = Balance.MOSS_ATTACK_BUSY if m.kind == Monster.Kind.MOSS else Balance.BUG_ATTACK_BUSY
+	var hit_at := Balance.ATTACK_HIT_FRACTION
 	if m.kind == Monster.Kind.MOSS:
 		m.cooldown = Balance.MOSS_ATTACK_CD if m.stage == Monster.MOSS else Balance.TREE_ATTACK_CD
+	elif m.kind == Monster.Kind.SCORPION:
+		m.busy = Balance.SCORPION_ATTACK_BUSY
+		m.cooldown = Balance.SCORPION_ATTACK_CD
+		hit_at = Balance.SCORPION_ATTACK_HIT
 	else:
 		m.cooldown = Balance.BUG_ATTACK_CD
 	m.hit_dmg = int(round(m.atk * rng.randf_range(0.85, 1.15)))
-	m.hit_timer = m.busy * Balance.ATTACK_HIT_FRACTION
+	m.hit_timer = m.busy * hit_at
 	return true
 
 
@@ -438,13 +458,17 @@ func _metabolism(m: Monster, delta: float, rate: float) -> void:
 
 
 func _find_prey(m: Monster) -> Monster:
+	# ザクザクムシ eat モコチュリ; サソリ eat ザクザクムシ
+	var scorpion := m.kind == Monster.Kind.SCORPION
+	var prey_kind := Monster.Kind.BUG if scorpion else Monster.Kind.MOSS
+	var sight := Balance.SCORPION_SIGHT if scorpion else Balance.BUG_SIGHT
 	var best: Monster = null
 	var bd := 999
 	for o in monsters:
-		if not o.alive or not o.is_prey():
+		if not o.alive or o.kind != prey_kind:
 			continue
 		var d := absi(o.cell.x - m.cell.x) + absi(o.cell.y - m.cell.y)
-		if d < bd and d <= Balance.BUG_SIGHT:
+		if d < bd and d <= sight:
 			bd = d
 			best = o
 	return best
@@ -455,7 +479,8 @@ func _try_eat(m: Monster) -> bool:
 	if prey == null:
 		return false
 	var d := prey.cell - m.cell
-	if absi(d.x) + absi(d.y) <= 1 and not prey.is_moving():
+	# a scorpion also snatches prey that is on the move (the bees never stand still)
+	if absi(d.x) + absi(d.y) <= 1 and (m.kind == Monster.Kind.SCORPION or not prey.is_moving()):
 		if d != Vector2i.ZERO:
 			m.dir = d
 		m.anim_request = "eat"
@@ -466,7 +491,7 @@ func _try_eat(m: Monster) -> bool:
 	var path := grid.find_path(m.cell, prey.cell)
 	if path.is_empty():
 		return false
-	_start_move(m, path[0], _bug_step(m))
+	_start_move(m, path[0], Balance.SCORPION_STEP_TIME if m.kind == Monster.Kind.SCORPION else _bug_step(m))
 	return true
 
 
@@ -482,6 +507,7 @@ func _land_eat(m: Monster) -> void:
 		return
 	m.hp = minf(m.max_hp, m.hp + Balance.EAT_HEAL + prey.nutrient * 2)
 	m.nutrient += prey.nutrient
+	m.meals += 1
 	ate.emit(m, prey)
 	kill(prey, "eaten")
 
@@ -589,6 +615,77 @@ func _lay(m: Monster) -> void:
 	m.nutrient -= n
 	# born in the parent's cell; MonsterLayer places it exactly at the tail tip
 	_pending_spawns.append([Monster.Kind.BUG, Monster.LARVA, m.cell, n, "birth", m])
+
+
+# ------------------------------------------------------------------ サソリ
+## Eats ザクザクムシ of every stage. After SCORPION_LAY_MEALS meals it stings a neighbouring soil
+## block and seals nutrient in it (an egg block); a young scorpion comes out when the player digs
+## that block, or by itself after SCORPION_EGG_TIME.
+func _tick_scorpion(m: Monster, delta: float) -> void:
+	var old := m.age > Balance.SCORPION_LIFE
+	_metabolism(m, delta, 3.0 if old else Balance.SCORPION_METABOLISM)
+	m.lay_cooldown = maxf(0.0, m.lay_cooldown - delta)
+	if m.hp <= 0:
+		kill(m, "old" if old else "starve")
+		return
+	if m.busy > 0.0:
+		m.busy -= delta
+		# the egg goes in when the sting touches the block
+		if m.timer < 0.0 and m.busy <= Balance.SCORPION_ATTACK_BUSY * (1.0 - Balance.SCORPION_ATTACK_HIT):
+			m.timer = 0.0
+			_lay_egg(m)
+		return
+	if not _advance(m, delta):
+		return
+	if _try_attack_hero(m, false):
+		return
+	var hc = _hero_cell()
+	if hc != null:
+		var d: Vector2i = hc - m.cell
+		if absi(d.x) + absi(d.y) <= Balance.SCORPION_AGGRO_RANGE:
+			var path := grid.find_path(m.cell, hc)
+			if not path.is_empty():
+				_start_move(m, path[0], Balance.SCORPION_STEP_TIME)
+				return
+	if m.meals >= Balance.SCORPION_LAY_MEALS and m.lay_cooldown <= 0.0 and m.nutrient > 0 \
+			and count(Monster.Kind.SCORPION) + grid.eggs.size() < Balance.MAX_SCORPIONS:
+		var blocks := grid.block_neighbors(m.cell)
+		if not blocks.is_empty():
+			m.lay_cell = blocks[rng.randi() % blocks.size()]
+			m.dir = m.lay_cell - m.cell
+			m.anim_request = "lay_egg"
+			m.busy = Balance.SCORPION_ATTACK_BUSY
+			m.timer = -1.0
+			return
+	if m.hp <= Balance.SCORPION_HUNGRY and _try_eat(m):
+		return
+	var next := _random_step(m, 0.6)
+	if next == m.cell:
+		m.busy = 0.6
+		return
+	_start_move(m, next, Balance.SCORPION_STEP_TIME)
+
+
+func _lay_egg(m: Monster) -> void:
+	var n := mini(m.nutrient, Balance.SCORPION_EGG_NUTRIENT)
+	if n <= 0 or not grid.make_egg(m.lay_cell, n, Balance.SCORPION_EGG_TIME):
+		return   # the block is gone: it keeps its meals and tries another wall
+	m.nutrient -= n
+	m.meals = 0
+	m.lay_cooldown = Balance.SCORPION_LAY_COOLDOWN
+	egg_laid.emit(m.lay_cell, m)
+
+
+## Egg blocks left alone hatch by themselves: the block breaks open and the young scorpion steps out.
+func _tick_eggs(delta: float) -> void:
+	for c in grid.eggs.keys():
+		grid.eggs[c] -= delta
+		if grid.eggs[c] > 0.0:
+			continue
+		if count(Monster.Kind.SCORPION) >= Balance.MAX_SCORPIONS:
+			grid.eggs[c] = 5.0   # no room yet: look again shortly
+			continue
+		spawn(Monster.Kind.SCORPION, 0, c, grid.dig(c), "hatch")
 
 
 # ------------------------------------------------------------------ persistence

@@ -26,9 +26,10 @@ func setup(e: Ecosystem, effects: Effects) -> void:
 	eco.nutrient_flow.connect(_on_flow)
 	eco.ate.connect(_on_ate)
 	eco.hero_hit.connect(_on_hero_hit)
+	eco.egg_laid.connect(_on_egg_laid)
 	# build every model once up front: the first instance of each pays for loading and for
 	# generating its idle clip, which would otherwise hitch the frame the monster first appears
-	for key in ["moss", "moss_bud", "moss_flower", "evolution", "bug_larva", "bug_pupa", "bug_adult", "bug_evolution"]:
+	for key in ["moss", "moss_bud", "moss_flower", "evolution", "bug_larva", "bug_pupa", "bug_adult", "bug_evolution", "scorpion"]:
 		MonsterCatalog.make_actor(key).free()
 	for m in eco.monsters:
 		_on_spawned(m, "load")
@@ -56,8 +57,10 @@ func _create_visual(m: Monster, cause: String) -> void:
 	add_child(v)
 	v.setup(m, cause != "load")
 	_visuals[m.id] = v
-	if cause == "dig" or cause == "birth":
+	if cause == "dig" or cause == "birth" or cause == "hatch":
 		var col := Color(0.55, 1.0, 0.3) if m.kind == Monster.Kind.MOSS else Color(1.0, 0.6, 0.2)
+		if m.kind == Monster.Kind.SCORPION:
+			col = Color(0.35, 0.6, 1.0)
 		fx.sparkle(v.position + Vector3(0, 0.25, 0), col, 10)
 		Sfx.play("spawn_moss" if m.kind == Monster.Kind.MOSS else "spawn_bug", v.position)
 
@@ -70,9 +73,11 @@ func _on_died(m: Monster, cause: String) -> void:
 	v.die(cause)
 	_dying.append(v)
 	# One species cue per death, including prey consumed by a successful attack.
-	if cause in ["killed", "eaten"] or (m.kind == Monster.Kind.BUG and cause in ["starve", "old"]):
+	if cause in ["killed", "eaten"] or (m.kind != Monster.Kind.MOSS and cause in ["starve", "old"]):
 		if m.kind == Monster.Kind.MOSS:
 			Sfx.play("moss_die" if m.stage == Monster.MOSS else "tree_die", v.position)
+		elif m.kind == Monster.Kind.SCORPION:
+			Sfx.play("bee_die", v.position)
 		else:
 			Sfx.play("pillbug_die" if m.stage != Monster.ADULT or v._evolving else "bee_die", v.position)
 	if cause != "eaten":
@@ -106,6 +111,16 @@ func _on_flow(block: Vector2i, m: Monster, into_monster: bool) -> void:
 		fx.motes(p, b, Color(0.9, 0.85, 0.3))
 
 
+## A scorpion stung a wall: what it carried flows into the block, which is now an egg block.
+func _on_egg_laid(block: Vector2i, m: Monster) -> void:
+	var b := DungeonGrid.cell_center(block, Balance.BLOCK_H * 0.6)
+	var v: MonsterVisual = _visuals.get(m.id)
+	if v:
+		fx.motes(v.position + Vector3(0, 0.35, 0), b, Color(0.35, 0.6, 1.0))
+	fx.sparkle(b, Color(1.0, 0.8, 0.2), 12)
+	Sfx.play("spawn_bug", b)
+
+
 func _on_ate(pred: Monster, prey: Monster) -> void:
 	var v: MonsterVisual = _visuals.get(prey.id)
 	if v:
@@ -120,7 +135,7 @@ func _on_hero_hit(m: Monster, _damage: int) -> void:
 func _play_monster_hit(m: Monster) -> void:
 	if m.kind == Monster.Kind.MOSS:
 		Sfx.play("moss_hit" if m.stage == Monster.MOSS else "tree_hit", DungeonGrid.cell_center(m.cell))
-	elif m.stage == Monster.ADULT:
+	elif m.kind == Monster.Kind.SCORPION or m.stage == Monster.ADULT:
 		Sfx.play("bee_attack", DungeonGrid.cell_center(m.cell))
 
 
