@@ -1200,6 +1200,8 @@ func _debug_tick() -> void:
 		_birthtest()
 	if _debug.has("scorpionshot"):
 		_scorpionshot()
+	if _debug.has("scorpiondemo"):
+		_scorpiondemo()
 	# --tiptest: every monster that can still evolve shows what it needs; BGM files are used
 	# --dietest: monsters that die play their death clip to the end (not frozen on the first frame)
 	if _debug.has("dietest"):
@@ -1439,6 +1441,131 @@ func _capturetest() -> void:
 	var ok: bool = grab_dist == 1 and wrapped and max_dist <= 1 and escaped["v"]
 	print("CAPTURETEST ", "PASS " if ok else "FAIL ", {"grab_distance": grab_dist, "wrapped_model": wrapped, "max_distance_while_dragged": max_dist, "escaped": escaped["v"], "time": snappedf(t, 0.1)})
 	get_tree().quit()
+
+
+## (run with --autostart --scorpiondemo) plays every scorpion feature once in the real scene and
+## saves one capture of each to debug_shots/scorpion_demo/ (closer zoom than the default so the
+## models are readable; the popups are the pad cursor's).
+func _scorpiondemo() -> void:
+	var e := grid.entrance
+	var soil := Vector2i(e.x, 6)
+	if _frames < 20:
+		return
+	if _frames == 20:
+		speed = 1.0
+		phase = Phase.BUILD
+		DirAccess.make_dir_recursive_absolute("debug_shots/scorpion_demo")
+		grid.set_nutrient(soil, 14)
+		_dt = {"step": 0, "t": 0, "look": DungeonGrid.cell_center(Vector2i(e.x, 5))}
+		eco.egg_laid.connect(func(c: Vector2i, _m: Monster) -> void: _dt["egg"] = c)
+	Pad.using_pad = true
+	cam.zoom = 0.62
+	var s: Monster = _dt.get("s")
+	if s and s.alive and s.visual:
+		_dt["look"] = (s.visual as Node3D).position
+	cam.focus_on(_dt["look"], true)
+	_dt["t"] += 1
+	var t: int = _dt["t"]
+	var shot := func(name: String) -> void:
+		_screenshot("debug_shots/scorpion_demo/%s.png" % name)
+		_dt["step"] += 1
+		_dt["t"] = 0
+	match int(_dt["step"]):
+		0:   # cracked soil and its popup
+			cursor.pad_cell = soil
+			if t == 40:
+				shot.call("01_cracked_soil")
+		1:   # digging it: a scorpion is born
+			if t == 2:
+				_try_dig(soil)
+				for m in eco.monsters:
+					if m.kind == Monster.Kind.SCORPION:
+						_dt["s"] = m
+			if t == 26:
+				shot.call("02_born_from_dig")
+		2:   # the scorpion's popup (it is held still so the cursor sits on it)
+			cursor.pad_cell = s.cell
+			if not s.is_moving():
+				s.busy = 0.5
+			if t >= 70 and not s.is_moving():
+				shot.call("03_scorpion_popup")
+		3:   # eating a pill bug
+			cursor.pad_cell = Vector2i(e.x + 3, 8)
+			if t == 2:
+				s.hp = 70
+				var spot := s.cell + Vector2i(1, 0) if grid.is_floor(s.cell + Vector2i(1, 0)) else s.cell + Vector2i(-1, 0)
+				eco.spawn(Monster.Kind.BUG, Monster.LARVA, spot, 6, "load")
+			if s.eat_target != null and not _dt.has("eat_at"):
+				_dt["eat_at"] = t
+			if _dt.has("eat_at") and t == int(_dt["eat_at"]) + 24:
+				shot.call("04_eating")
+		4:   # after three meals: stinging a wall to lay the egg
+			if t == 30:
+				s.meals = Balance.SCORPION_LAY_MEALS
+				s.lay_cooldown = 0.0
+				s.hp = s.max_hp
+			if s.timer < 0.0 and not _dt.has("lay_at"):
+				_dt["lay_at"] = t
+			if _dt.has("lay_at") and t == int(_dt["lay_at"]) + 27:
+				shot.call("05_laying_egg")
+		5:   # the egg block and its popup (once the mother has stepped away)
+			if _dt.has("egg"):
+				var egg: Vector2i = _dt["egg"]
+				cursor.pad_cell = egg
+				_dt["look"] = DungeonGrid.cell_center(egg)
+				_dt.erase("s")
+				var far := true
+				for m in eco.monsters:
+					if absi(m.cell.x - egg.x) + absi(m.cell.y - egg.y) <= 1:
+						far = false
+				if (far and t > 40) or t > 500:
+					shot.call("06_egg_block_popup")
+		6:   # left alone, it hatches by itself
+			if t == 2:
+				grid.eggs[_dt["egg"]] = 0.2
+			if t == 30:
+				shot.call("07_hatched_by_itself")
+		7:   # an egg block that is dug hatches too
+			var wall := Vector2i(e.x - 3, 6)
+			_dt["look"] = DungeonGrid.cell_center(wall)
+			cursor.pad_cell = wall
+			if t == 2:
+				grid.set_nutrient(wall, 4)
+				grid.make_egg(wall, 8, Balance.SCORPION_EGG_TIME)
+			if t == 40:
+				_try_dig(wall)
+			if t == 62:
+				shot.call("08_hatched_by_digging")
+				for m in eco.monsters:   # clear the stage for the last two captures
+					m.nutrient = 0
+					eco.kill(m, "eaten")
+		8:   # the sting (the same clip is used against the hero)
+			if t == 2:
+				var a := eco.spawn(Monster.Kind.SCORPION, 0, Vector2i(e.x - 1, 5), 0, "load")
+				a.dir = Vector2i(1, 0)
+				a.busy = 5.0
+				_dt["s"] = a
+			cursor.pad_cell = Vector2i(e.x + 3, 8)
+			if t == 40:
+				s.anim_request = "attack"
+				s.busy = Balance.SCORPION_ATTACK_BUSY
+			if t == 40 + 28:
+				shot.call("09_sting")
+		9:   # death: it crumbles into grains
+			if t == 30:
+				eco.kill(s, "killed")
+			if t == 30 + 30:
+				shot.call("10_death")
+		10:  # the pause screen lists the scorpion
+			if t == 20:
+				for i in 2:
+					eco.spawn(Monster.Kind.SCORPION, 0, Vector2i(e.x - 2 + i, 5), 0, "load")
+				_set_speed(0.0)
+			if t == 50:
+				shot.call("11_pause_screen")
+		_:
+			print("SCORPIONDEMO DONE")
+			get_tree().quit()
 
 
 ## (run with --autostart --scorpionshot) the scorpion in the real scene: its model and clips,
