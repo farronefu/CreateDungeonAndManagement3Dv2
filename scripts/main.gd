@@ -590,8 +590,7 @@ func _update_hud(_force: bool) -> void:
 	hud.update_eco({
 		"moss": eco.count(Monster.Kind.MOSS, Monster.MOSS),
 		"moss_flower": eco.count(Monster.Kind.MOSS, Monster.BUD) + eco.count(Monster.Kind.MOSS, Monster.FLOWER),
-		"bug_larva": eco.count(Monster.Kind.BUG, Monster.LARVA),
-		"bug_pupa": eco.count(Monster.Kind.BUG, Monster.PUPA),
+		"bug_larva": eco.count(Monster.Kind.BUG, Monster.LARVA) + eco.count(Monster.Kind.BUG, Monster.PUPA),
 		"bug_adult": eco.count(Monster.Kind.BUG, Monster.ADULT),
 		"scorpion": eco.count(Monster.Kind.SCORPION),
 	}, grid.total_nutrient())
@@ -858,7 +857,7 @@ func _monster_tip(m: Monster) -> String:
 	if evo != "":
 		txt += "\n[color=#f0e070]進化まで %s[/color]" % evo
 	if m.kind == Monster.Kind.SCORPION:
-		txt += "\n[color=#b0a898]ザクザクムシを食べる（幼虫・サナギ・成虫）[/color]"
+		txt += "\n[color=#b0a898]ザクザクムシを食べる[/color]"
 		if m.meals >= Balance.SCORPION_LAY_MEALS:
 			txt += "\n[color=#f0e070]隣の土に卵を産みつける[/color]"
 		else:
@@ -906,7 +905,7 @@ func _cell_tip(c: Vector2i) -> String:
 ## Popup for a block a scorpion laid its egg in.
 func _egg_tip(c: Vector2i) -> String:
 	var left := maxi(0, int(ceil(float(grid.eggs.get(c, 0.0)))))
-	return "[b][color=#ffd040]サソリの卵[/color][/b]\n掘るとサソリが生まれる\nあと %d秒で自然にふ化する\n養分 %d\n[color=#b0a898]卵の土の養分は吸われず、足されない[/color]" % [left, grid.get_nutrient(c)]
+	return "[b][color=#ffd040]サソリの卵[/color][/b]\n掘るとサソリが生まれる\nあと %d秒で自然にふ化する\n養分 %d" % [left, grid.get_nutrient(c)]
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
