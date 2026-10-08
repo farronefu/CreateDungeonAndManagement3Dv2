@@ -12,7 +12,8 @@ const PAL := {
 	"w": "ffeaa6",   # wings
 	"E": "fffbe0",   # bee eyes
 	"s": "1f6ae0", "S": "5a9dff", "n": "3a40a0", "c": "a8e0f0", "h": "ffcc20",   # scorpion
-	"e": "101018",   # pupils
+	"e": "101018",
+	"z": "5a3c2a",   # bee stripes   # pupils
 }
 
 const ICONS := {
@@ -66,27 +67,27 @@ const ICONS := {
 		"kqoooqkoooqkqqqk",
 		".kqqqqkqqqqkqqk.",
 		"..kkkkkkkkkkkk..",
-		"..k.k..k..k.k...",
+		"..q.q..q.q..q.q.",
 		"................",
 		"................",
 	],
 	"bug_adult": [
-		".ww..........ww.",
-		"wwww........wwww",
-		"wwwww.kkkk.wwwww",
-		".wwwwkoOOokwwww.",
-		"..wwkoOOoookww..",
-		"...kooooooook...",
-		"..kEEEooooEEEk..",
-		"..kEEkooookEEk..",
-		"..kooooooooook..",
-		"...kkkkkkkkkk...",
-		"...kqqqqqqqqk...",
-		"....kooooook....",
-		"....kkkkkkkk....",
-		".....kqqqqk.....",
-		"......kook......",
-		".......kk.......",
+		"................",
+		".......www......",
+		"......wwwww.ww..",
+		"......wwwwwwwww.",
+		".......wwwwwww..",
+		"...oooo..www....",
+		"..oOOooooozoozz.",
+		".oOEeooooozoozoz",
+		".oOEEooooozoozo.",
+		".ooooooooozooz..",
+		"..qooooooqzqq...",
+		".qq.q..q..q.....",
+		"qq..q..q..q.....",
+		"q...............",
+		"................",
+		"................",
 	],
 	"scorpion": [
 		"......nnn.......",
