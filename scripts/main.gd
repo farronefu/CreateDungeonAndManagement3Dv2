@@ -1494,6 +1494,7 @@ func _scorpiondemo() -> void:
 				s.hp = 70
 				var spot := s.cell + Vector2i(1, 0) if grid.is_floor(s.cell + Vector2i(1, 0)) else s.cell + Vector2i(-1, 0)
 				eco.spawn(Monster.Kind.BUG, Monster.LARVA, spot, 6, "load")
+				eco.spawn(Monster.Kind.BUG, Monster.LARVA, Vector2i(e.x + 2, 5), 0, "load").busy = 30.0   # stands still for a size comparison
 			if s.eat_target != null and not _dt.has("eat_at"):
 				_dt["eat_at"] = t
 			if _dt.has("eat_at") and t == int(_dt["eat_at"]) + 24:

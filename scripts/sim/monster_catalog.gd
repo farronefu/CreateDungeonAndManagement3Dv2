@@ -16,9 +16,9 @@ const MODELS := {
 	# grass -> tree transformation, played when モコチュリ roots into a ツボミ
 	"evolution": {"path": "res://assets/models/final-runtime/MonsterChain-PlantEvolution-Voxel-Animated.glb", "scale": 0.37, "fix_colors": false, "anims": {}, "evo_time": 7.0},
 	# Approved voxel pillbug v2 (2026-10-02): +Y up, +Z forward, ground origin; pupa is curled.
-	"bug_larva": {"path": "res://assets/models/pillbug/voxel-pillbug-v2.glb", "scale": 0.38, "fix_colors": true, "stride": 0.117, "loops": ["Idle", "Walk", "CurlIdle"],
+	"bug_larva": {"path": "res://assets/models/pillbug/voxel-pillbug-v2.glb", "scale": 0.31, "fix_colors": true, "stride": 0.095, "loops": ["Idle", "Walk", "CurlIdle"],
 		"anims": {"idle": "Idle", "move": "Walk", "attack": "Attack", "eat": "Eat", "spawn": "Spawn", "die": "Death"}},
-	"bug_pupa": {"path": "res://assets/models/pillbug/voxel-pillbug-v2.glb", "scale": 0.38, "fix_colors": true,
+	"bug_pupa": {"path": "res://assets/models/pillbug/voxel-pillbug-v2.glb", "scale": 0.31, "fix_colors": true,
 		"loops": ["Idle", "Walk", "CurlIdle"],
 		"anims": {"idle": "CurlIdle", "spawn": "Curl", "hatch": "Uncurl", "die": "Death"}},
 	# ザクザクムシ 成虫: supplied flying scythe bug (broad-scythe, 2026-09-25). It hovers; LayEgg has a tail_tip bone

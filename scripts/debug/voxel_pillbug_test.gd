@@ -34,7 +34,7 @@ func run() -> void:
 		a.anim.seek(expected[clip] * 0.5, true)
 	var box := a.local_aabb()
 	print("VOXEL BOUNDS ", box)
-	check(absf(box.position.y) < 0.002 and absf(box.size.y - 1.044 * 0.38) < 0.01, "Ground origin and familiar height")
+	check(absf(box.position.y) < 0.002 and absf(box.size.y - 1.044 * MonsterCatalog.scale_of("bug_larva")) < 0.01, "Ground origin and familiar height")
 	check(a.model.rotation == Vector3.ZERO, "No extra axis rotation")
 	a.play("idle", 0.0, 1.0, true)
 	v._play_request("spawn", 0.0)

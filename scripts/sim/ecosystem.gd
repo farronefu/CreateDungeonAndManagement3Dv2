@@ -479,14 +479,28 @@ func _try_eat(m: Monster) -> bool:
 	if prey == null:
 		return false
 	var d := prey.cell - m.cell
-	# a scorpion also snatches prey that is on the move (the bees never stand still)
-	if absi(d.x) + absi(d.y) <= 1 and (m.kind == Monster.Kind.SCORPION or not prey.is_moving()):
+	var scorpion := m.kind == Monster.Kind.SCORPION
+	if scorpion:
+		# a scorpion eats from the cell next to its prey, never standing on top of it
+		if d == Vector2i.ZERO:
+			var away := grid.floor_neighbors(m.cell)
+			if not away.is_empty():
+				var back := m.cell - m.dir
+				_start_move(m, back if away.has(back) else away[rng.randi() % away.size()], Balance.SCORPION_STEP_TIME)
+				return true
+		elif absi(d.x) + absi(d.y) == 1 and prey.is_moving() and prey.from_cell == m.cell:
+			m.busy = 0.15   # the prey is still leaving this cell: wait until it is clear
+			return true
+	# a scorpion also snatches prey that is on the move (the bees never stand still) and holds it
+	if absi(d.x) + absi(d.y) <= 1 and (scorpion or not prey.is_moving()):
 		if d != Vector2i.ZERO:
 			m.dir = d
 		m.anim_request = "eat"
 		m.busy = 1.0
 		m.eat_target = prey
 		m.eat_timer = m.busy * Balance.ATTACK_HIT_FRACTION
+		if scorpion:
+			prey.busy = maxf(prey.busy, m.busy)
 		return true
 	var path := grid.find_path(m.cell, prey.cell)
 	if path.is_empty():

@@ -48,9 +48,12 @@ func _init() -> void:
 	var laid := []
 	eco.egg_laid.connect(func(c: Vector2i, _m: Monster) -> void: laid.append(c))
 	var eaten := [0]
-	eco.ate.connect(func(pred: Monster, _prey: Monster) -> void:
+	var overlapped := [0]
+	eco.ate.connect(func(pred: Monster, prey: Monster) -> void:
 		if pred == s:
-			eaten[0] += 1)
+			eaten[0] += 1
+			if pred.cell == prey.cell:
+				overlapped[0] += 1)
 	var t := 0.0
 	while t < 400.0 and laid.is_empty():
 		if eco.count(Monster.Kind.BUG) == 0:
@@ -59,6 +62,7 @@ func _init() -> void:
 		eco.tick(0.1)
 		t += 0.1
 	check(eaten[0] == Balance.SCORPION_LAY_MEALS, "lays after exactly %d meals (ate %d)" % [Balance.SCORPION_LAY_MEALS, eaten[0]])
+	check(overlapped[0] == 0, "it eats from the next cell, never on top of its prey")
 	check(laid.size() == 1, "one egg block laid within 400 s (t=%.0f)" % t)
 	if laid.is_empty():
 		print("SCORPIONTEST FAIL failures=", failures + 1)

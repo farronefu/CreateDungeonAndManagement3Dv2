@@ -76,6 +76,11 @@ func play_evolution(key: String = "evolution") -> void:
 	_evo_time = MonsterCatalog.evo_time_of(key)
 	_evo_wait_key = m.model_key() if key == "bug_evolution" else ""
 	_set_actor(MonsterCatalog.make_actor(key))
+	if key == "bug_evolution":
+		# the effect model is authored for a larger pill bug: grow into it instead of popping
+		var full := actor.scale
+		actor.scale = full * (MonsterCatalog.scale_of("bug_pupa") / MonsterCatalog.scale_of(key))
+		create_tween().tween_property(actor, "scale", full, 0.6 / time_scale)
 	for clip in actor.anim.get_animation_list() if actor.anim else []:
 		if clip != "RESET":
 			actor.play_once(clip, time_scale)

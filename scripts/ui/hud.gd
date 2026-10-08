@@ -137,16 +137,21 @@ func _build_pause_screen() -> void:
 	grid.add_theme_constant_override("h_separation", 18)
 	grid.add_theme_constant_override("v_separation", 4)
 	vb.add_child(grid)
-	# the pupa is counted with the larvae; the bee and the scorpion show their faces
+	# 16x16 pixel-art icons (scripts/debug/make_monster_icons.gd); the pupa is counted with the larvae
 	var rows := [
-		["moss", "モコチュリ", Vector3(0, 0.55, 0.9), Vector3(0, 0.22, 0), 0.45],
-		["moss_flower", "ツボミ・モコバナ", Vector3(0, 0.62, 1.25), Vector3(0, 0.36, 0), 0.72],
-		["bug_larva", "ザクザクムシ（幼虫）", Vector3(0.55, 0.62, 0.95), Vector3(0, 0.12, 0), 0.4],
-		["bug_adult", "ザクザクムシ（成虫）", Vector3(0.0, 0.38, 0.8), Vector3(0, 0.33, 0.1), 0.4],
-		["scorpion", "サソリ", Vector3(0.1, 0.4, 0.6), Vector3(0, 0.25, 0.1), 0.4],
+		["moss", "モコチュリ"],
+		["moss_flower", "ツボミ・モコバナ"],
+		["bug_larva", "ザクザクムシ（幼虫）"],
+		["bug_adult", "ザクザクムシ（成虫）"],
+		["scorpion", "サソリ"],
 	]
 	for r in rows:
-		var icon := _studio(r[0], 128, r[2], r[3], 30.0, r[4])
+		var icon := TextureRect.new()
+		icon.texture = load("res://assets/ui/icons/%s.png" % r[0])
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		icon.custom_minimum_size = Vector2(64, 64)
 		grid.add_child(icon)
 		var name_l := UiTheme.label(r[1], 24, UiTheme.TEXT)
