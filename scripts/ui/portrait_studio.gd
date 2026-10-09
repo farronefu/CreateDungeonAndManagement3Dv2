@@ -42,7 +42,3 @@ func setup(packed: PackedScene, px: Vector2i, height: float, cam_pos: Vector3, l
 	cam.look_at(look_at_pos, Vector3.UP)
 
 
-func freeze_after(frames: int = 3) -> void:
-	for i in frames:
-		await RenderingServer.frame_post_draw
-	render_target_update_mode = SubViewport.UPDATE_DISABLED

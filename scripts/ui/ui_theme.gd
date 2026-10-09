@@ -8,14 +8,11 @@ const INK := Color(0.1, 0.075, 0.06, 0.86)          # panel fill
 const INK_SOLID := Color(0.1, 0.075, 0.06, 0.97)
 const EDGE := Color(0.95, 0.82, 0.56)               # bevel highlight
 const GOLD := Color(0.98, 0.8, 0.42)
-const GOLD_DARK := Color(0.52, 0.38, 0.18)
 const TEXT := Color(1, 1, 1)
 const TEXT_DIM := Color(0.86, 0.86, 0.86)
 const HP := Color(0.55, 0.86, 0.38)
 const MP := Color(0.42, 0.72, 1.0)
 const WARN := Color(1.0, 0.46, 0.34)
-const NAVY := INK
-const NAVY_LIGHT := INK_SOLID
 
 const PIXEL_FONT := "res://assets/fonts/DotGothic16-Regular.ttf"
 const PX := 3            # screen pixels per logical frame pixel

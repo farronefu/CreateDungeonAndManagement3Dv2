@@ -9,9 +9,19 @@ const GRID_H := 50
 const BLOCK_H := 0.9
 const MAX_NUTRIENT := 16
 
-# New-run trial: preserve evolution/circulation; reduce the initial resource pool.
-const INITIAL_NUTRIENT_REDUCTION := 0.05
-const INITIAL_RICH_SOIL_REDUCTION := 0.08
+# --- the soil of a new dungeon (DungeonGrid._roll_soil; depth 0 = top row, 1 = bottom row) ---
+# The dungeon is poor on purpose: every unit of nutrient ends up in a monster or back in the soil, so
+# the total sets how big the ecosystem can get, and the rich blocks how soon pill bugs appear.
+## share of soil blocks with no nutrient at all, at the top and how much less of it at the bottom
+const SOIL_BARE_TOP := 0.62
+const SOIL_BARE_DEPTH := 0.18
+## share of blocks that hatch a ザクザクムシ at once (none above SOIL_RICH_FROM), at the bottom row
+const SOIL_RICH_FROM := 0.35
+const SOIL_RICH_BOTTOM := 0.03
+## ordinary nutrient soil holds 1 .. SOIL_MOSS_SPREAD (+ SOIL_MOSS_DEPTH at the bottom), mostly little
+const SOIL_MOSS_SPREAD := 5.0
+const SOIL_MOSS_DEPTH := 1.5
+const SOIL_MOSS_SKEW := 2.2
 
 # --- hero exploring ---
 const HERO_SIGHT := 3          # cells: floor in line of sight within this radius counts as explored
@@ -23,7 +33,6 @@ const TORCH_HEAL := 0.1        # walking onto a torch restores this share of max
 const BREAKER_POKES_TO_KILL := 3   # a breaker poke deals max HP / this (nutrient scatters on death as usual)
 
 # --- phases ---
-const BUILD_TIME := 150.0
 const DIG_MAX_BASE := 100
 
 # --- nutrient -> spawned monster ---
@@ -35,7 +44,6 @@ const SCORPION_SPAWN_MIN := 13   # 養分 13〜16（ひび割れた土）→ サ
 #   0 ① 何もない土   1 ② 少し植生がある土   2 ③ 植生が多い土   3 ④ 枯れた土   4 ⑤ ひび割れた土
 #   ②③ hatch モコチュリ, ④ hatches ザクザクムシ (the pill bug), ⑤ hatches サソリ
 const SOIL_STAGE_MIN := [0, 1, 5, 10, 13]
-const SOIL_NAMES := ["何もない土", "少し植生がある土", "植生が多い土", "枯れた土", "ひび割れた土"]
 
 
 static func soil_stage(n: int) -> int:

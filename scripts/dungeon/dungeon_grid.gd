@@ -257,49 +257,22 @@ func generate(seed_value: int) -> void:
 			carve.call(Vector2i(x, y))
 	for y in range(6, 9):
 		carve.call(Vector2i(entrance.x + 3, y))
-	_thin_initial_soil(seed_value)
 
-
-
-## Applies only to newly generated soil, never loaded snapshots.
-## Keep sparse one-unit soil and most bug-producing pockets intact.
-func _thin_initial_soil(seed_value: int) -> void:
-	var initial := total_nutrient()
-	var rng := RandomNumberGenerator.new()
-	rng.seed = seed_value + 731293
-	var rich: Array[int] = []
-	for i in nutrient.size():
-		if nutrient[i] >= Balance.BUG_SPAWN_MIN:
-			rich.append(i)
-	var count := mini(maxi(0, rich.size() - 1), int(round(rich.size() * Balance.INITIAL_RICH_SOIL_REDUCTION)))
-	for k in count:
-		var j := rng.randi_range(0, rich.size() - 1)
-		nutrient[rich[j]] = Balance.BUG_SPAWN_MIN - 1
-		rich.remove_at(j)
-	var left := maxi(0, int(round(initial * Balance.INITIAL_NUTRIENT_REDUCTION)) - (initial - total_nutrient()))
-	var eligible: Array[int] = []
-	for i in nutrient.size():
-		if nutrient[i] > Balance.MOSS_SPAWN_MIN and nutrient[i] < Balance.BUG_SPAWN_MIN:
-			eligible.append(i)
-	while left > 0 and not eligible.is_empty():
-		var j := rng.randi_range(0, eligible.size() - 1)
-		var i := eligible[j]
-		nutrient[i] -= 1
-		left -= 1
-		if nutrient[i] == Balance.MOSS_SPAWN_MIN:
-			eligible.remove_at(j)
 
 ## One soil block. depth: 0 (surface) .. 1 (bottom); bias: -1..1 regional noise for gentle clustering.
 func _roll_soil(rng: RandomNumberGenerator, depth: float, bias: float) -> int:
-	var p_bare := clampf(0.48 - 0.2 * depth - 0.12 * bias, 0.2, 0.7)
-	var p_rich := 0.0 if depth < 0.3 else clampf(0.01 + 0.05 * depth + 0.02 * bias, 0.0, 0.08)
+	var p_bare := clampf(Balance.SOIL_BARE_TOP - Balance.SOIL_BARE_DEPTH * depth - 0.12 * bias, 0.2, 0.85)
+	var p_rich := 0.0
+	if depth >= Balance.SOIL_RICH_FROM:
+		p_rich = clampf(Balance.SOIL_RICH_BOTTOM * (depth - Balance.SOIL_RICH_FROM) / (1.0 - Balance.SOIL_RICH_FROM) + 0.01 * bias, 0.0, Balance.SOIL_RICH_BOTTOM)
 	var r := rng.randf()
 	if r < p_bare:
 		return 0
 	if r < p_bare + p_rich:
-		return rng.randi_range(Balance.BUG_SPAWN_MIN, Balance.SCORPION_SPAWN_MIN - 1)   # cracked soil only builds up later
-	# nutrient soil: mostly small amounts, larger deeper down
-	var n := 1 + int(pow(rng.randf(), 1.7) * 7.0 + depth * 2.0)
+		# just enough for a pill bug: cracked soil (the scorpion's) only builds up during play
+		return Balance.BUG_SPAWN_MIN
+	# nutrient soil: mostly small amounts, a little more deeper down
+	var n := 1 + int(pow(rng.randf(), Balance.SOIL_MOSS_SKEW) * Balance.SOIL_MOSS_SPREAD + depth * Balance.SOIL_MOSS_DEPTH)
 	return clampi(n, Balance.MOSS_SPAWN_MIN, Balance.BUG_SPAWN_MIN - 1)
 
 

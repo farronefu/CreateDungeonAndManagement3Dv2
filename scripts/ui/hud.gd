@@ -19,7 +19,6 @@ const SPEEDS := [1.0, 2.0, 3.0]
 var root: Control
 var _status: PanelContainer
 var _message: Label
-var _mp_text: Label
 var _eco_labels := {}
 var _soil_label: Label
 # top centre
@@ -30,10 +29,6 @@ var _call_btn: Button
 var _hero_box: BoxContainer
 ## one per hero shown: {box, portrait, name, hp_text, hp_fill, mp_text, mp_fill, mp_row}
 var _hero_slots: Array = []
-var _hero_name: Label
-var _hp_fill: PipBar
-var _hp_text: Label
-var _mp_fill: PipBar
 var _elapsed: Label   # invasion clock, shown in the pause screen
 # time controls
 var _speed_btns: Array[IconButton] = []
@@ -47,7 +42,6 @@ var _dig_fill: PipBar
 var _info: PanelContainer
 var _info_label: RichTextLabel
 var _toasts: VBoxContainer
-var _studios: Array[PortraitStudio] = []
 var _pad_hint: PanelContainer
 var _confirm: Control
 var _confirm_label: Label
@@ -78,22 +72,6 @@ func _ready() -> void:
 	_build_pad_hint()
 	_build_pause_screen()
 	_build_confirm()
-
-
-func _studio(key: String, px: int, cam_pos: Vector3, look: Vector3, fov: float = 30.0, height: float = 0.0, yaw: float = 0.0) -> TextureRect:
-	var s := PortraitStudio.new()
-	add_child(s)
-	var entry: Dictionary = MonsterCatalog.MODELS[key]
-	s.setup(MonsterCatalog.scene(key), Vector2i(px, px), height, cam_pos, look, fov, bool(entry["fix_colors"]), [], (entry["anims"] as Dictionary).duplicate())
-	s.actor.rotation.y = yaw
-	s.freeze_after(4)
-	_studios.append(s)
-	var tr := TextureRect.new()
-	tr.texture = s.get_texture()
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return tr
 
 
 # ------------------------------------------------------------------ pause screen (Start / P)

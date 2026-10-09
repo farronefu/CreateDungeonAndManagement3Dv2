@@ -59,10 +59,6 @@ func is_moving() -> bool:
 	return move_t < 1.0
 
 
-func is_prey() -> bool:
-	return kind == Kind.MOSS
-
-
 func model_key() -> String:
 	if kind == Kind.MOSS:
 		return ["moss", "moss_bud", "moss_flower"][stage]
