@@ -1919,6 +1919,13 @@ var _auto_last_shot := 0
 
 
 ## Plays the real flow (title → cut-ins → digging → placement → invasion) without input devices.
+func _census() -> String:
+	return "moss %d flower %d larva %d adult %d scorpion %d" % [eco.count(Monster.Kind.MOSS, Monster.MOSS),
+		eco.count(Monster.Kind.MOSS, Monster.BUD) + eco.count(Monster.Kind.MOSS, Monster.FLOWER),
+		eco.count(Monster.Kind.BUG, Monster.LARVA) + eco.count(Monster.Kind.BUG, Monster.PUPA), eco.count(Monster.Kind.BUG, Monster.ADULT),
+		eco.count(Monster.Kind.SCORPION)]
+
+
 func _autoplay() -> void:
 	var every := int(_debug.get("shots_every", 0))
 	if every > 0 and _frames - _auto_last_shot >= every and phase != Phase.TITLE:
@@ -1970,10 +1977,16 @@ func _autoplay() -> void:
 			print("FREEZE ", "OK" if _world_probe() == _freeze_probe else "NG", " ", _freeze_probe)
 			_screenshot("debug_shots/auto_result.png")
 			print("AUTOPLAY RESULT victory time %.1f dig_left %d EP %d" % [invasion_time, dig_left, GameState.evolution_points])
+			# --run=N: go on to the next stage (same dungeon) until N stages are cleared
+			print("AUTORUN stage %d victory time %.1f monsters %s" % [GameState.stage_index + 1, invasion_time, _census()])
+			if GameState.stage_index + 1 < int(_debug.get("run", 1)):
+				_on_next_stage()
+				return
 			get_tree().quit()
 		Phase.DEFEAT:
 			_screenshot("debug_shots/auto_defeat.png")
 			print("AUTOPLAY RESULT defeat time %.1f" % invasion_time)
+			print("AUTORUN stage %d defeat time %.1f monsters %s" % [GameState.stage_index + 1, invasion_time, _census()])
 			get_tree().quit()
 
 

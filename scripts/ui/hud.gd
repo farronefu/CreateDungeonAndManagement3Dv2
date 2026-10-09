@@ -27,7 +27,7 @@ var _build_box: VBoxContainer
 var _timer_caption: Label
 var _timer_value: Label
 var _call_btn: Button
-var _hero_box: VBoxContainer
+var _hero_box: BoxContainer
 ## one per hero shown: {box, portrait, name, hp_text, hp_fill, mp_text, mp_fill, mp_row}
 var _hero_slots: Array = []
 var _hero_name: Label
@@ -330,8 +330,8 @@ func _build_status() -> void:
 	_message.custom_minimum_size = Vector2(340, 0)
 	vb.add_child(_message)
 	# invasion: hero status
-	_hero_box = VBoxContainer.new()
-	_hero_box.add_theme_constant_override("separation", 4)
+	_hero_box = HBoxContainer.new()   # several heroes stand side by side
+	_hero_box.add_theme_constant_override("separation", 28)
 	vb.add_child(_hero_box)
 	_add_hero_slot()
 	_hero_box.visible = false

@@ -195,7 +195,7 @@ func show_result(data: Dictionary) -> void:
 	_ep_label = UiTheme.label("", 34, UiTheme.TEXT, true)
 	_ep_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(_ep_label)
-	vb.add_child(UiTheme.label("進化ポイントを割り振る", 24, UiTheme.TEXT, true))
+	vb.add_child(UiTheme.label("進化ポイントを割り振る" if upgrades_open else "進化ポイントの強化は準備中です", 24, UiTheme.TEXT, true))
 	for id in Balance.UPGRADES:
 		var u: Dictionary = Balance.UPGRADES[id]
 		var hb := HBoxContainer.new()
@@ -224,7 +224,13 @@ func show_result(data: Dictionary) -> void:
 	_focus_first.call_deferred()
 
 
+## The upgrade event after a stage is not designed yet: the buttons are there but disabled.
+static var upgrades_open := false
+
+
 func _buy(id: String) -> void:
+	if not upgrades_open:
+		return
 	if GameState.buy(id):
 		Sfx.play("ui_confirm")
 	else:
@@ -240,6 +246,11 @@ func _refresh_upgrades() -> void:
 		var lv: Label = _upgrade_rows[id][0]
 		var b: Button = _upgrade_rows[id][1]
 		lv.text = "Lv %d/%d" % [lvl, u["max"]]
+		if not upgrades_open:   # shown, but cannot be pressed (nor reached with the pad)
+			b.text = "準備中"
+			b.disabled = true
+			b.focus_mode = Control.FOCUS_NONE
+			continue
 		if lvl >= int(u["max"]):
 			b.text = "MAX"
 			b.disabled = true

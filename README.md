@@ -113,7 +113,10 @@ godot --headless --export-pack "Windows Desktop" build/windows/MonsterChain.pck
 
 - 面ごとの設定は [`scripts/core/stage_defs.gd`](scripts/core/stage_defs.gd)（到着時間 `build_time`、来る勇者 `heroes`：プロフィール・倍率 `mult`・HPの上書き `hp`・回復の有無 `heal`）
 - **ヴァレン**（[`data/heroes/valen.tres`](data/heroes/valen.tres)）：斧の騎士。回復はしない。自分の前後左右のマスに魔物が3体以上いると **大技**（回転斬り）を使い、4マスすべてに攻撃力の1.5倍のダメージを同時に与える。MP10を使うので3回まで（`HeroProfile` の `anim_special` / `special_*`）
-- 勇者が2人の面：2人目は少し遅れて門から入る。同じマスには立たない。片方が魔王を捕まえると、もう片方は付き添って戦う。左上の枠には2人分のHP / MPが並ぶ
+- 勇者が2人の面：2人目は少し遅れて門から入る。同じマスには立たない。片方が魔王を捕まえると、もう片方は付き添って戦う。左上の枠には2人分のアイコン・名前・HP / MPが横に並ぶ
+- ヴァレンのアイコンは assets/ui/valen_icon.png（元画像 valen_icon_source.webp。白い絵を切り抜いて64pxにする scripts/debug/make_white_icon.gd で作成）
+- 面クリア後の強化（進化ポイントの割り振り）は未実装のため、ボタンは「準備中」で押せない（Screens.upgrades_open）
+- 3面を続けて自動プレイ: --autoplay --run=3 --seed=N（各面の結果が AUTORUN 行に出る）
 - 強さの確認は `scripts/debug/valen_test.gd`（幼虫1体には全勝、2体には育った幼虫なら全敗・生まれたての幼虫でも7割負ける。対戦を24回ずつ、大技、回復しないこと、面の設定）
 
 モデルの差し替え：

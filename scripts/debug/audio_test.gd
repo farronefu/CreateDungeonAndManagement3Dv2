@@ -161,6 +161,7 @@ func _run() -> void:
 	_reset()
 	game._break_torch(c)
 	_check(_heard("torch_break") and not _heard("hit"), "torch wood break")
+	Screens.upgrades_open = true   # the purchase sounds are still checked while the upgrades are closed to players
 	game._show_result()
 	get_tree().root.get_node("GameState").evolution_points = 10000
 	game.screens._refresh_upgrades()
