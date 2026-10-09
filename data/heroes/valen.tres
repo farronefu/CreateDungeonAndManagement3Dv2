@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="HeroProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/actors/hero_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "ヴァレン"
+intro_line = "ぶっ〇す！！"
+icon_path = "res://assets/ui/valen_icon.png"
+model_path = "res://assets/models/valen/valen.glb"
+model_height = 1.49
+model_yaw_offset_deg = 0.0
+plastic_look = false
+anim_idle = "idle"
+anim_walk = "walk"
+anim_attack = "attack"
+anim_death = "death"
+anim_joy = "joy"
+anim_look = "look_around"
+anim_special = "special"
+joy_anim_speed = 1.2
+look_anim_speed = 1.4
+attack_anim_speed = 1.4
+attack_hit_time = 0.83
+special_anim_speed = 1.4
+special_hit_time = 0.97
+special_cost = 10
+special_power = 1.5
+special_min_targets = 3
+walk_anim_speed = 1.0
+max_hp = 18
+max_mp = 30
+atk = 10
+defense = 3
+move_time = 0.7
+carry_move_time = 0.95
+attack_interval = 1.7
+can_heal = false
+sight = 4

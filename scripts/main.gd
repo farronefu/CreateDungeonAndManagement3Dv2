@@ -12,7 +12,10 @@ var eco: Ecosystem
 var view: DungeonView
 var fx: Effects
 var layer: MonsterLayer
+## the hero the camera, the cower check and the debug tools look at (the first one alive)
 var hero: Hero
+## everyone invading this stage (stage 3 sends two)
+var heroes: Array[Hero] = []
 var maou: Maou
 var cursor: DigCursor
 var cam: GameCamera
@@ -50,6 +53,9 @@ func _ready() -> void:
 		GameState.new_run()
 		if _debug.has("seed"):
 			GameState.seed_value = int(_debug["seed"])
+		# --stage=N: start at that stage (0 = the first) with a fresh dungeon
+		if _debug.has("stage"):
+			GameState.stage_index = int(_debug["stage"])
 	_build_environment()
 	_setup_stage()
 	_build_ui()
@@ -176,7 +182,8 @@ func _attach_post(camera: Camera3D) -> void:
 
 func _setup_stage() -> void:
 	stage = StageDefs.get_stage(GameState.stage_index)
-	profile = load(stage["hero"]) as HeroProfile
+	var entries: Array = stage["heroes"]
+	profile = load(entries[0]["profile"]) as HeroProfile
 	var snap: Dictionary = GameState.dungeon_snapshot
 	if snap.is_empty():
 		grid = DungeonGrid.new()
@@ -204,25 +211,35 @@ func _setup_stage() -> void:
 	GameState.stage_start_snapshot = {"grid": grid.to_dict(), "monsters": eco.to_array()}
 	maou = Maou.new()
 	add_child(maou)
-	hero = Hero.new()
-	add_child(hero)
+	heroes.clear()
+	for e in entries:
+		var h := Hero.new()
+		add_child(h)
+		heroes.append(h)
+	hero = heroes[0]
 	# the 魔王 stands near the entrance from the start (the player moves him when the hero is called)
 	maou.place(_maou_start_cell(), true)
-	hero.setup(profile, grid, eco, maou, fx, float(stage["hero_mult"]))
-	hero.entry_path = view.surface.entry_path()
-	hero.descent_path = view.surface.descent_path()
-	hero.gate = view.surface
-	eco.hero = hero
-	hero.died.connect(_on_hero_died)
-	hero.torches = torches
-	hero.torch_request.connect(_place_torch)
-	hero.escaped_with_maou.connect(_on_defeat)
-	hero.found_maou.connect(func() -> void:
-		hud.toast("勇者が魔王を見つけた！ 今のうちに攻撃だ！", UiTheme.WARN))
-	hero.picked_up_maou.connect(func() -> void:
-		hud.toast("魔王が捕まった！入口に連れて行かれる前に勇者を倒せ！", UiTheme.WARN)
-		follow_hero = true
-		Sfx.play_bgm("captured"))
+	for i in heroes.size():
+		var h := heroes[i]
+		var e: Dictionary = entries[i]
+		h.setup(load(e["profile"]) as HeroProfile, grid, eco, maou, fx, float(e.get("mult", 1.0)), e)
+		h.entry_path = view.surface.entry_path()
+		h.descent_path = view.surface.descent_path()
+		h.gate = view.surface
+		h.others = heroes
+		h.enter_delay = 1.6 * i   # the second one comes through the gate behind the first
+		h.died.connect(_on_hero_died.bind(h))
+		h.torches = torches
+		h.torch_request.connect(_place_torch)
+		h.escaped_with_maou.connect(_on_defeat)
+		h.found_maou.connect(func() -> void:
+			hud.toast("勇者が魔王を見つけた！ 今のうちに攻撃だ！", UiTheme.WARN))
+		h.picked_up_maou.connect(func() -> void:
+			hud.toast("魔王が捕まった！入口に連れて行かれる前に勇者を倒せ！", UiTheme.WARN)
+			_watch_hero(h)
+			follow_hero = true
+			Sfx.play_bgm("captured"))
+	eco.heroes = heroes
 	cam = GameCamera.new()
 	add_child(cam)
 	# up to the town on the cliff (the focus rises onto it), down to the bottom rows
@@ -259,7 +276,9 @@ func _build_ui() -> void:
 	Pad.button_pressed.connect(_on_pad_button)
 	Pad.trigger_pressed.connect(_on_pad_trigger)
 	_hero_portrait = load(profile.icon_path) as Texture2D
-	hud.set_hero(profile.display_name, _hero_portrait)
+	hud.set_hero_count(heroes.size())
+	for i in heroes.size():
+		hud.set_hero(heroes[i].profile.display_name, load(heroes[i].profile.icon_path) as Texture2D, i)
 	_maou_cutin = PortraitStudio.new()
 	add_child(_maou_cutin)
 	_maou_cutin.setup(MonsterCatalog.scene("maou"), Vector2i(560, 560), 1.1, Vector3(0.0, 0.8, 1.7), Vector3(0, 0.6, 0), 30.0, false)
@@ -307,33 +326,44 @@ func _opening() -> void:
 	cam.zoom = 0.6
 	letterbox.begin()
 	Sfx.play("cutin")
-	hero.begin_descent()
+	for i in heroes.size():
+		heroes[i].begin_descent(1.6 * i)
 	var stop_at := 2.2   # on the road left of the mound, in plain view of the camera
-	var stage := 0       # 0 walking in, 1 sword raised, 2 down the steps
+	var stage := 0       # 0 walking in, 1 each in turn raises his weapon and says his line, 2 down the steps
 	var t := 0.0
-	while hero.state == Hero.State.DESCENDING and not letterbox.skipped:
+	var speaker := -1
+	var lead := heroes[0]
+	while heroes.any(func(h: Hero) -> bool: return h.state == Hero.State.DESCENDING) and not letterbox.skipped:
 		await get_tree().process_frame
 		var dt := get_process_delta_time()
-		if stage < 2:   # the camera stays on the road while he goes down the steps
-			cam.focus_on(hero.position + Vector3(0, 0, 0.3))
+		if stage < 2:   # the camera stays on the road while they go down the steps
+			cam.focus_on(lead.position + Vector3(0.6 * (heroes.size() - 1), 0, 0.3))
 		match stage:
 			0:
-				hero.tick(dt)
-				if hero.descent_dist() >= stop_at:
+				for h in heroes:
+					h.tick(dt)
+				if lead.descent_dist() >= stop_at:
 					stage = 1
 					t = 0.0
-					hero.rotation.y = 0.0
-					var d := hero.actor.play_once(profile.anim_joy, profile.joy_anim_speed) if hero.actor.has_anim(profile.anim_joy) else 1.5
-					letterbox.say(profile.display_name, profile.intro_line, 1.6)
-					t = -maxf(d, 2.6)   # hold until the clip and the line are done
 			1:
 				t += dt
-				hero.rotation.y = lerp_angle(hero.rotation.y, 0.0, 0.2)
+				for h in heroes:
+					h.rotation.y = lerp_angle(h.rotation.y, 0.0, 0.2)
 				if t >= 0.0:
-					stage = 2
+					speaker += 1
+					if speaker >= heroes.size():
+						stage = 2
+					else:
+						var h := heroes[speaker]
+						var pr := h.profile
+						var d := h.actor.play_once(pr.anim_joy, pr.joy_anim_speed) if h.actor.has_anim(pr.anim_joy) else 1.5
+						letterbox.say(pr.display_name, pr.intro_line, 1.6)
+						t = -maxf(d, 2.6)   # hold until the clip and the line are done
 			2:
-				hero.tick(dt)
-	hero.finish_descent()
+				for h in heroes:
+					h.tick(dt)
+	for h in heroes:
+		h.finish_descent()
 	var was_skipped := letterbox.skipped
 	letterbox.end()
 	if not was_skipped:
@@ -414,7 +444,8 @@ func _begin_invasion() -> void:
 	phase = Phase.INVASION
 	invasion_time = 0.0
 	cursor.mode = DigCursor.Mode.DIG
-	hero.begin_invasion()
+	for h in heroes:
+		h.begin_invasion()
 	Sfx.play_bgm("battle")
 	cam.focus_on(DungeonGrid.cell_center(grid.entrance) + Vector3(0, 0, 4))
 	hud.toast("侵攻中も掘れる！ 新しい通路で勇者を迷わせよう", UiTheme.TEXT)
@@ -422,8 +453,26 @@ func _begin_invasion() -> void:
 	follow_hero = true
 
 
-func _on_hero_died() -> void:
+## The camera / status focus moves to this hero.
+func _watch_hero(h: Hero) -> void:
+	hero = h
+	profile = h.profile
+
+
+func _tick_heroes(dt: float) -> void:
+	for h in heroes:
+		h.tick(dt)
+
+
+func _on_hero_died(who: Hero) -> void:
 	if phase != Phase.INVASION:
+		return
+	# the stage is won only when every hero is down
+	var left: Array[Hero] = heroes.filter(func(h: Hero) -> bool: return h.state != Hero.State.DEAD)
+	if not left.is_empty():
+		hud.toast("%sを倒した！ 残るは%s" % [who.profile.display_name, left[0].profile.display_name], UiTheme.WARN)
+		if hero == who:
+			_watch_hero(left[0])
 		return
 	phase = Phase.ENDING
 	cursor.mode = DigCursor.Mode.NONE
@@ -442,7 +491,8 @@ func _on_defeat() -> void:
 		return
 	phase = Phase.ENDING
 	cursor.mode = DigCursor.Mode.NONE
-	hero.visible = false
+	for h in heroes:
+		h.visible = false
 	maou.visible = false
 	Sfx.play_bgm("")
 	Sfx.play("defeat")
@@ -477,7 +527,9 @@ func _play_result_music() -> void:
 
 ## Stops everything in the dungeon (simulation, animation, camera) while the upgrade screen is open.
 func _freeze_world() -> void:
-	for n in [view, layer, fx, hero, maou, cursor, cam]:
+	var nodes: Array = [view, layer, fx, maou, cursor, cam]
+	nodes.append_array(heroes)
+	for n in nodes:
 		(n as Node).process_mode = Node.PROCESS_MODE_DISABLED
 	hud.show_tooltip("", Vector2.ZERO)
 
@@ -521,7 +573,7 @@ func _process(delta: float) -> void:
 			eco.tick(delta)
 		Phase.BUILD:
 			eco.tick(dt)
-			hero.tick(dt)
+			_tick_heroes(dt)
 			build_left -= dt
 			if build_left <= 0.0:
 				build_left = 0.0
@@ -530,12 +582,12 @@ func _process(delta: float) -> void:
 				else:
 					_begin_place()
 		Phase.PLACE, Phase.HERO_INTRO:
-			hero.tick(dt)
+			_tick_heroes(dt)
 		Phase.INVASION:
 			var t0 := Time.get_ticks_usec()
 			eco.tick(dt)
 			var t1 := Time.get_ticks_usec()
-			hero.tick(dt)
+			_tick_heroes(dt)
 			_prof["eco"] = float(_prof.get("eco", 0.0)) + (t1 - t0) / 1000.0
 			_prof["hero"] = float(_prof.get("hero", 0.0)) + (Time.get_ticks_usec() - t1) / 1000.0
 			invasion_time += dt
@@ -546,7 +598,7 @@ func _process(delta: float) -> void:
 				cam.focus_on(hero.position + Vector3(0, 0, 1.0))
 		Phase.ENDING:
 			eco.tick(delta)
-			hero.tick(delta)
+			_tick_heroes(delta)
 	cam.user_moved = false
 	var t2 := Time.get_ticks_usec()
 	_update_tooltip(delta)
@@ -565,8 +617,11 @@ const MAOU_SCARED_LEAVE := 6
 func _update_maou_mood() -> void:
 	if maou.carrier != null or not maou.placed:
 		return
-	var d := absi(hero.cell.x - maou.cell.x) + absi(hero.cell.y - maou.cell.y)
-	var near := hero.is_targetable() and d <= (MAOU_SCARED_LEAVE - 1 if maou.mood == "scared" else MAOU_SCARED_ENTER)
+	var near := false
+	for h in heroes:
+		var d := absi(h.cell.x - maou.cell.x) + absi(h.cell.y - maou.cell.y)
+		if h.is_targetable() and d <= (MAOU_SCARED_LEAVE - 1 if maou.mood == "scared" else MAOU_SCARED_ENTER):
+			near = true
 	maou.set_mood("scared" if near else "idle")
 
 
@@ -576,7 +631,8 @@ func _fmt_time(t: float) -> String:
 
 
 func _update_hud(_force: bool) -> void:
-	hud.update_hero(hero.hp, hero.max_hp, hero.mp, hero.max_mp, phase == Phase.INVASION or phase == Phase.ENDING)
+	for i in heroes.size():
+		hud.update_hero(heroes[i].hp, heroes[i].max_hp, heroes[i].mp, heroes[i].max_mp, phase == Phase.INVASION or phase == Phase.ENDING, i)
 	hud.update_dig(dig_left, dig_max)
 	match phase:
 		Phase.TITLE, Phase.INTRO, Phase.BUILD:
@@ -662,7 +718,9 @@ func _set_speed(s: float) -> void:
 		MonsterVisual.time_scale = s
 	hud.set_speed(s)
 	var pm := Node.PROCESS_MODE_DISABLED if s == 0.0 else Node.PROCESS_MODE_INHERIT
-	for n in [layer, fx, hero, maou, cursor]:
+	var nodes: Array = [layer, fx, maou, cursor]
+	nodes.append_array(heroes)
+	for n in nodes:
 		(n as Node).process_mode = pm
 	if s == 0.0:
 		hud.show_tooltip("", Vector2.ZERO)
@@ -830,16 +888,19 @@ func _tooltip_text(mp: Vector2, cell: Vector2i) -> String:
 	for m in eco.monsters:
 		if m.visual:
 			consider.call(m, m.visual.global_position + Vector3(0, 0.25, 0))
-	if hero.visible and hero.state != Hero.State.DEAD:
-		consider.call(hero, hero.global_position + Vector3(0, 0.45, 0))
+	for h in heroes:
+		if h.visible and h.state != Hero.State.DEAD:
+			consider.call(h, h.global_position + Vector3(0, 0.45, 0))
 	if maou.placed and maou.visible:
 		consider.call(maou, maou.global_position + Vector3(0, 0.4, 0))
 	var best: Object = pick["obj"]
 	if best is Monster:
 		return _monster_tip(best as Monster)
-	if best == hero:
-		var st := "[color=#ff8070]魔王を運搬中！[/color]" if hero.carrying else ("戦闘中" if hero.busy > 0.0 else "探索中")
-		return "[img=24x24]%s[/img] [b]%s[/b]\nHP %s %d/%d\nMP %d/%d\n%s" % [profile.icon_path, profile.display_name, _bar(hero.hp, hero.max_hp, "#ff7060"), int(ceil(hero.hp)), int(hero.max_hp), int(hero.mp), int(hero.max_mp), st]
+	if best is Hero:
+		var h := best as Hero
+		var st := "[color=#ff8070]魔王を運搬中！[/color]" if h.carrying else ("戦闘中" if h.busy > 0.0 else "探索中")
+		var mp_line := "MP %d/%d\n" % [int(h.mp), int(h.max_mp)] if h.max_mp > 0 else ""
+		return "[img=24x24]%s[/img] [b]%s[/b]\nHP %s %d/%d\n%s%s" % [h.profile.icon_path, h.profile.display_name, _bar(h.hp, h.max_hp, "#ff7060"), int(ceil(h.hp)), int(h.max_hp), mp_line, st]
 	if best == maou:
 		return "[b][color=#d8a0ff]魔王さま[/color][/b]\n" + ("[color=#ff8070]勇者に運ばれている！[/color]" if maou.carrier else "勇者に入口まで運ばれると負け")
 	return _cell_tip(cell)
@@ -940,7 +1001,8 @@ func _debug_bootstrap() -> void:
 	screens.hide_all()
 	hud.set_visible_all(true)
 	phase = Phase.BUILD
-	hero.begin_descent()
+	for i in heroes.size():
+		heroes[i].begin_descent(1.6 * i)
 	cursor.mode = DigCursor.Mode.DIG
 	if _debug.has("speed"):
 		_set_speed(float(_debug["speed"]))
@@ -981,7 +1043,7 @@ func _debug_bootstrap() -> void:
 		var tt := 0.0
 		while tt < ht and phase == Phase.INVASION:
 			eco.tick(0.05)
-			hero.tick(0.05)
+			_tick_heroes(0.05)
 			invasion_time += 0.05
 			tt += 0.05
 		if _debug.has("report"):
@@ -1341,7 +1403,7 @@ func _herotest() -> void:
 	var t := 0.0
 	while t < 200.0 and phase == Phase.INVASION and hero.state != Hero.State.DEAD:
 		eco.tick(0.05)
-		hero.tick(0.05)
+		_tick_heroes(0.05)
 		t += 0.05
 		if hero.known[grid.idx(hero.cell)] == 0:
 			entered += 1
@@ -1429,7 +1491,7 @@ func _capturetest() -> void:
 	var max_dist := 0
 	var t := 0.0
 	while t < 150.0 and hero.state != Hero.State.DEAD:
-		hero.tick(0.05)
+		_tick_heroes(0.05)
 		t += 0.05
 		var d := absi(hero.cell.x - maou.cell.x) + absi(hero.cell.y - maou.cell.y)
 		if hero.carrying:
@@ -1882,7 +1944,7 @@ func _autoplay() -> void:
 					cursor.hover = best
 					_on_click(best)
 					_auto_digs += 1
-			elif _auto_digs >= 45 and build_left < float(stage["build_time"]) - 60.0:
+			elif _auto_digs >= 45 and build_left < float(stage["build_time"]) * 0.4:
 				_begin_place()
 			if speed != 3.0:
 				_set_speed(3.0)

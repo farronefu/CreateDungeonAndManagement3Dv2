@@ -23,7 +23,14 @@ signal egg_laid(block: Vector2i, m: Monster)
 
 var grid: DungeonGrid
 var monsters: Array[Monster] = []
-var hero: Node  # expects: cell, is_targetable(), take_damage(int, Monster)
+## the invading heroes; each: cell, is_targetable(), take_damage(int, Monster)
+var heroes: Array = []
+## the first hero (setting it makes it the only one)
+var hero: Node:
+	get:
+		return heroes[0] if not heroes.is_empty() else null
+	set(v):
+		heroes = [v] if v != null else []
 var rng := RandomNumberGenerator.new()
 var moss_level := 0
 var bug_level := 0
@@ -271,14 +278,27 @@ func _on_arrive(m: Monster) -> void:
 		_moss_arrive(m)
 
 
-func _hero_cell() -> Variant:
-	if hero != null and hero.is_targetable():
-		return hero.cell
-	return null
+## The targetable hero nearest to `from` (null if there is none).
+func _hero_near(from: Vector2i) -> Node:
+	var best: Node = null
+	var bd := 1 << 30
+	for h in heroes:
+		if h == null or not h.is_targetable():
+			continue
+		var d: int = absi(h.cell.x - from.x) + absi(h.cell.y - from.y)
+		if d < bd:
+			bd = d
+			best = h
+	return best
+
+
+func _hero_cell(from: Vector2i) -> Variant:
+	var h := _hero_near(from)
+	return h.cell if h != null else null
 
 
 func _try_attack_hero(m: Monster, front_only: bool) -> bool:
-	var hc = _hero_cell()
+	var hc = _hero_cell(m.cell)
 	if hc == null or m.cooldown > 0.0 or m.atk <= 0.0:
 		return false
 	var d: Vector2i = hc - m.cell
@@ -307,14 +327,14 @@ func _try_attack_hero(m: Monster, front_only: bool) -> bool:
 
 ## The blow connects mid-animation, if the hero is still next to the attacker.
 func _land_hit(m: Monster) -> void:
-	var hc = _hero_cell()
-	if hc == null or not m.alive:
+	var h := _hero_near(m.cell)
+	if h == null or not m.alive:
 		return
-	var d: Vector2i = hc - m.cell
+	var d: Vector2i = h.cell - m.cell
 	if absi(d.x) + absi(d.y) > 1:
 		return
 	hero_hit.emit(m, m.hit_dmg)
-	hero.take_damage(m.hit_dmg, m)
+	h.take_damage(m.hit_dmg, m)
 
 
 func _random_step(m: Monster, straight_bias: float) -> Vector2i:
@@ -595,7 +615,7 @@ func _tick_adult(m: Monster, delta: float) -> void:
 	if _try_attack_hero(m, false):
 		return
 	# chase the hero when close
-	var hc = _hero_cell()
+	var hc = _hero_cell(m.cell)
 	if hc != null:
 		var d: Vector2i = hc - m.cell
 		if absi(d.x) + absi(d.y) <= Balance.ADULT_AGGRO_RANGE:
@@ -653,7 +673,7 @@ func _tick_scorpion(m: Monster, delta: float) -> void:
 		return
 	if _try_attack_hero(m, false):
 		return
-	var hc = _hero_cell()
+	var hc = _hero_cell(m.cell)
 	if hc != null:
 		var d: Vector2i = hc - m.cell
 		if absi(d.x) + absi(d.y) <= Balance.SCORPION_AGGRO_RANGE:

@@ -28,7 +28,8 @@ var _timer_caption: Label
 var _timer_value: Label
 var _call_btn: Button
 var _hero_box: VBoxContainer
-var _hero_portrait: TextureRect
+## one per hero shown: {box, portrait, name, hp_text, hp_fill, mp_text, mp_fill, mp_row}
+var _hero_slots: Array = []
 var _hero_name: Label
 var _hp_fill: PipBar
 var _hp_text: Label
@@ -332,31 +333,37 @@ func _build_status() -> void:
 	_hero_box = VBoxContainer.new()
 	_hero_box.add_theme_constant_override("separation", 4)
 	vb.add_child(_hero_box)
+	_add_hero_slot()
+	_hero_box.visible = false
+	_message.visible = false
+
+
+## One hero in the status window: portrait, name, HP and MP. Stage 3 shows two of them.
+func _add_hero_slot() -> void:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	_hero_box.add_child(box)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 10)
-	_hero_box.add_child(top)
-	_hero_portrait = TextureRect.new()
-	_hero_portrait.custom_minimum_size = Vector2(64, 64)
-	_hero_portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_hero_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_hero_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	top.add_child(_hero_portrait)
+	box.add_child(top)
+	var portrait := TextureRect.new()
+	portrait.custom_minimum_size = Vector2(64, 64)
+	portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	top.add_child(portrait)
 	var nv := VBoxContainer.new()
 	nv.alignment = BoxContainer.ALIGNMENT_CENTER
 	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(nv)
-	_hero_name = UiTheme.label("", 32)
-	nv.add_child(_hero_name)
+	var hname := UiTheme.label("", 32)
+	nv.add_child(hname)
 	var hp_row := _stat_row("HP", UiTheme.HP)
-	_hp_text = hp_row[0]
-	_hp_fill = hp_row[1]
-	_hero_box.add_child(hp_row[2])
+	box.add_child(hp_row[2])
 	var mp_row := _stat_row("MP", UiTheme.MP)
-	_mp_text = mp_row[0]
-	_mp_fill = mp_row[1]
-	_hero_box.add_child(mp_row[2])
-	_hero_box.visible = false
-	_message.visible = false
+	box.add_child(mp_row[2])
+	_hero_slots.append({"box": box, "portrait": portrait, "name": hname, "hp_text": hp_row[0], "hp_fill": hp_row[1],
+		"mp_text": mp_row[0], "mp_fill": mp_row[1], "mp_row": mp_row[2]})
 
 
 const HP_CAUTION := Color(1.0, 0.86, 0.25)   # HP below half
@@ -377,24 +384,37 @@ func _stat_row(title: String, col: Color) -> Array:
 	return [v, bar, hb]
 
 
-func set_hero(hname: String, portrait: Texture2D) -> void:
-	_hero_name.text = hname
-	_hero_portrait.texture = portrait
+## How many heroes the status window shows (one slot each).
+func set_hero_count(n: int) -> void:
+	while _hero_slots.size() < n:
+		_add_hero_slot()
+	for i in _hero_slots.size():
+		(_hero_slots[i]["box"] as Control).visible = i < n
 
 
-func update_hero(hp: float, max_hp: float, mp: float, max_mp: float, _show: bool = true) -> void:
+func set_hero(hname: String, portrait: Texture2D, slot: int = 0) -> void:
+	(_hero_slots[slot]["name"] as Label).text = hname
+	(_hero_slots[slot]["portrait"] as TextureRect).texture = portrait
+
+
+func update_hero(hp: float, max_hp: float, mp: float, max_mp: float, _show: bool = true, slot: int = 0) -> void:
+	var sl: Dictionary = _hero_slots[slot]
+	var hp_text := sl["hp_text"] as Label
+	var hp_fill := sl["hp_fill"] as PipBar
 	var r := clampf(hp / maxf(1.0, max_hp), 0.0, 1.0)
-	_hp_fill.ratio = r
+	hp_fill.ratio = r
 	var hp_col := UiTheme.TEXT
 	if r < 0.3:
 		hp_col = HP_DANGER
 	elif r < 0.5:
 		hp_col = HP_CAUTION
-	_hp_text.add_theme_color_override("font_color", hp_col)
-	_hp_fill.set_color(UiTheme.HP if r >= 0.5 else hp_col)
-	_hp_text.text = "%d/%d" % [maxi(0, int(ceil(hp))), int(max_hp)]
-	_mp_fill.ratio = clampf(mp / maxf(1.0, max_mp), 0.0, 1.0)
-	_mp_text.text = "%d/%d" % [int(mp), int(max_mp)]
+	hp_text.add_theme_color_override("font_color", hp_col)
+	hp_fill.set_color(UiTheme.HP if r >= 0.5 else hp_col)
+	hp_text.text = "%d/%d" % [maxi(0, int(ceil(hp))), int(max_hp)]
+	# a hero without MP (no healing, no special attack) has no MP bar
+	(sl["mp_row"] as Control).visible = max_mp > 0.0
+	(sl["mp_fill"] as PipBar).ratio = clampf(mp / maxf(1.0, max_mp), 0.0, 1.0)
+	(sl["mp_text"] as Label).text = "%d/%d" % [int(mp), int(max_mp)]
 
 
 ## mode: "build" (caption + clock + call button), "message" (text only), "hero" (hero status)

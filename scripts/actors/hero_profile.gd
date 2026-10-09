@@ -48,3 +48,16 @@ extends Resource
 @export var heal_cost := 6
 ## Manhattan distance at which the hero notices the demon lord.
 @export var sight := 4
+## false: this hero never heals (its MP, if any, is for the special attack only).
+@export var can_heal := true
+
+@export_group("Special attack")
+## Clip of the big attack (empty = the hero has none). It is used when at least
+## `special_min_targets` monsters stand in the four cells around the hero and there is MP for it;
+## it hits all four cells at once for atk x `special_power`.
+@export var anim_special := ""
+@export var special_anim_speed := 1.4
+@export var special_hit_time := 1.0
+@export var special_cost := 10
+@export var special_power := 1.5
+@export var special_min_targets := 3

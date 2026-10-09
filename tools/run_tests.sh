@@ -102,6 +102,10 @@ check "scorpion (rules)" "$OUT/scorpion.txt" "SCORPIONTEST PASS failures=0"
 "$GODOT" --resolution 1280x720 -- --autostart --seed=3 --scorpionshot > "$OUT/scorpionshot.txt" 2>&1
 check "scorpion (in game)" "$OUT/scorpionshot.txt" "SCORPIONSHOT PASS"
 
+# ヴァレン: one larva loses to him, two win; the special attack; the stage table
+"$GODOT" --headless -s res://scripts/debug/valen_test.gd -- --autostart --seed=3 --stage=1 > "$OUT/valen.txt" 2>&1
+check "valentest" "$OUT/valen.txt" "VALENTEST PASS checks=[0-9]+ failures=0"
+
 echo "----"
 if [ "$fails" -eq 0 ]; then echo "ALL PASS"; else echo "$fails FAILED"; fi
 exit "$fails"

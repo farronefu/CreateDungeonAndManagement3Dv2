@@ -66,17 +66,30 @@ var _looked := {}
 var torches := {}
 var _seen_since_torch := 0
 var _on_torch := Vector2i(-999, -999)
+## false: never heals (stage setting or profile)
+var can_heal := true
+## the other heroes of this stage (they do not walk into each other, and escort whoever has the 魔王)
+var others: Array = []
+## extra seconds behind the gate before this one comes in (the second hero of a pair)
+var enter_delay := 0.0
+var _special_timer := -1.0
+var _blocked := 0
+## special attacks so far
+var specials := 0
 
 
-func setup(p: HeroProfile, g: DungeonGrid, e: Ecosystem, mz: Maou, effects: Effects, mult: float) -> void:
+## opts (from the stage table): "hp" replaces the profile max HP, "heal" switches healing on / off
+func setup(p: HeroProfile, g: DungeonGrid, e: Ecosystem, mz: Maou, effects: Effects, mult: float, opts: Dictionary = {}) -> void:
 	profile = p
 	grid = g
 	eco = e
 	maou = mz
 	fx = effects
-	max_hp = round(p.max_hp * mult)
+	max_hp = round(float(opts.get("hp", p.max_hp)) * mult)
 	hp = max_hp
-	max_mp = p.max_mp
+	can_heal = bool(opts.get("heal", p.can_heal))
+	# MP is only for healing and the special attack: a hero with neither has none
+	max_mp = p.max_mp if (can_heal or p.anim_special != "") else 0
 	mp = max_mp
 	atk = p.atk * mult
 	defense = p.defense + (mult - 1.0) * 3.0
@@ -97,13 +110,14 @@ func is_targetable() -> bool:
 
 
 ## Build phase: walk from the road down the steps into the fog and vanish there.
-func begin_descent() -> void:
+## `lag`: cells behind the hero in front (a second hero follows the first down the road).
+func begin_descent(lag: float = 0.0) -> void:
 	if descent_path.size() < 2:
 		return
 	state = State.DESCENDING
 	visible = true
 	actor.set_fade(1.0)
-	_descent_t = 0.0
+	_descent_t = -lag * profile.move_time
 	position = descent_path[0]
 
 
@@ -128,7 +142,7 @@ func begin_invasion() -> void:
 	dir = Vector2i(0, 1)
 	_yaw = 0.0
 	rotation.y = 0.0
-	_enter_t = -DOOR_DELAY if gate else 0.0
+	_enter_t = (-DOOR_DELAY if gate else 0.0) - enter_delay
 	if entry_path.size() > 0:
 		position = entry_path[0]
 	if gate:
@@ -145,7 +159,7 @@ func tick(dt: float) -> void:
 	match state:
 		State.DESCENDING:
 			_descent_t += dt
-			var dist := _descent_t / profile.move_time
+			var dist := maxf(0.0, _descent_t) / profile.move_time
 			var left := _path_length(descent_path) - dist
 			actor.set_fade(clampf(left / FADE_DIST, 0.0, 1.0))
 			actor.play(profile.anim_walk, 0.1, profile.walk_anim_speed)
@@ -156,7 +170,9 @@ func tick(dt: float) -> void:
 			_enter_t += dt
 			if _enter_t < 0.0:
 				actor.play(profile.anim_idle, 0.1)
+				visible = _enter_t >= -DOOR_DELAY   # the one behind is still out of sight
 				return
+			visible = true
 			var done := _walk(entry_path, _enter_t / profile.move_time)
 			actor.play(profile.anim_walk, 0.1, profile.walk_anim_speed)
 			if done:
@@ -214,6 +230,10 @@ func _logic(dt: float) -> void:
 		_hit_timer -= dt
 		if _hit_timer < 0.0:
 			_apply_hit()
+	if _special_timer >= 0.0:
+		_special_timer -= dt
+		if _special_timer < 0.0:
+			_apply_special()
 	if busy > 0.0:
 		busy -= dt
 		return
@@ -229,8 +249,11 @@ func _logic(dt: float) -> void:
 func _decide() -> void:
 	if state != State.ACTIVE:
 		return
-	if hp < max_hp * 0.4 and mp >= profile.heal_cost:
+	if can_heal and hp < max_hp * 0.4 and mp >= profile.heal_cost:
 		_heal()
+		return
+	if _special_ready():
+		_special()
 		return
 	var target := _pick_target()
 	if target:
@@ -244,6 +267,14 @@ func _decide() -> void:
 			escaped_with_maou.emit()
 			return
 		_step_along(grid.find_path(cell, grid.entrance, known))
+		return
+	# someone else has the 魔王: stay with them (and keep fighting whatever comes close)
+	if maou.carrier != null and maou.carrier != self:
+		var lead := maou.carrier as Hero
+		if lead and lead.is_targetable() and not _next_to(lead.cell):
+			_step_along(grid.find_path(cell, lead.cell, known))
+		else:
+			busy = 0.3
 		return
 	if not knows_maou and maou.placed and _can_see(maou.cell):
 		knows_maou = true
@@ -371,6 +402,15 @@ func _next_to(c: Vector2i) -> bool:
 
 
 func _step(to: Vector2i) -> void:
+	# two heroes do not stand in one cell: wait a moment for the other to move on (but never for long,
+	# and whoever drags the 魔王 does not wait at all)
+	if not carrying and _blocked < 4:
+		for o in others:
+			if o != self and o.is_targetable() and o.cell == to:
+				_blocked += 1
+				busy = 0.25
+				return
+	_blocked = 0
 	if carrying:
 		maou.follow_step(cell)   # the 魔王 is dragged into the cell the hero leaves
 	from_cell = cell
@@ -421,10 +461,51 @@ func _apply_hit() -> void:
 		eco.kill(m, "killed")
 
 
+## The big attack: enough monsters in the four cells around, and MP for it.
+func _special_ready() -> bool:
+	if profile.anim_special == "" or mp < profile.special_cost or not actor.has_anim(profile.anim_special):
+		return false
+	return eco.monsters_near(cell, 1).size() >= profile.special_min_targets
+
+
+func _special() -> void:
+	specials += 1
+	mp -= profile.special_cost
+	attack_cd = profile.attack_interval
+	var dur := actor.play_once(profile.anim_special, profile.special_anim_speed)
+	busy = dur if dur > 0.0 else 1.2
+	_special_timer = profile.special_hit_time / profile.special_anim_speed
+	fx.ring(position, Color(1.0, 0.55, 0.2))
+	hp_changed.emit()
+
+
+## The sweep lands: everything in the four cells around (and in his own) is hit at once.
+func _apply_special() -> void:
+	if state != State.ACTIVE:
+		return
+	Sfx.play("hero_hit", position)
+	fx.ring(position, Color(1.0, 0.75, 0.3))
+	for m in eco.monsters_near(cell, 1):
+		if not m.alive:
+			continue
+		var dmg := int(round(atk * profile.special_power * rng.randf_range(0.9, 1.15)))
+		m.hp -= dmg
+		var v := m.visual as MonsterVisual
+		if v:
+			fx.number(v.position + Vector3(0, 0.6, 0), str(dmg), Color(1.0, 0.8, 0.3), true)
+			v.hurt()
+		if m.hp <= 0.0:
+			eco.kill(m, "killed")
+
+
 func take_damage(d: int, _from: Monster) -> void:
 	if state != State.ACTIVE:
 		return
-	var dmg := maxi(1, d - int(defense))
+	# heavy armour can turn a weak blow completely (ヴァレン and モコチュリ); ゆうた's defence of 1 never does
+	var dmg := maxi(0, d - int(defense))
+	if dmg == 0:
+		fx.number(position + Vector3(0, 1.0, 0), "0", Color(0.75, 0.75, 0.8))
+		return
 	hp -= dmg
 	actor.flash(Color(1, 0.2, 0.15))
 	fx.number(position + Vector3(0, 1.0, 0), str(dmg), Color(1.0, 0.35, 0.3), true)
